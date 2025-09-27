@@ -188,7 +188,9 @@ impl PipeMerger {
             let video_handle = tokio::spawn(async move {
                 while let Some((mut reader, _, invalidate)) = video_receiver.recv().await {
                     tokio::io::copy(&mut reader, &mut video_pipe).await.unwrap();
-                    invalidate.await.unwrap();
+                    if recycle{
+                        invalidate.await.unwrap();
+                    }
                 }
             });
 
@@ -199,7 +201,9 @@ impl PipeMerger {
 
                 while let Some((mut reader, _, invalidate)) = audio_receiver.recv().await {
                     tokio::io::copy(&mut reader, &mut audio_pipe).await.unwrap();
-                    invalidate.await.unwrap();
+                    if recycle{
+                        invalidate.await.unwrap();
+                    }
                 }
             });
 

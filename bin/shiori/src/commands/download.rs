@@ -139,8 +139,8 @@ where
         if self.decrypt.key.is_none() {
             self.decrypt.key = from.decrypt.key;
         }
-        if self.output.output.is_none() {
-            self.output.output = from.output.output;
+        if self.output.output_mode.output.is_none() {
+            self.output.output_mode.output = from.output.output_mode.output;
         }
         self.extra.playlist_type = from.extra.playlist_type;
 
@@ -292,8 +292,18 @@ pub struct ExtraOptions {
 }
 
 #[derive(Args, Clone, Debug, Default)]
-#[group(multiple = false)]
 pub struct OutputOptions {
+    #[clap(flatten)]
+    pub output_mode: OutputModeOptions,
+
+    #[clap(long, default_value_t = false)]
+    #[clap(about_ll = "download-output-pipe-keep-segments")]
+    pub keep_segments: bool,
+}
+
+#[derive(Args, Clone, Debug, Default)]
+#[group(multiple = false)]
+pub struct OutputModeOptions {
     #[clap(long)]
     #[clap(about_ll = "download-output-no-merge")]
     pub no_merge: bool,
@@ -321,17 +331,17 @@ pub struct OutputOptions {
 
 impl OutputOptions {
     pub fn into_merger(self) -> IoriMerger {
-        if self.no_merge {
+        if self.output_mode.no_merge {
             IoriMerger::skip()
-        } else if self.pipe || self.pipe_mux || self.pipe_to.is_some() {
-            if self.pipe_mux {
-                IoriMerger::pipe_mux(true, self.pipe_to.unwrap_or("-".into()), None)
-            } else if let Some(file) = self.pipe_to {
-                IoriMerger::pipe_to_file(true, file)
+        } else if self.output_mode.pipe || self.output_mode.pipe_mux || self.output_mode.pipe_to.is_some() {
+            if self.output_mode.pipe_mux {
+                IoriMerger::pipe_mux(!self.keep_segments, self.output_mode.pipe_to.unwrap_or("-".into()), None)
+            } else if let Some(file) = self.output_mode.pipe_to {
+                IoriMerger::pipe_to_file(!self.keep_segments, file)
             } else {
                 IoriMerger::pipe(true)
             }
-        } else if let Some(mut output) = self.output {
+        } else if let Some(mut output) = self.output_mode.output {
             if output.exists() {
                 log::warn!("Output file exists. Will add suffix automatically.");
                 let original_extension = output.extension();
@@ -342,7 +352,7 @@ impl OutputOptions {
                 output = output.with_extension(new_extension);
             }
 
-            if self.concat {
+            if self.output_mode.concat {
                 IoriMerger::concat(output, false)
             } else {
                 IoriMerger::auto(output, false)
@@ -369,6 +379,7 @@ pub async fn download(me: ShioriDownloadCommand, shiori_args: ShioriArgs) -> any
 
     let mut namer = me
         .output
+        .output_mode
         .output
         .as_ref()
         .map(|p| DuplicateOutputFileNamer::new(p.clone()));
@@ -378,7 +389,7 @@ pub async fn download(me: ShioriDownloadCommand, shiori_args: ShioriArgs) -> any
         let mut cmd = me.clone().merge(command);
         if let Some(namer) = namer.as_mut() {
             let output = namer.next_path();
-            cmd.output.output = Some(output);
+            cmd.output.output_mode.output = Some(output);
         }
         cmd.download().await?;
     }
@@ -409,7 +420,9 @@ where
                 playlist_type: Some(data.playlist_type),
             },
             output: OutputOptions {
-                output: data.title.map(|title| {
+                output_mode: OutputModeOptions {
+                    pipe_mux: data.streams_hint.unwrap_or(1) > 1,
+                    output: data.title.map(|title| {
                     let path = std::path::Path::new(&title);
                     // Replace invalid characters with underscores
                     let filename = path
@@ -433,8 +446,9 @@ where
                         })
                         .unwrap_or_else(|| title.clone());
                     filename.into()
-                }),
-                pipe_mux: data.streams_hint.unwrap_or(1) > 1,
+                    }),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
             url: data.playlist_url,
