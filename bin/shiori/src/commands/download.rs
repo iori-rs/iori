@@ -421,32 +421,32 @@ where
             },
             output: OutputOptions {
                 output_mode: OutputModeOptions {
-                    pipe_mux: data.streams_hint.unwrap_or(1) > 1,
                     output: data.title.map(|title| {
-                    let path = std::path::Path::new(&title);
-                    // Replace invalid characters with underscores
-                    let filename = path
-                        .file_name()
-                        .and_then(|name| name.to_str())
-                        .map(|name| {
-                            name.replace(
-                                |c: char| {
-                                    c == '/'
-                                        || c == '\\'
-                                        || c == ':'
-                                        || c == '*'
-                                        || c == '?'
-                                        || c == '"'
-                                        || c == '<'
-                                        || c == '>'
-                                        || c == '|'
-                                },
-                                "_",
-                            )
-                        })
-                        .unwrap_or_else(|| title.clone());
-                    filename.into()
+                        let path = std::path::Path::new(&title);
+                        // Replace invalid characters with underscores
+                        let filename = path
+                            .file_name()
+                            .and_then(|name| name.to_str())
+                            .map(|name| {
+                                name.replace(
+                                    |c: char| {
+                                        c == '/'
+                                            || c == '\\'
+                                            || c == ':'
+                                            || c == '*'
+                                            || c == '?'
+                                            || c == '"'
+                                            || c == '<'
+                                            || c == '>'
+                                            || c == '|'
+                                    },
+                                    "_",
+                                )
+                            })
+                            .unwrap_or_else(|| title.clone());
+                        filename.into()
                     }),
+                    pipe_mux: data.streams_hint.unwrap_or(1) > 1,
                     ..Default::default()
                 },
                 ..Default::default()
