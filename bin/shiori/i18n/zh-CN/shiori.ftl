@@ -35,3 +35,4 @@ download-output-output = 输出文件名
 download-output-pipe = 输出到标准输出
 download-output-pipe-mux = 使用 FFmpeg 混流，仅在 `--pipe` 生效时有效
 download-output-pipe-to = 使用 Pipe 输出到指定路径
+download-output-pipe-keep-segments = 使用 Pipe 输出时，保留已下载的分片。

@@ -298,7 +298,7 @@ pub struct OutputOptions {
 
     #[clap(long, default_value_t = false)]
     #[clap(about_ll = "download-output-pipe-keep-segments")]
-    pub keep_segments: bool,
+    pub pipe_keep_segments: bool,
 }
 
 #[derive(Args, Clone, Debug, Default)]
@@ -335,11 +335,11 @@ impl OutputOptions {
             IoriMerger::skip()
         } else if self.output_mode.pipe || self.output_mode.pipe_mux || self.output_mode.pipe_to.is_some() {
             if self.output_mode.pipe_mux {
-                IoriMerger::pipe_mux(!self.keep_segments, self.output_mode.pipe_to.unwrap_or("-".into()), None)
+                IoriMerger::pipe_mux(!self.pipe_keep_segments, self.output_mode.pipe_to.unwrap_or("-".into()), None)
             } else if let Some(file) = self.output_mode.pipe_to {
-                IoriMerger::pipe_to_file(!self.keep_segments, file)
+                IoriMerger::pipe_to_file(!self.pipe_keep_segments, file)
             } else {
-                IoriMerger::pipe(true)
+                IoriMerger::pipe(!self.pipe_keep_segments)
             }
         } else if let Some(mut output) = self.output_mode.output {
             if output.exists() {

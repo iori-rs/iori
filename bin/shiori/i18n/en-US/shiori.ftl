@@ -36,3 +36,4 @@ download-output-output = Output filename
 download-output-pipe = Pipe to stdout
 download-output-pipe-mux = Mux with ffmpeg. Only works when `--pipe` is set.
 download-output-pipe-to = Pipe to a file
+download-output-pipe-keep-segments = When using pipe output, keep downloaded segments.
