@@ -49,6 +49,9 @@ i18n-embed = { version = "0.15.4", features = [
 i18n-embed-fl = "0.9.4"
 rust-embed = "8.7.0"
 
+ssup = { git = "https://github.com/Yesterday17/sswa", rev = "2986c11619d55e825f69cca24b122c7cfc9a6587" }
+serde_json.workspace = true
+
 [build-dependencies]
 winresource = "0.1.22"
 

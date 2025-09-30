@@ -1,4 +1,4 @@
-use clap::{builder::styling, ArgAction, Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand, builder::styling};
 use clap_handler::Handler;
 
 use crate::ll;
@@ -7,6 +7,7 @@ pub mod download;
 pub mod inspect;
 pub mod merge;
 pub mod update;
+pub mod upload;
 
 pub const STYLES: styling::Styles = styling::Styles::styled()
     .header(styling::AnsiColor::Green.on_default().bold().underline())
@@ -34,4 +35,5 @@ pub enum ShioriCommand {
     Inspect(inspect::InspectCommand),
     Merge(merge::MergeCommand),
     Update(update::UpdateCommand),
+    Upload(upload::UploadCommand),
 }
