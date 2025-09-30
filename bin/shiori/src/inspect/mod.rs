@@ -1,7 +1,7 @@
 pub mod inspectors;
 
 pub use shiori_plugin::*;
-use std::{borrow::Cow, sync::Arc, time::Duration};
+use std::{borrow::Cow, fmt::Write, sync::Arc, time::Duration};
 use tokio::time::sleep;
 
 use crate::commands::STYLES;
@@ -53,11 +53,13 @@ impl Inspectors {
             }
             is_first = false;
 
-            result.push_str(&format!(
+            writeln!(
+                result,
                 "  {style}{}:{style:#}\n",
                 inspector.name(),
                 style = STYLES.get_literal()
-            ));
+            )
+            .unwarp();
             for line in inspector.help() {
                 result.push_str(&" ".repeat(10));
                 result.push_str(&line);
