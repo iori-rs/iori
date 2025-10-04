@@ -1,4 +1,5 @@
 use crate::inspect::{Inspect, InspectResult};
+use anyhow::Context;
 use clap_handler::async_trait;
 use reqwest::redirect::Policy;
 use shiori_plugin::*;
@@ -11,7 +12,7 @@ impl ShioriPlugin for ShortLinkInspector {
     }
 
     fn version(&self) -> String {
-        "0.1.0".to_string()
+        env!("CARGO_PKG_VERSION")
     }
 
     fn description(&self) -> String {
@@ -20,7 +21,7 @@ impl ShioriPlugin for ShortLinkInspector {
 
     async fn register(&self, registry: impl Registry) -> Result<(), Box<dyn std::error::Error>> {
         registry.register_inspector(
-            Regex::new(r#"^https://t.co/(?<id>.+)$"#),
+            Regex::new(r#"^https://t.co/(?<id>.+)$"#).with_context("Invalid t.co regex")?,
             ShortLinkInspector,
             PriorityHint::Normal,
         );

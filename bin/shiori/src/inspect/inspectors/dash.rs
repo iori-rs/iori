@@ -1,56 +1,65 @@
-use crate::inspect::{Inspect, InspectResult};
-use clap_handler::async_trait;
+use anyhow::{Context, Ok};
+use async_trait::async_trait;
 use iori::PlaylistType;
+use regex::Regex;
+
 use shiori_plugin::*;
 
-pub struct DashInspector;
+/// A plugin that provides a built-in inspector for MPEG-DASH manifests.
+pub struct DashPlugin;
 
-impl InspectorBuilder for DashInspector {
+#[async_trait]
+impl ShioriPlugin for DashPlugin {
     fn name(&self) -> String {
-        "dash".to_string()
+        "dash"
     }
 
-    fn help(&self) -> Vec<String> {
-        [
-            "Downloads MPEG-DASH manifests from the given URL.",
-            "",
-            "Requires the URL to contain '.mpd'.",
-        ]
-        .iter()
-        .map(|s| s.to_string())
-        .collect()
+    fn version(&self) -> String {
+        env!("CARGO_PKG_VERSION")
     }
 
-    fn build(&self, _args: &dyn InspectorArguments) -> anyhow::Result<Box<dyn Inspect>> {
-        Ok(Box::new(Self))
+    fn description(&self) -> String {
+        "A built-in inspector for MPEG-DASH manifests (.mpd)".to_string()
+    }
+
+    fn description_long(&self) -> String {
+        Some("Inspects any URL ending in .mpd as a MPEG-DASH manifest.".to_string())
+    }
+
+    async fn register(
+        &self,
+        mut registry: impl Registry,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        registry.register_inspector(
+            // This regex matches any URL that ends with .mpd, ignoring query parameters or fragments.
+            Regex::new(r"\.mpd($|\?|#)").with_context("Invalid mpd regex")?,
+            Box::new(DashInspector),
+            // Set low priority to allow other more specific inspectors to take precedence.
+            PriorityHint::Low,
+        );
+        Ok(())
     }
 }
 
+/// The inspector implementation for MPEG-DASH.
+pub struct DashInspector;
+
 #[async_trait]
 impl Inspect for DashInspector {
-    async fn register(
+    /// The core inspection logic for DASH manifests.
+    ///
+    /// This inspector is very simple: it assumes any URL ending in `.mpd` is a valid
+    /// DASH playlist and immediately returns it.
+    async fn inspect(
         &self,
-        id: InspectorIdentifier,
-        registry: &mut InspectRegistry,
-    ) -> anyhow::Result<()> {
-        registry.register_http_route(
-            RouterScheme::Both,
-            "*".as_bytes(),
-            "*.mpd".as_bytes(),
-            (
-                id,
-                Box::new(move |url, _| {
-                    Box::pin(async move {
-                        Ok(InspectResult::Playlist(InspectPlaylist {
-                            playlist_url: url.to_string(),
-                            playlist_type: PlaylistType::DASH,
-                            ..Default::default()
-                        }))
-                    })
-                }),
-            ),
-        )?;
-
-        Ok(())
+        url: &str,
+        _captures: &regex::Captures,
+        _args: &dyn InspectorArguments,
+    ) -> anyhow::Result<InspectResult> {
+        Ok(InspectResult::Playlist(InspectPlaylist {
+            playlist_url: url.to_string(),
+            playlist_type: PlaylistType::DASH,
+            ..Default::default()
+        }))
     }
 }
