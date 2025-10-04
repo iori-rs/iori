@@ -136,14 +136,14 @@ impl DanmakuClient {
                         //   "content":"以上で番組は終了です。皆さん、みりおっつ～"
                         // }
                         if let Some(marquee) = &state.marquee {
-                            if let Some(display) = &marquee.display {
-                                if let Some(comment) = &display.operator_comment {
-                                    danmakus.push(DanmakuMessageChat::from_operator_comment(
-                                        comment.clone(),
-                                        &meta,
-                                        start_time,
-                                    ));
-                                }
+                            if let Some(display) = &marquee.display
+                                && let Some(comment) = &display.operator_comment
+                            {
+                                danmakus.push(DanmakuMessageChat::from_operator_comment(
+                                    comment.clone(),
+                                    &meta,
+                                    start_time,
+                                ));
                             }
                             continue;
                         }

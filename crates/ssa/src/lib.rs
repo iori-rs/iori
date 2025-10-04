@@ -550,11 +550,11 @@ where
                 })?,
             }
 
-            if let Some(flush) = flush {
-                if let Some(pes) = streams.remove(&flush) {
-                    pes.decrypt_and_write(key, iv, &mut writer)?;
-                };
-            }
+            if let Some(flush) = flush
+                && let Some(pes) = streams.remove(&flush)
+            {
+                pes.decrypt_and_write(key, iv, &mut writer)?;
+            };
         }
     }
 
@@ -606,27 +606,27 @@ where
         // In elementary streams the audio setup information is carried inside an ID3 Private Frame, as defined in ID3 tag version 2.4.0.
         // The owner identifier is com.apple.streaming.audioDescription.
         let format = tag.frames().find(|f| f.id() == "PRIV").and_then(|p| {
-            if let id3::Content::Private(p) = p.content() {
-                if p.owner_identifier == "com.apple.streaming.audioDescription" {
-                    // audio_setup_information() {
-                    //     audio_type               // 4 bytes
-                    //     priming                  // 2 bytes
-                    //     version                  // 1 byte
-                    //     setup_data_length        // 1 byte
-                    //     setup_data               // setup_data_length
-                    // }
-                    let data = &p.private_data;
-                    if data.len() >= 4 {
-                        let format = &data[0..4];
-                        return match format {
-                            b"zaac" => Some(AudioSetupType::AacLc),
-                            b"zach" => Some(AudioSetupType::AacHeV1),
-                            b"zacp" => Some(AudioSetupType::AacHeV2),
-                            b"zac3" => Some(AudioSetupType::Ac3),
-                            b"zec3" => Some(AudioSetupType::EnhancedAc3),
-                            _ => None,
-                        };
-                    }
+            if let id3::Content::Private(p) = p.content()
+                && p.owner_identifier == "com.apple.streaming.audioDescription"
+            {
+                // audio_setup_information() {
+                //     audio_type               // 4 bytes
+                //     priming                  // 2 bytes
+                //     version                  // 1 byte
+                //     setup_data_length        // 1 byte
+                //     setup_data               // setup_data_length
+                // }
+                let data = &p.private_data;
+                if data.len() >= 4 {
+                    let format = &data[0..4];
+                    return match format {
+                        b"zaac" => Some(AudioSetupType::AacLc),
+                        b"zach" => Some(AudioSetupType::AacHeV1),
+                        b"zacp" => Some(AudioSetupType::AacHeV2),
+                        b"zac3" => Some(AudioSetupType::Ac3),
+                        b"zec3" => Some(AudioSetupType::EnhancedAc3),
+                        _ => None,
+                    };
                 }
             }
 

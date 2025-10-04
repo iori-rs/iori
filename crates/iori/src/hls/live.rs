@@ -108,11 +108,11 @@ impl StreamingSource for HlsLiveSource {
                 }
 
                 let mixed_segments = segments.mix();
-                if !mixed_segments.is_empty() {
-                    if let Err(e) = sender.send(Ok(mixed_segments)) {
-                        tracing::error!("Failed to send mixed segments: {e}");
-                        break;
-                    }
+                if !mixed_segments.is_empty()
+                    && let Err(e) = sender.send(Ok(mixed_segments))
+                {
+                    tracing::error!("Failed to send mixed segments: {e}");
+                    break;
                 }
 
                 if is_end {

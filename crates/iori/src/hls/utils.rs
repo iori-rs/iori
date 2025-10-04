@@ -83,10 +83,10 @@ pub async fn load_m3u8(
             let mut variants = pl.variants;
             variants.sort_by(|a, b| {
                 // compare resolution first
-                if let (Some(a), Some(b)) = (a.resolution, b.resolution) {
-                    if a.width != b.width {
-                        return b.width.cmp(&a.width);
-                    }
+                if let (Some(a), Some(b)) = (a.resolution, b.resolution)
+                    && a.width != b.width
+                {
+                    return b.width.cmp(&a.width);
                 }
 
                 // compare framerate then

@@ -23,8 +23,7 @@ impl TestSegment {
     {
         if self.fail_count.load(Ordering::Relaxed) > 0 {
             self.fail_count.fetch_sub(1, Ordering::Relaxed);
-            return Err(IoriError::IOError(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            return Err(IoriError::IOError(std::io::Error::other(
                 "Failed to write data",
             )));
         }

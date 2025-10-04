@@ -151,10 +151,10 @@ impl HlsMediaPlaylistSource {
             let format = SegmentFormat::from_filename(&filename);
 
             let media_sequence = playlist.media_sequence + i as u64;
-            if let Some(latest_media_sequence) = latest_media_sequence {
-                if media_sequence <= *latest_media_sequence {
-                    continue;
-                }
+            if let Some(latest_media_sequence) = latest_media_sequence
+                && media_sequence <= *latest_media_sequence
+            {
+                continue;
             }
 
             let m3u8_segment = M3u8Segment {
@@ -229,10 +229,10 @@ impl HlsPlaylistSource {
                 let variants = &mut pl.variants;
                 variants.sort_by(|a, b| {
                     // compare resolution first
-                    if let (Some(a), Some(b)) = (a.resolution, b.resolution) {
-                        if a.width != b.width {
-                            return b.width.cmp(&a.width);
-                        }
+                    if let (Some(a), Some(b)) = (a.resolution, b.resolution)
+                        && a.width != b.width
+                    {
+                        return b.width.cmp(&a.width);
                     }
 
                     // compare framerate then
@@ -279,38 +279,36 @@ impl HlsPlaylistSource {
                 }
 
                 // Load extra streams from the variant
-                if let Some(group_id) = &variant.audio {
-                    if let Some(audio_url) =
+                if let Some(group_id) = &variant.audio
+                    && let Some(audio_url) =
                         load_variant(group_id, AlternativeMediaType::Audio, &pl.alternatives)
-                    {
-                        let m3u8_url = self.url.join(audio_url)?.to_string();
-                        if !self.streams.iter().any(|s| s.url == m3u8_url) {
-                            self.streams.push(HlsMediaPlaylistSource::new(
-                                self.client.clone(),
-                                m3u8_url,
-                                None,
-                                self.key.as_deref(),
-                                Some(SegmentType::Audio),
-                                1,
-                            ));
-                        }
+                {
+                    let m3u8_url = self.url.join(audio_url)?.to_string();
+                    if !self.streams.iter().any(|s| s.url == m3u8_url) {
+                        self.streams.push(HlsMediaPlaylistSource::new(
+                            self.client.clone(),
+                            m3u8_url,
+                            None,
+                            self.key.as_deref(),
+                            Some(SegmentType::Audio),
+                            1,
+                        ));
                     }
                 }
-                if let Some(group_id) = &variant.video {
-                    if let Some(video_url) =
+                if let Some(group_id) = &variant.video
+                    && let Some(video_url) =
                         load_variant(group_id, AlternativeMediaType::Video, &pl.alternatives)
-                    {
-                        let m3u8_url = self.url.join(video_url)?.to_string();
-                        if !self.streams.iter().any(|s| s.url == m3u8_url) {
-                            self.streams.push(HlsMediaPlaylistSource::new(
-                                self.client.clone(),
-                                self.url.join(video_url)?.to_string(),
-                                None,
-                                self.key.as_deref(),
-                                Some(SegmentType::Video),
-                                2,
-                            ));
-                        }
+                {
+                    let m3u8_url = self.url.join(video_url)?.to_string();
+                    if !self.streams.iter().any(|s| s.url == m3u8_url) {
+                        self.streams.push(HlsMediaPlaylistSource::new(
+                            self.client.clone(),
+                            self.url.join(video_url)?.to_string(),
+                            None,
+                            self.key.as_deref(),
+                            Some(SegmentType::Video),
+                            2,
+                        ));
                     }
                 }
             }

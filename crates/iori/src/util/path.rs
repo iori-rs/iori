@@ -39,10 +39,10 @@ impl DuplicateOutputFileNamer {
 
 impl Drop for DuplicateOutputFileNamer {
     fn drop(&mut self) {
-        if self.file_count == 1 {
-            if let Err(e) = std::fs::rename(self.get_path(1), &self.output_path) {
-                tracing::error!("Failed to rename file: {e}");
-            }
+        if self.file_count == 1
+            && let Err(e) = std::fs::rename(self.get_path(1), &self.output_path)
+        {
+            tracing::error!("Failed to rename file: {e}");
         }
     }
 }

@@ -173,10 +173,10 @@ impl MPDTimeline {
             };
 
             // skip periods ends before <since>
-            if let Some(duration) = period.duration {
-                if period.start_time + duration < since {
-                    continue;
-                }
+            if let Some(duration) = period.duration
+                && period.start_time + duration < since
+            {
+                continue;
             }
 
             // FIXME: do not use adaption index as stream id
@@ -233,10 +233,10 @@ impl MPDTimeline {
                                 if segment_start_time > effective_time_shift_buffer_end {
                                     break;
                                 }
-                                if let Some(period_duration) = period.duration {
-                                    if segment_start_time >= period.start_time + period_duration {
-                                        break;
-                                    }
+                                if let Some(period_duration) = period.duration
+                                    && segment_start_time >= period.start_time + period_duration
+                                {
+                                    break;
                                 }
                                 if is_before_effective_time_shift_buffer_start(segment_start_time) {
                                     continue;
@@ -331,10 +331,10 @@ impl MPDTimeline {
                             if segment_start_time > effective_time_shift_buffer_end {
                                 break;
                             }
-                            if let Some(period_duration) = period.duration {
-                                if (segment_start_time - period.start_time) >= period_duration {
-                                    break;
-                                }
+                            if let Some(period_duration) = period.duration
+                                && (segment_start_time - period.start_time) >= period_duration
+                            {
+                                break;
                             }
                             if is_before_effective_time_shift_buffer_start(segment_start_time) {
                                 continue;
@@ -421,10 +421,10 @@ impl MPDTimeline {
                             if segment_start_time > effective_time_shift_buffer_end {
                                 break;
                             }
-                            if let Some(period_duration) = period.duration {
-                                if segment_start_time >= period.start_time + period_duration {
-                                    break;
-                                }
+                            if let Some(period_duration) = period.duration
+                                && segment_start_time >= period.start_time + period_duration
+                            {
+                                break;
                             }
                             if is_before_effective_time_shift_buffer_start(segment_start_time) {
                                 continue;
@@ -578,10 +578,10 @@ impl DashPeriod {
             let start = DateTime::UNIX_EPOCH + TimeDelta::from_std(start)?;
 
             // if duration of last period is not specified, calculate by current period start and last period start
-            if let Some(previous) = previous {
-                if previous.duration.is_none() {
-                    previous.duration = Some(start - previous.start_time);
-                }
+            if let Some(previous) = previous
+                && previous.duration.is_none()
+            {
+                previous.duration = Some(start - previous.start_time);
             }
 
             (start, period.duration.map(TimeDelta::from_std).transpose()?)

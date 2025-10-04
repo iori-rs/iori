@@ -140,17 +140,17 @@ impl StreamingSource for CommonDashArchiveSource {
                 let mut segments = Vec::new();
 
                 // 1. TODO: SegmentBase
-                if let Some(segment_base) = representation.SegmentBase {
-                    if let Some(initialization) = segment_base.Initialization {
-                        if let Some(source_url) = initialization.sourceURL {
-                            // let url = base_url;
-                            let init_url = base_url.join(&source_url)?;
-                            let init_range = initialization.range.as_deref();
+                if let Some(segment_base) = representation.SegmentBase
+                    && let Some(initialization) = segment_base.Initialization
+                {
+                    if let Some(source_url) = initialization.sourceURL {
+                        // let url = base_url;
+                        let init_url = base_url.join(&source_url)?;
+                        let init_range = initialization.range.as_deref();
 
-                            // TODO: set init
-                        } else {
-                            //
-                        }
+                        // TODO: set init
+                    } else {
+                        //
                     }
                 }
 

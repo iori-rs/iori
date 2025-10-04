@@ -47,7 +47,7 @@ impl PluginManager {
     pub fn help(self) -> String {
         let mut is_first = true;
 
-        let mut result = format!("{style}Inspectors:{style:#}\n", style = STYLES.get_header());
+        let mut result = format!("{style}Plugins:{style:#}\n", style = STYLES.get_header());
 
         for plugin in self.plugins.iter() {
             if !is_first {
@@ -66,13 +66,13 @@ impl PluginManager {
                 .split('\n')
             {
                 result.push_str(&" ".repeat(10));
-                result.push_str(&line);
+                result.push_str(line);
                 result.push('\n');
             }
             if let Some(long) = plugin.description_long() {
                 for line in long.split('\n') {
                     result.push_str(&" ".repeat(10));
-                    result.push_str(&line);
+                    result.push_str(line);
                     result.push('\n');
                 }
             }

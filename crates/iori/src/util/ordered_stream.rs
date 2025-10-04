@@ -23,11 +23,11 @@ impl<T> OrderedStream<T> {
         loop {
             // Check if we have the next item in buffer for any stream
             for (stream_id, next_seq) in self.next_seq.iter_mut() {
-                if let Some(stream_buffer) = self.buffer.get_mut(stream_id) {
-                    if let Some(item) = stream_buffer.remove(next_seq) {
-                        *next_seq += 1;
-                        return Some((*stream_id, item));
-                    }
+                if let Some(stream_buffer) = self.buffer.get_mut(stream_id)
+                    && let Some(item) = stream_buffer.remove(next_seq)
+                {
+                    *next_seq += 1;
+                    return Some((*stream_id, item));
                 }
             }
 
