@@ -8,7 +8,6 @@ use shiori_plugin::*;
 /// A plugin that provides a built-in inspector for MPEG-DASH manifests.
 pub struct DashPlugin;
 
-#[async_trait]
 impl ShioriPlugin for DashPlugin {
     fn name(&self) -> String {
         "dash"
