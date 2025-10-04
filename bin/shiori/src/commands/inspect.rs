@@ -1,12 +1,12 @@
 use crate::inspect::{
-    Inspectors,
-    inspectors::{DashInspector, HlsInspector, ShortLinkInspector},
+    PluginManager,
+    inspectors::{DashPlugin, HlsPlugin, ShortLinkPlugin},
 };
 use clap::Parser;
 use clap_handler::handler;
-use iori_gigafile::GigafileInspector;
-use iori_nicolive::inspect::{NicoLiveInspector, NicoVideoInspector};
-use iori_showroom::inspect::ShowroomInspector;
+use iori_gigafile::GigafilePlugin;
+use iori_nicolive::inspect::NicoPlugin;
+use iori_showroom::inspect::ShowroomPlugin;
 use shiori_plugin::{InspectorArguments, InspectorCommand};
 
 #[derive(Parser, Clone, Default)]
@@ -21,16 +21,15 @@ pub struct InspectCommand {
     url: String,
 }
 
-pub(crate) fn get_default_external_inspector() -> Inspectors {
-    let mut inspector = Inspectors::new();
+pub(crate) fn get_default_external_inspector() -> PluginManager {
+    let mut inspector = PluginManager::new();
     inspector
-        .add(ShortLinkInspector)
-        .add(ShowroomInspector)
-        .add(NicoLiveInspector)
-        .add(NicoVideoInspector)
-        .add(GigafileInspector)
-        .add(HlsInspector)
-        .add(DashInspector);
+        .add(ShortLinkPlugin)
+        .add(ShowroomPlugin)
+        .add(NicoPlugin)
+        .add(GigafilePlugin)
+        .add(HlsPlugin)
+        .add(DashPlugin);
 
     inspector
 }

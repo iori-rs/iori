@@ -13,58 +13,55 @@ use crate::{
 pub struct NicoPlugin;
 
 impl ShioriPlugin for NicoPlugin {
-    fn name(&self) -> impl Future<Output = String> {
-        async { "niconico".to_string() }
+    fn name(&self) -> String {
+        "niconico".to_string()
     }
 
-    fn version(&self) -> impl Future<Output = String> {
-        async { "0.1.0".to_string() }
+    fn version(&self) -> String {
+        "0.1.0".to_string()
     }
 
-    fn description(&self) -> impl Future<Output = Option<String>> {
-        async { Some("Extracts Niconico live streams, timeshifts and videos.".to_string()) }
+    fn description(&self) -> Option<String> {
+        Some("Extracts Niconico live streams, timeshifts and videos.".to_string())
     }
 
-    fn register(
-        &self,
-        mut registry: impl Registry,
-    ) -> impl Future<Output = Result<(), Box<dyn std::error::Error>>> {
-        async move {
-            registry.register_inspector(
-                Regex::new(r"https://live\.nicovideo\.jp/watch/lv.*").unwrap(),
-                Box::new(NicoLiveInspector),
-                PriorityHint::Normal,
-            );
-            registry.register_inspector(
-                Regex::new(r"https://www\.nicovideo\.jp/watch/so.*").unwrap(),
-                Box::new(NicoVideoInspector),
-                PriorityHint::Normal,
-            );
-
-            registry.add_argument(
-                "nico-user-session",
-                Some("user_session"),
-                "[Niconico] Your Niconico user session key.",
-            );
-            registry.add_boolean_argument(
+    fn arguments(&self, command: &mut dyn InspectorCommand) {
+        command.add_argument(
+            "nico-user-session",
+            Some("user_session"),
+            "[Niconico] Your Niconico user session key.",
+        );
+        command.add_boolean_argument(
                 "nico-download-danmaku",
                 "[NicoLive] Download danmaku together with the video. This option is ignored if `--nico-danmaku-only` is set to true.",
             );
-            registry.add_boolean_argument(
-                "nico-chase-play",
-                "[NicoLive] Download an ongoing live from start.",
-            );
-            registry.add_boolean_argument(
-                "nico-reserve-timeshift",
-                "[NicoLive] Whether to reserve a timeshift if not reserved.",
-            );
-            registry.add_boolean_argument(
-                "nico-danmaku-only",
-                "[NicoLive] Only download danmaku without video.",
-            );
+        command.add_boolean_argument(
+            "nico-chase-play",
+            "[NicoLive] Download an ongoing live from start.",
+        );
+        command.add_boolean_argument(
+            "nico-reserve-timeshift",
+            "[NicoLive] Whether to reserve a timeshift if not reserved.",
+        );
+        command.add_boolean_argument(
+            "nico-danmaku-only",
+            "[NicoLive] Only download danmaku without video.",
+        );
+    }
 
-            Ok(())
-        }
+    fn register(&self, registry: &mut dyn InspectorRegistry) -> anyhow::Result<()> {
+        registry.register_inspector(
+            Regex::new(r"https://live\.nicovideo\.jp/watch/lv.*").unwrap(),
+            Box::new(NicoLiveInspector),
+            PriorityHint::Normal,
+        );
+        registry.register_inspector(
+            Regex::new(r"https://www\.nicovideo\.jp/watch/so.*").unwrap(),
+            Box::new(NicoVideoInspector),
+            PriorityHint::Normal,
+        );
+
+        Ok(())
     }
 }
 

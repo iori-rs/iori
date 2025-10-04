@@ -10,24 +10,23 @@ use crate::client::GigafileClient;
 pub struct GigafilePlugin;
 
 impl ShioriPlugin for GigafilePlugin {
-    fn name(&self) -> impl Future<Output = String> {
-        async { "gigafile".to_string() }
+    fn name(&self) -> String {
+        "gigafile".to_string()
     }
 
-    fn version(&self) -> impl Future<Output = String> {
-        async { "0.1.0".to_string() }
+    fn version(&self) -> String {
+        "0.1.0".to_string()
     }
 
-    fn description(&self) -> impl Future<Output = Option<String>> {
-        async { Some("Extracts raw download URL from Gigafile.".to_string()) }
+    fn description(&self) -> Option<String> {
+        Some("Extracts raw download URL from Gigafile.".to_string())
     }
 
-    async fn register(
-        &self,
-        mut registry: impl Registry,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        registry.add_argument("giga-key", Some("key"), "[Gigafile] Download key");
+    fn arguments(&self, command: &mut dyn InspectorCommand) {
+        command.add_argument("giga-key", Some("key"), "[Gigafile] Download key");
+    }
 
+    fn register(&self, registry: &mut dyn InspectorRegistry) -> anyhow::Result<()> {
         let regex = Regex::new(r"https://(\d+)\.gigafile\.nu/.*").unwrap();
         registry.register_inspector(regex, Box::new(GigafileInspector), PriorityHint::Normal);
         Ok(())

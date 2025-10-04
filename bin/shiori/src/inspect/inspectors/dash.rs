@@ -1,7 +1,4 @@
-use anyhow::{Context, Ok};
-use async_trait::async_trait;
-use iori::PlaylistType;
-use regex::Regex;
+use anyhow::Context;
 
 use shiori_plugin::*;
 
@@ -10,28 +7,25 @@ pub struct DashPlugin;
 
 impl ShioriPlugin for DashPlugin {
     fn name(&self) -> String {
-        "dash"
+        "dash".to_string()
     }
 
     fn version(&self) -> String {
-        env!("CARGO_PKG_VERSION")
+        env!("CARGO_PKG_VERSION").to_string()
     }
 
-    fn description(&self) -> String {
-        "A built-in inspector for MPEG-DASH manifests (.mpd)".to_string()
+    fn description(&self) -> Option<String> {
+        Some("A built-in inspector for MPEG-DASH manifests (.mpd)".to_string())
     }
 
-    fn description_long(&self) -> String {
+    fn description_long(&self) -> Option<String> {
         Some("Inspects any URL ending in .mpd as a MPEG-DASH manifest.".to_string())
     }
 
-    async fn register(
-        &self,
-        mut registry: impl Registry,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn register(&self, registry: &mut dyn InspectorRegistry) -> anyhow::Result<()> {
         registry.register_inspector(
             // This regex matches any URL that ends with .mpd, ignoring query parameters or fragments.
-            Regex::new(r"\.mpd($|\?|#)").with_context("Invalid mpd regex")?,
+            Regex::new(r"\.mpd($|\?|#)").with_context(|| "Invalid mpd regex")?,
             Box::new(DashInspector),
             // Set low priority to allow other more specific inspectors to take precedence.
             PriorityHint::Low,
@@ -41,7 +35,7 @@ impl ShioriPlugin for DashPlugin {
 }
 
 /// The inspector implementation for MPEG-DASH.
-pub struct DashInspector;
+struct DashInspector;
 
 #[async_trait]
 impl Inspect for DashInspector {

@@ -4,37 +4,39 @@ use clap_handler::async_trait;
 use reqwest::redirect::Policy;
 use shiori_plugin::*;
 
-pub struct ShortLinkInspector;
+pub struct ShortLinkPlugin;
 
-impl ShioriPlugin for ShortLinkInspector {
+impl ShioriPlugin for ShortLinkPlugin {
     fn name(&self) -> String {
         "redirect".to_string()
     }
 
     fn version(&self) -> String {
-        env!("CARGO_PKG_VERSION")
+        env!("CARGO_PKG_VERSION").to_string()
     }
 
-    fn description(&self) -> String {
+    fn description(&self) -> Option<String> {
         Some("Redirects shortlinks to the original URL.".to_string())
     }
 
-    async fn register(&self, registry: impl Registry) -> Result<(), Box<dyn std::error::Error>> {
+    fn register(&self, registry: &mut dyn InspectorRegistry) -> anyhow::Result<()> {
         registry.register_inspector(
-            Regex::new(r#"^https://t.co/(?<id>.+)$"#).with_context("Invalid t.co regex")?,
-            ShortLinkInspector,
+            Regex::new(r#"^https://t.co/(?<id>.+)$"#).with_context(|| "Invalid t.co regex")?,
+            Box::new(ShortLinkPlugin),
             PriorityHint::Normal,
         );
+
+        Ok(())
     }
 }
 
 #[async_trait]
-impl Inspect for ShortLinkInspector {
+impl Inspect for ShortLinkPlugin {
     async fn inspect(
         &self,
         url: &str,
-        captures: &regex::Captures,
-        args: &dyn InspectorArguments,
+        _captures: &regex::Captures,
+        _args: &dyn InspectorArguments,
     ) -> anyhow::Result<InspectResult> {
         let client = reqwest::Client::builder()
             .danger_accept_invalid_certs(true)

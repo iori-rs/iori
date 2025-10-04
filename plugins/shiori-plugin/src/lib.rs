@@ -7,28 +7,28 @@ pub use regex::Regex;
 
 pub trait ShioriPlugin {
     /// Name of the plugin
-    fn name(&self) -> impl Future<Output = String>;
+    fn name(&self) -> String;
 
     /// Version of the plugin
-    fn version(&self) -> impl Future<Output = String>;
+    fn version(&self) -> String;
 
     /// Short description of the plugin
-    fn description(&self) -> impl Future<Output = Option<String>>;
+    fn description(&self) -> Option<String>;
 
     /// Detailed description message of the plugin
-    fn description_long(&self) -> impl Future<Output = Option<String>> {
-        async { None }
+    fn description_long(&self) -> Option<String> {
+        None
     }
 
+    /// Define custom command-line arguments for the plugin.
+    fn arguments(&self, _command: &mut dyn InspectorCommand) {}
+
     /// Register the plugin to the registry
-    fn register(
-        &self,
-        registry: impl Registry,
-    ) -> impl Future<Output = Result<(), Box<dyn std::error::Error>>>;
+    fn register(&self, registry: &mut dyn InspectorRegistry) -> anyhow::Result<()>;
 }
 
 /// A host-provided interface that allows a plugin to register its functionality.
-pub trait Registry {
+pub trait InspectorRegistry {
     /// Register a normal inspector to the registry.
     fn register_inspector(
         &mut self,
@@ -36,17 +36,6 @@ pub trait Registry {
         inspector: Box<dyn Inspect>,
         priority_hint: PriorityHint,
     );
-
-    /// Add a command-line argument for the inspector
-    fn add_argument(
-        &mut self,
-        long: &'static str,
-        value_name: Option<&'static str>,
-        help: &'static str,
-    );
-
-    /// Add a boolean command-line argument for the inspector
-    fn add_boolean_argument(&mut self, long: &'static str, help: &'static str);
 }
 
 /// PriorityHint indicates the priority of an inspector.
@@ -90,9 +79,17 @@ impl PartialEq for PriorityHint {
     }
 }
 
+impl Eq for PriorityHint {}
+
 impl PartialOrd for PriorityHint {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        i32::from(*self).partial_cmp(&i32::from(*other))
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for PriorityHint {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        i32::from(*self).cmp(&i32::from(*other))
     }
 }
 

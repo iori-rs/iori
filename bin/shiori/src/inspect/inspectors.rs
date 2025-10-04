@@ -1,8 +1,8 @@
 mod redirect;
-pub use redirect::ShortLinkInspector;
+pub use redirect::ShortLinkPlugin;
 
 mod hls;
-pub use hls::HlsInspector;
+pub use hls::HlsPlugin;
 
 mod dash;
-pub use dash::DashInspector;
+pub use dash::DashPlugin;

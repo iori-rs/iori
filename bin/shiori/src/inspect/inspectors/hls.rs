@@ -1,10 +1,4 @@
-use std::future::Future;
-
-use anyhow::Ok;
-use async_trait::async_trait;
-use iori::PlaylistType;
-use regex::Regex;
-
+use anyhow::Context;
 use shiori_plugin::*;
 
 /// A plugin that provides a built-in inspector for HLS playlists.
@@ -27,13 +21,10 @@ impl ShioriPlugin for HlsPlugin {
         Some("Inspects any URL ending in .m3u8 as an HLS playlist.".to_string())
     }
 
-    async fn register(
-        &self,
-        mut registry: impl Registry,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn register(&self, registry: &mut dyn InspectorRegistry) -> anyhow::Result<()> {
         registry.register_inspector(
             // This regex matches any URL that ends with .m3u8, ignoring query parameters or fragments.
-            Regex::new(r"\.m3u8($|\?|#)").with_context("Invalid m3u8 regex")?,
+            Regex::new(r"\.m3u8($|\?|#)").with_context(|| "Invalid m3u8 regex")?,
             Box::new(HlsInspector),
             // Set low priority to allow other more specific inspectors to take precedence.
             PriorityHint::Low,
@@ -43,7 +34,7 @@ impl ShioriPlugin for HlsPlugin {
 }
 
 /// The inspector implementation for HLS.
-pub struct HlsInspector;
+struct HlsInspector;
 
 #[async_trait]
 impl Inspect for HlsInspector {
