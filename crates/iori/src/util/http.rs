@@ -3,6 +3,8 @@ use std::{ops::Deref, sync::Arc};
 use reqwest::{Client, ClientBuilder, IntoUrl};
 use reqwest_cookie_store::{CookieStore, CookieStoreMutex};
 
+pub use reqwest;
+
 #[derive(Clone)]
 pub struct HttpClient {
     client: Client,

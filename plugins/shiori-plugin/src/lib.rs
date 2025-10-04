@@ -1,12 +1,148 @@
-use std::{pin::Pin, sync::Arc};
-
 pub use async_trait::async_trait;
 pub use iori::PlaylistType;
 use serde::{Deserialize, Serialize};
 
 pub use iori;
-use uri_match::Url;
-pub use uri_match::{HostMatcher, MatchUriResult, RouterScheme, UriParams, UriSchemeMatcher};
+pub use regex::Regex;
+
+pub trait ShioriPlugin {
+    /// Name of the plugin
+    fn name(&self) -> impl Future<Output = String>;
+
+    /// Version of the plugin
+    fn version(&self) -> impl Future<Output = String>;
+
+    /// Short description of the plugin
+    fn description(&self) -> impl Future<Output = Option<String>>;
+
+    /// Detailed description message of the plugin
+    fn description_long(&self) -> impl Future<Output = Option<String>> {
+        async { None }
+    }
+
+    /// Register the plugin to the registry
+    fn register(
+        &self,
+        registry: impl Registry,
+    ) -> impl Future<Output = Result<(), Box<dyn std::error::Error>>>;
+}
+
+/// A host-provided interface that allows a plugin to register its functionality.
+pub trait Registry {
+    /// Register a normal inspector to the registry.
+    fn register_inspector(
+        &mut self,
+        regex: Regex,
+        inspector: Box<dyn Inspect>,
+        priority_hint: PriorityHint,
+    );
+
+    /// Add a command-line argument for the inspector
+    fn add_argument(
+        &mut self,
+        long: &'static str,
+        value_name: Option<&'static str>,
+        help: &'static str,
+    );
+
+    /// Add a boolean command-line argument for the inspector
+    fn add_boolean_argument(&mut self, long: &'static str, help: &'static str);
+}
+
+/// PriorityHint indicates the priority of an inspector.
+#[derive(Debug, Clone, Copy)]
+pub enum PriorityHint {
+    /// Normal priority (0).
+    Normal,
+    /// High priority (100).
+    High,
+    /// Low priority (-100).
+    Low,
+    /// Custom priority.
+    Custom(i32),
+}
+
+impl From<PriorityHint> for i32 {
+    fn from(hint: PriorityHint) -> Self {
+        match hint {
+            PriorityHint::Normal => 0,
+            PriorityHint::High => 100,
+            PriorityHint::Low => -100,
+            PriorityHint::Custom(v) => v,
+        }
+    }
+}
+
+impl From<i32> for PriorityHint {
+    fn from(value: i32) -> Self {
+        match value {
+            0 => PriorityHint::Normal,
+            100 => PriorityHint::High,
+            -100 => PriorityHint::Low,
+            v => PriorityHint::Custom(v),
+        }
+    }
+}
+
+impl PartialEq for PriorityHint {
+    fn eq(&self, other: &Self) -> bool {
+        i32::from(*self) == i32::from(*other)
+    }
+}
+
+impl PartialOrd for PriorityHint {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        i32::from(*self).partial_cmp(&i32::from(*other))
+    }
+}
+
+/// Defines the core logic for inspecting a URL to find media information.
+///
+/// This trait should be implemented lazily. This means the constructor (e.g., `new()`)
+/// should not perform any heavy work like network requests. Any expensive initialization
+/// should be deferred to the `inspect` method itself to avoid slowing down application startup.
+#[async_trait]
+pub trait Inspect: Send + Sync {
+    /// Inspect the URL and return the result.
+    ///
+    /// This is the primary method of the trait. It is called by the host when a URL matches
+    /// the `Regex` this inspector was registered with.
+    ///
+    /// # Arguments
+    ///
+    /// * `url`: The full URL string that was matched.
+    /// * `captures`: The captures from the `Regex` match. This is useful for extracting
+    ///   dynamic parts of the URL, such as video IDs.
+    /// * `args`: An object providing access to the parsed values of any custom command-line
+    ///   arguments defined by the plugin.
+    ///
+    /// # Returns
+    ///
+    /// An `anyhow::Result` containing an `InspectResult`, which can be a playlist, a list of
+    /// candidates for further inspection, a redirect, or none.
+    async fn inspect(
+        &self,
+        url: &str,
+        captures: &regex::Captures,
+        args: &dyn InspectorArguments,
+    ) -> anyhow::Result<InspectResult>;
+
+    /// Inspects a previously returned candidate to get the final playlist.
+    ///
+    /// If a prior call to `inspect` returned `InspectResult::Candidates`, the user may be
+    /// prompted to choose one. This method is then called with the selected `InspectCandidate`
+    /// to perform the final step of the inspection.
+    ///
+    /// # Arguments
+    ///
+    /// * `candidate`: The `InspectCandidate` chosen by the user.
+    async fn inspect_candidate(
+        &self,
+        _candidate: InspectCandidate,
+    ) -> anyhow::Result<InspectResult> {
+        Ok(InspectResult::None)
+    }
+}
 
 pub trait InspectorCommand {
     fn add_argument(
@@ -22,52 +158,6 @@ pub trait InspectorCommand {
 pub trait InspectorArguments: Send + Sync {
     fn get_string(&self, argument: &'static str) -> Option<String>;
     fn get_boolean(&self, argument: &'static str) -> bool;
-}
-
-pub trait InspectorBuilder {
-    fn name(&self) -> String;
-
-    fn help(&self) -> Vec<String> {
-        vec!["No help available".to_string()]
-    }
-
-    fn arguments(&self, _command: &mut dyn InspectorCommand) {}
-
-    fn build(&self, args: &dyn InspectorArguments) -> anyhow::Result<Box<dyn Inspect>>;
-}
-
-pub type InspectorIdentifier = Arc<String>;
-
-type InspectRegistryFn<I> = Box<
-    dyn Fn(I) -> Pin<Box<dyn Future<Output = anyhow::Result<InspectResult>> + Send>> + Send + Sync,
->;
-type InspectRegistryFn2<I1, I2> = Box<
-    dyn Fn(I1, I2) -> Pin<Box<dyn Future<Output = anyhow::Result<InspectResult>> + Send>>
-        + Send
-        + Sync,
->;
-
-pub type InspectRegistry = UriSchemeMatcher<
-    (InspectorIdentifier, InspectRegistryFn<Url>),
-    (InspectorIdentifier, InspectRegistryFn2<Url, UriParams>),
->;
-
-#[async_trait]
-pub trait Inspect: Send + Sync {
-    /// Register the inspector to the registry
-    async fn register(
-        &self,
-        name: InspectorIdentifier,
-        registry: &mut InspectRegistry,
-    ) -> anyhow::Result<()>;
-
-    /// Inspect a previously returned candidate and return the result
-    async fn inspect_candidate(
-        &self,
-        _candidate: InspectCandidate,
-    ) -> anyhow::Result<InspectResult> {
-        Ok(InspectResult::None)
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
