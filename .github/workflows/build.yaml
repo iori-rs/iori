@@ -82,19 +82,19 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            name: iori-x86_64-unknown-linux-gnu.tar.gz
+            name: iori-x86_64-unknown-linux-gnu
           # - target: x86_64-unknown-linux-musl
           #   os: ubuntu-latest
-          #   name: iori-x86_64-unknown-linux-musl.tar.gz
+          #   name: iori-x86_64-unknown-linux-musl
           - target: x86_64-pc-windows-gnu
             os: ubuntu-latest
-            name: iori-x86_64-pc-windows-gnu.zip
+            name: iori-x86_64-pc-windows-gnu
           - target: x86_64-apple-darwin
             os: macOS-latest
-            name: iori-x86_64-apple-darwin.tar.gz
+            name: iori-x86_64-apple-darwin
           - target: aarch64-apple-darwin
             os: macOS-latest
-            name: iori-arm64-apple-darwin.tar.gz
+            name: iori-arm64-apple-darwin
 
     needs: [ffmpeg-build]
     runs-on: ${{ matrix.os }}
@@ -153,7 +153,7 @@ jobs:
           echo FFMPEG_LIBS_DIR="${{ github.workspace }}/crates/iori/tmp/ffmpeg_build/lib" >> $GITHUB_ENV
           echo PKG_CONFIG_PATH_FOR_TARGET="${{ github.workspace }}/crates/iori/tmp/ffmpeg_build/lib/pkgconfig" >> $GITHUB_ENV
           echo PKG_CONFIG_ALLOW_CROSS=1 >> $GITHUB_ENV
-      
+
       - name: Setup tmate session
         if: matrix.target == 'x86_64-pc-windows-gnu'
         uses: mxschmitt/action-tmate@v3
@@ -173,7 +173,8 @@ jobs:
           strip minyami.exe
           strip ssadecrypt.exe
           strip shiori.exe
-          tar czvf ../../../${{ matrix.name }} minyami.exe ssadecrypt.exe shiori.exe
+          mkdir ../../../${{ matrix.name }}
+          mv minyami.exe ssadecrypt.exe shiori.exe ../../../${{ matrix.name }}
           cd -
       - name: PostBuild | Prepare artifacts [-nix]
         if: matrix.target != 'x86_64-pc-windows-gnu'
@@ -182,11 +183,12 @@ jobs:
           strip minyami || true
           strip ssadecrypt || true
           strip shiori || true
-          tar czvf ../../../${{ matrix.name }} minyami ssadecrypt shiori
+          mkdir ../../../${{ matrix.name }}
+          mv minyami ssadecrypt shiori ../../../${{ matrix.name }}
           cd -
 
       - name: Deploy | Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
-          path: ${{ matrix.name }}
+          path: ${{ matrix.name }}/
