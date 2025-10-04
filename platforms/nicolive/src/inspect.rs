@@ -10,75 +10,67 @@ use crate::{
     watch::WatchClient,
 };
 
-pub struct NicoLiveInspector;
+pub struct NicoPlugin;
 
-impl InspectorBuilder for NicoLiveInspector {
-    fn name(&self) -> String {
-        "nicolive".to_string()
+impl ShioriPlugin for NicoPlugin {
+    fn name(&self) -> impl Future<Output = String> {
+        async { "niconico".to_string() }
     }
 
-    fn help(&self) -> Vec<String> {
-        [
-            "Extracts Niconico live streams or timeshifts.",
-            "",
-            "Available for URLs starting with:",
-            "- https://live.nicovideo.jp/watch/lv*",
-        ]
-        .iter()
-        .map(|s| s.to_string())
-        .collect()
+    fn version(&self) -> impl Future<Output = String> {
+        async { "0.1.0".to_string() }
     }
 
-    fn arguments(&self, command: &mut dyn InspectorCommand) {
-        command.add_argument(
-            "nico-user-session",
-            Some("user_session"),
-            "[Niconico] Your Niconico user session key.",
-        );
-        command.add_boolean_argument(
-            "nico-download-danmaku",
-            "[NicoLive] Download danmaku together with the video. This option is ignored if `--nico-danmaku-only` is set to true.",
-        );
-        command.add_boolean_argument(
-            "nico-chase-play",
-            "[NicoLive] Download an ongoing live from start.",
-        );
-        command.add_boolean_argument(
-            "nico-reserve-timeshift",
-            "[NicoLive] Whether to reserve a timeshift if not reserved.",
-        );
-        command.add_boolean_argument(
-            "nico-danmaku-only",
-            "[NicoLive] Only download danmaku without video.",
-        );
+    fn description(&self) -> impl Future<Output = Option<String>> {
+        async { Some("Extracts Niconico live streams, timeshifts and videos.".to_string()) }
     }
 
-    fn build(&self, args: &dyn InspectorArguments) -> anyhow::Result<Box<dyn Inspect>> {
-        let user_session = args.get_string("nico-user-session");
-        let download_danmaku = args.get_boolean("nico-download-danmaku");
-        let chase_play = args.get_boolean("nico-chase-play");
-        let reserve_timeshift = args.get_boolean("nico-reserve-timeshift");
-        let danmaku_only = args.get_boolean("nico-danmaku-only");
-        Ok(Box::new(NicoLiveInspectorImpl {
-            user_session,
-            download_danmaku,
-            chase_play,
-            reserve_timeshift,
-            danmaku_only,
-        }))
+    fn register(
+        &self,
+        mut registry: impl Registry,
+    ) -> impl Future<Output = Result<(), Box<dyn std::error::Error>>> {
+        async move {
+            registry.register_inspector(
+                Regex::new(r"https://live\.nicovideo\.jp/watch/lv.*").unwrap(),
+                Box::new(NicoLiveInspector),
+                PriorityHint::Normal,
+            );
+            registry.register_inspector(
+                Regex::new(r"https://www\.nicovideo\.jp/watch/so.*").unwrap(),
+                Box::new(NicoVideoInspector),
+                PriorityHint::Normal,
+            );
+
+            registry.add_argument(
+                "nico-user-session",
+                Some("user_session"),
+                "[Niconico] Your Niconico user session key.",
+            );
+            registry.add_boolean_argument(
+                "nico-download-danmaku",
+                "[NicoLive] Download danmaku together with the video. This option is ignored if `--nico-danmaku-only` is set to true.",
+            );
+            registry.add_boolean_argument(
+                "nico-chase-play",
+                "[NicoLive] Download an ongoing live from start.",
+            );
+            registry.add_boolean_argument(
+                "nico-reserve-timeshift",
+                "[NicoLive] Whether to reserve a timeshift if not reserved.",
+            );
+            registry.add_boolean_argument(
+                "nico-danmaku-only",
+                "[NicoLive] Only download danmaku without video.",
+            );
+
+            Ok(())
+        }
     }
 }
 
-#[derive(Clone)]
-struct NicoLiveInspectorImpl {
-    user_session: Option<String>,
-    download_danmaku: bool,
-    chase_play: bool,
-    reserve_timeshift: bool,
-    danmaku_only: bool,
-}
+struct NicoLiveInspector;
 
-impl NicoLiveInspectorImpl {
+impl NicoLiveInspector {
     pub async fn download_danmaku(
         &self,
         message_server: WatchMessageMessageServer,
@@ -100,193 +92,128 @@ impl NicoLiveInspectorImpl {
 }
 
 #[async_trait]
-impl Inspect for NicoLiveInspectorImpl {
-    async fn register(
+impl Inspect for NicoLiveInspector {
+    async fn inspect(
         &self,
-        id: InspectorIdentifier,
-        registry: &mut InspectRegistry,
-    ) -> anyhow::Result<()> {
-        let this = self.clone();
+        url: &str,
+        _captures: &regex::Captures,
+        args: &dyn InspectorArguments,
+    ) -> anyhow::Result<InspectResult> {
+        let user_session = args.get_string("nico-user-session");
+        let download_danmaku = args.get_boolean("nico-download-danmaku");
+        let chase_play = args.get_boolean("nico-chase-play");
+        let reserve_timeshift = args.get_boolean("nico-reserve-timeshift");
+        let danmaku_only = args.get_boolean("nico-danmaku-only");
 
-        registry.register_http_route(
-            RouterScheme::Https,
-            "live.nicovideo.jp",
-            "/watch/lv{id}",
-            (
-                id,
-                Box::new(move |url, _| {
-                    let this = this.clone();
-                    Box::pin(async move {
-                        let this: NicoLiveInspectorImpl = this.clone();
-                        let data = NicoEmbeddedData::new(url.clone(), this.user_session.as_deref())
-                            .await?;
-                        let wss_url = if let Some(wss_url) = data.websocket_url() {
-                            wss_url
-                        } else if this.reserve_timeshift {
-                            data.timeshift_reserve().await?;
-                            let data =
-                                NicoEmbeddedData::new(url, this.user_session.as_deref()).await?;
-                            data.websocket_url()
-                                .ok_or_else(|| anyhow::anyhow!("no websocket url"))?
-                        } else {
-                            anyhow::bail!("no websocket url");
-                        };
+        let data = NicoEmbeddedData::new(url.to_string(), user_session.as_deref()).await?;
+        let wss_url = if let Some(wss_url) = data.websocket_url() {
+            wss_url
+        } else if reserve_timeshift {
+            data.timeshift_reserve().await?;
+            let data = NicoEmbeddedData::new(url.to_string(), user_session.as_deref()).await?;
+            data.websocket_url()
+                .ok_or_else(|| anyhow::anyhow!("no websocket url"))?
+        } else {
+            anyhow::bail!("no websocket url");
+        };
 
-                        let best_quality = data.best_quality()?;
-                        let chase_play = this.chase_play;
-                        let download_danmaku = this.download_danmaku || this.danmaku_only;
+        let best_quality = data.best_quality()?;
+        let download_danmaku = download_danmaku || danmaku_only;
 
-                        let watcher = WatchClient::new(&wss_url).await?;
-                        watcher.start_watching(&best_quality, chase_play).await?;
+        let watcher = WatchClient::new(&wss_url).await?;
+        watcher.start_watching(&best_quality, chase_play).await?;
 
-                        let mut stream: Option<WatchMessageStream> = None;
-                        let mut message_server: Option<WatchMessageMessageServer> = None;
-                        loop {
-                            let msg = watcher.recv().await?;
-                            if let Some(WatchResponse::Stream(got_stream)) = msg {
-                                stream = Some(got_stream);
-                            } else if let Some(WatchResponse::MessageServer(got_message_server)) =
-                                msg
+        let mut stream: Option<WatchMessageStream> = None;
+        let mut message_server: Option<WatchMessageMessageServer> = None;
+        loop {
+            let msg = watcher.recv().await?;
+            if let Some(WatchResponse::Stream(got_stream)) = msg {
+                stream = Some(got_stream);
+            } else if let Some(WatchResponse::MessageServer(got_message_server)) = msg {
+                message_server = Some(got_message_server);
+            }
+
+            if stream.is_some() && (!download_danmaku || message_server.is_some()) {
+                break;
+            }
+        }
+        let stream = stream.unwrap();
+
+        // keep seats
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    msg = watcher.recv() => {
+                        if let Err(e) = msg {
+                            log::error!("{e:?}");
+                            if let Err(e) = watcher
+                                .reconnect(&wss_url, &best_quality, chase_play)
+                                .await
                             {
-                                message_server = Some(got_message_server);
-                            }
-
-                            if stream.is_some() && (!download_danmaku || message_server.is_some()) {
+                                log::error!("Failed to reconnect: {e:?}");
                                 break;
                             }
                         }
-                        let stream = stream.unwrap();
+                    }
+                    _ = watcher.keep_seat() => (),
+                }
+            }
+            log::info!("watcher disconnected");
+        });
 
-                        // keep seats
-                        tokio::spawn(async move {
-                            loop {
-                                tokio::select! {
-                                    msg = watcher.recv() => {
-                                        if let Err(e) = msg {
-                                            log::error!("{e:?}");
-                                            if let Err(e) = watcher
-                                                .reconnect(&wss_url, &best_quality, chase_play)
-                                                .await
-                                            {
-                                                log::error!("Failed to reconnect: {e:?}");
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    _ = watcher.keep_seat() => (),
-                                }
-                            }
-                            log::info!("watcher disconnected");
-                        });
+        let mut result = vec![];
+        if !danmaku_only {
+            result.push(InspectPlaylist {
+                title: Some(data.program_title()),
+                playlist_url: stream.uri,
+                playlist_type: PlaylistType::HLS,
+                cookies: stream.cookies.into_cookies(),
+                streams_hint: Some(2),
+                ..Default::default()
+            });
+        }
 
-                        let mut result = vec![];
-                        if !this.danmaku_only {
-                            result.push(InspectPlaylist {
-                                title: Some(data.program_title()),
-                                playlist_url: stream.uri,
-                                playlist_type: PlaylistType::HLS,
-                                cookies: stream.cookies.into_cookies(),
-                                streams_hint: Some(2),
-                                ..Default::default()
-                            });
-                        }
+        if let Some(message_server) = message_server {
+            let danmaku = self
+                .download_danmaku(message_server, data.program_end_time())
+                .await?;
+            result.push(InspectPlaylist {
+                title: Some(data.program_title()),
+                playlist_url: danmaku.to_json(true)?,
+                playlist_type: PlaylistType::Raw("json".to_string()),
+                ..Default::default()
+            });
+            result.push(InspectPlaylist {
+                title: Some(data.program_title()),
+                playlist_url: danmaku.to_ass()?,
+                playlist_type: PlaylistType::Raw("ass".to_string()),
+                ..Default::default()
+            });
+        }
 
-                        if let Some(message_server) = message_server {
-                            let danmaku = this
-                                .download_danmaku(message_server, data.program_end_time())
-                                .await?;
-                            result.push(InspectPlaylist {
-                                title: Some(data.program_title()),
-                                playlist_url: danmaku.to_json(true)?,
-                                playlist_type: PlaylistType::Raw("json".to_string()),
-                                ..Default::default()
-                            });
-                            result.push(InspectPlaylist {
-                                title: Some(data.program_title()),
-                                playlist_url: danmaku.to_ass()?,
-                                playlist_type: PlaylistType::Raw("ass".to_string()),
-                                ..Default::default()
-                            });
-                        }
-
-                        Ok(InspectResult::Playlists(result))
-                    })
-                }),
-            ),
-        )?;
-
-        Ok(())
+        Ok(InspectResult::Playlists(result))
     }
 }
 
-pub struct NicoVideoInspector;
-
-impl InspectorBuilder for NicoVideoInspector {
-    fn name(&self) -> String {
-        "nicovideo".to_string()
-    }
-
-    fn help(&self) -> Vec<String> {
-        [
-            "Extracts Niconico videos.",
-            "",
-            "Available for URLs starting with:",
-            "- https://www.nicovideo.jp/watch/so*",
-        ]
-        .iter()
-        .map(|s| s.to_string())
-        .collect()
-    }
-
-    fn arguments(&self, command: &mut dyn InspectorCommand) {
-        command.add_argument(
-            "nico-user-session",
-            Some("user_session"),
-            "[Niconico] Your Niconico user session key.",
-        );
-    }
-
-    fn build(&self, args: &dyn InspectorArguments) -> anyhow::Result<Box<dyn Inspect>> {
-        let user_session = args.get_string("nico-user-session");
-        Ok(Box::new(NicoVideoInspectorImpl { user_session }))
-    }
-}
-
-struct NicoVideoInspectorImpl {
-    user_session: Option<String>,
-}
+struct NicoVideoInspector;
 
 #[async_trait]
-impl Inspect for NicoVideoInspectorImpl {
-    async fn register(
+impl Inspect for NicoVideoInspector {
+    async fn inspect(
         &self,
-        id: InspectorIdentifier,
-        registry: &mut InspectRegistry,
-    ) -> anyhow::Result<()> {
-        let user_session = self.user_session.clone();
-        registry.register_http_route(
-            RouterScheme::Https,
-            "www.nicovideo.jp",
-            "/watch/so{id}",
-            (
-                id,
-                Box::new(move |url, _| {
-                    let user_session = user_session.clone();
-                    Box::pin(async move {
-                        let data = NivoServerResponse::new(url, user_session.as_deref()).await?;
-                        let (playlist_url, cookies) = data.playlist_url().await?;
-                        Ok(InspectResult::Playlists(vec![InspectPlaylist {
-                            title: data.program_title(),
-                            playlist_url,
-                            playlist_type: PlaylistType::HLS,
-                            headers: vec![format!("Cookie: {cookies}")],
-                            ..Default::default()
-                        }]))
-                    })
-                }),
-            ),
-        )?;
-
-        Ok(())
+        url: &str,
+        _captures: &regex::Captures,
+        args: &dyn InspectorArguments,
+    ) -> anyhow::Result<InspectResult> {
+        let user_session = args.get_string("nico-user-session");
+        let data = NivoServerResponse::new(url, user_session.as_deref()).await?;
+        let (playlist_url, cookies) = data.playlist_url().await?;
+        Ok(InspectResult::Playlists(vec![InspectPlaylist {
+            title: data.program_title(),
+            playlist_url,
+            playlist_type: PlaylistType::HLS,
+            headers: vec![format!("Cookie: {cookies}")],
+            ..Default::default()
+        }]))
     }
 }
