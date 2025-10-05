@@ -1,5 +1,4 @@
 pub use async_trait::async_trait;
-pub use iori::PlaylistType;
 use serde::{Deserialize, Serialize};
 
 pub use iori;
@@ -209,4 +208,17 @@ pub struct InspectPlaylist {
 
 pub trait InspectorApp {
     fn choose_candidates(&self, candidates: Vec<InspectCandidate>) -> Vec<InspectCandidate>;
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Default, Clone)]
+pub enum PlaylistType {
+    /// HTTP Live Streaming
+    HLS,
+    /// Dynamic Adaptive Streaming over HTTP
+    DASH,
+    /// Raw data
+    Raw(String),
+    #[default]
+    /// Unknown playlist type
+    Unknown,
 }

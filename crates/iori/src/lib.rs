@@ -87,16 +87,3 @@ pub trait StreamingSegment {
     /// Format hint for the segment
     fn format(&self) -> SegmentFormat;
 }
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, Default, Clone)]
-pub enum PlaylistType {
-    /// HTTP Live Streaming
-    HLS,
-    /// Dynamic Adaptive Streaming over HTTP
-    DASH,
-    /// Raw data
-    Raw(String),
-    #[default]
-    /// Unknown playlist type
-    Unknown,
-}

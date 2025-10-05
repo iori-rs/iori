@@ -8,7 +8,7 @@ use clap::{Args, Parser};
 use clap_handler::handler;
 use fake_user_agent::get_chrome_rua;
 use iori::{
-    HttpClient, PlaylistType,
+    HttpClient,
     cache::{
         IoriCache,
         opendal::{Operator, services},
@@ -24,6 +24,7 @@ use reqwest::{
     Client, IntoUrl,
     header::{HeaderMap, HeaderName, HeaderValue},
 };
+use shiori_plugin::PlaylistType;
 use std::{
     num::NonZeroU32,
     path::PathBuf,
