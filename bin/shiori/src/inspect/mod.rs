@@ -22,7 +22,6 @@ impl PluginManager {
 
     /// Add inspector to front queue
     pub fn add(&mut self, plugin: impl ShioriPlugin + Send + Sync + 'static) -> &mut Self {
-        // TODO: match the registered inspector with the plugin name
         plugin.register(self).unwrap();
         self.plugins.push(Box::new(plugin));
 

@@ -222,7 +222,7 @@ pub enum PlaylistType {
     DASH,
     /// Raw data
     Raw(String),
-    #[default]
     /// Unknown playlist type
+    #[default]
     Unknown,
 }
