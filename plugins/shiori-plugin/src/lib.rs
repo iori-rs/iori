@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 pub use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -6,16 +8,16 @@ pub use regex::Regex;
 
 pub trait ShioriPlugin {
     /// Name of the plugin
-    fn name(&self) -> String;
+    fn name(&self) -> Cow<'static, str>;
 
     /// Version of the plugin
-    fn version(&self) -> String;
+    fn version(&self) -> Cow<'static, str>;
 
     /// Short description of the plugin
-    fn description(&self) -> Option<String>;
+    fn description(&self) -> Option<Cow<'static, str>>;
 
     /// Detailed description message of the plugin
-    fn description_long(&self) -> Option<String> {
+    fn description_long(&self) -> Option<Cow<'static, str>> {
         None
     }
 
@@ -99,6 +101,8 @@ impl Ord for PriorityHint {
 /// should be deferred to the `inspect` method itself to avoid slowing down application startup.
 #[async_trait]
 pub trait Inspect: Send + Sync {
+    fn name(&self) -> Cow<'static, str>;
+
     /// Inspect the URL and return the result.
     ///
     /// This is the primary method of the trait. It is called by the host when a URL matches

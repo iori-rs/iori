@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use anyhow::Context;
 use shiori_plugin::*;
 
@@ -5,20 +7,20 @@ use shiori_plugin::*;
 pub struct HlsPlugin;
 
 impl ShioriPlugin for HlsPlugin {
-    fn name(&self) -> String {
-        "hls".to_string()
+    fn name(&self) -> Cow<'static, str> {
+        "hls".into()
     }
 
-    fn version(&self) -> String {
-        env!("CARGO_PKG_VERSION").to_string()
+    fn version(&self) -> Cow<'static, str> {
+        env!("CARGO_PKG_VERSION").into()
     }
 
-    fn description(&self) -> Option<String> {
-        Some("A built-in inspector for HLS playlists (.m3u8)".to_string())
+    fn description(&self) -> Option<Cow<'static, str>> {
+        Some("A built-in inspector for HLS playlists (.m3u8)".into())
     }
 
-    fn description_long(&self) -> Option<String> {
-        Some("Inspects any URL ending in .m3u8 as an HLS playlist.".to_string())
+    fn description_long(&self) -> Option<Cow<'static, str>> {
+        Some("Inspects any URL ending in .m3u8 as an HLS playlist.".into())
     }
 
     fn register(&self, registry: &mut dyn InspectorRegistry) -> anyhow::Result<()> {
@@ -38,6 +40,10 @@ struct HlsInspector;
 
 #[async_trait]
 impl Inspect for HlsInspector {
+    fn name(&self) -> Cow<'static, str> {
+        "hls".into()
+    }
+
     /// The core inspection logic for HLS playlists.
     ///
     /// This inspector is very simple: it assumes any URL ending in `.m3u8` is a valid

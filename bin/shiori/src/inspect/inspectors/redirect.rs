@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::inspect::{Inspect, InspectResult};
 use anyhow::Context;
 use clap_handler::async_trait;
@@ -7,16 +9,16 @@ use shiori_plugin::*;
 pub struct ShortLinkPlugin;
 
 impl ShioriPlugin for ShortLinkPlugin {
-    fn name(&self) -> String {
-        "redirect".to_string()
+    fn name(&self) -> Cow<'static, str> {
+        "redirect".into()
     }
 
-    fn version(&self) -> String {
-        env!("CARGO_PKG_VERSION").to_string()
+    fn version(&self) -> Cow<'static, str> {
+        env!("CARGO_PKG_VERSION").into()
     }
 
-    fn description(&self) -> Option<String> {
-        Some("Redirects shortlinks to the original URL.".to_string())
+    fn description(&self) -> Option<Cow<'static, str>> {
+        Some("Redirects shortlinks to the original URL.".into())
     }
 
     fn register(&self, registry: &mut dyn InspectorRegistry) -> anyhow::Result<()> {
@@ -32,6 +34,10 @@ impl ShioriPlugin for ShortLinkPlugin {
 
 #[async_trait]
 impl Inspect for ShortLinkPlugin {
+    fn name(&self) -> Cow<'static, str> {
+        "redirect".into()
+    }
+
     async fn inspect(
         &self,
         url: &str,

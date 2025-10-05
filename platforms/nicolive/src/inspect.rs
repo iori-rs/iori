@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 
 use chrono::{DateTime, Utc};
 use shiori_plugin::*;
@@ -13,16 +13,16 @@ use crate::{
 pub struct NicoPlugin;
 
 impl ShioriPlugin for NicoPlugin {
-    fn name(&self) -> String {
-        "niconico".to_string()
+    fn name(&self) -> Cow<'static, str> {
+        "niconico".into()
     }
 
-    fn version(&self) -> String {
-        "0.1.0".to_string()
+    fn version(&self) -> Cow<'static, str> {
+        "0.1.0".into()
     }
 
-    fn description(&self) -> Option<String> {
-        Some("Extracts Niconico live streams, timeshifts and videos.".to_string())
+    fn description(&self) -> Option<Cow<'static, str>> {
+        Some("Extracts Niconico live streams, timeshifts and videos.".into())
     }
 
     fn arguments(&self, command: &mut dyn InspectorCommand) {
@@ -90,6 +90,10 @@ impl NicoLiveInspector {
 
 #[async_trait]
 impl Inspect for NicoLiveInspector {
+    fn name(&self) -> Cow<'static, str> {
+        "nicolive".into()
+    }
+
     async fn inspect(
         &self,
         url: &str,
@@ -196,6 +200,10 @@ struct NicoVideoInspector;
 
 #[async_trait]
 impl Inspect for NicoVideoInspector {
+    fn name(&self) -> Cow<'static, str> {
+        "nicovideo".into()
+    }
+
     async fn inspect(
         &self,
         url: &str,

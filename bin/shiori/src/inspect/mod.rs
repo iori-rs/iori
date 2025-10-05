@@ -62,7 +62,7 @@ impl PluginManager {
             ));
             for line in plugin
                 .description()
-                .unwrap_or_else(|| "<No description>".to_string())
+                .unwrap_or_else(|| "<No description>".into())
                 .split('\n')
             {
                 result.push_str(&" ".repeat(10));
@@ -91,7 +91,7 @@ impl PluginManager {
         url: &str,
         args: &dyn InspectorArguments,
         choose_candidate: fn(Vec<InspectCandidate>) -> InspectCandidate,
-    ) -> anyhow::Result<(String, Vec<InspectPlaylist>)> {
+    ) -> anyhow::Result<(Cow<'static, str>, Vec<InspectPlaylist>)> {
         let mut url = Cow::Borrowed(url);
 
         // As `InspectBranch::Redirect` exists, we need a loop
@@ -116,7 +116,9 @@ impl PluginManager {
                             url = Cow::Owned(redirect_url);
                             continue 'outer;
                         }
-                        InspectBranch::Found(data) => break 'outer ("todo".to_string(), data),
+                        InspectBranch::Found(data) => {
+                            break 'outer (item.inspector.name(), data);
+                        }
                         InspectBranch::NotFound => {
                             if let Some(wait_time) = self.wait {
                                 sleep(Duration::from_secs(wait_time)).await;

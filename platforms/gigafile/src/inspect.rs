@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use fake_user_agent::get_chrome_rua;
 use reqwest::{
     Client,
@@ -10,16 +12,16 @@ use crate::client::GigafileClient;
 pub struct GigafilePlugin;
 
 impl ShioriPlugin for GigafilePlugin {
-    fn name(&self) -> String {
-        "gigafile".to_string()
+    fn name(&self) -> Cow<'static, str> {
+        "gigafile".into()
     }
 
-    fn version(&self) -> String {
-        "0.1.0".to_string()
+    fn version(&self) -> Cow<'static, str> {
+        "0.1.0".into()
     }
 
-    fn description(&self) -> Option<String> {
-        Some("Extracts raw download URL from Gigafile.".to_string())
+    fn description(&self) -> Option<Cow<'static, str>> {
+        Some("Extracts raw download URL from Gigafile.".into())
     }
 
     fn arguments(&self, command: &mut dyn InspectorCommand) {
@@ -37,6 +39,10 @@ struct GigafileInspector;
 
 #[async_trait]
 impl Inspect for GigafileInspector {
+    fn name(&self) -> Cow<'static, str> {
+        "gigafile".into()
+    }
+
     async fn inspect(
         &self,
         url: &str,

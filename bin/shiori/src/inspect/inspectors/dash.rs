@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use anyhow::Context;
 
 use shiori_plugin::*;
@@ -6,20 +8,20 @@ use shiori_plugin::*;
 pub struct DashPlugin;
 
 impl ShioriPlugin for DashPlugin {
-    fn name(&self) -> String {
-        "dash".to_string()
+    fn name(&self) -> Cow<'static, str> {
+        "dash".into()
     }
 
-    fn version(&self) -> String {
-        env!("CARGO_PKG_VERSION").to_string()
+    fn version(&self) -> Cow<'static, str> {
+        env!("CARGO_PKG_VERSION").into()
     }
 
-    fn description(&self) -> Option<String> {
-        Some("A built-in inspector for MPEG-DASH manifests (.mpd)".to_string())
+    fn description(&self) -> Option<Cow<'static, str>> {
+        Some("A built-in inspector for MPEG-DASH manifests (.mpd)".into())
     }
 
-    fn description_long(&self) -> Option<String> {
-        Some("Inspects any URL ending in .mpd as a MPEG-DASH manifest.".to_string())
+    fn description_long(&self) -> Option<Cow<'static, str>> {
+        Some("Inspects any URL ending in .mpd as a MPEG-DASH manifest.".into())
     }
 
     fn register(&self, registry: &mut dyn InspectorRegistry) -> anyhow::Result<()> {
@@ -39,6 +41,10 @@ struct DashInspector;
 
 #[async_trait]
 impl Inspect for DashInspector {
+    fn name(&self) -> Cow<'static, str> {
+        "dash".into()
+    }
+
     /// The core inspection logic for DASH manifests.
     ///
     /// This inspector is very simple: it assumes any URL ending in `.mpd` is a valid
