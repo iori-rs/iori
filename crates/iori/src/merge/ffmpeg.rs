@@ -46,7 +46,7 @@ type VaListType = *mut rsmpeg::ffi::__va_list_tag;
     not(target_os = "uefi"),
     not(windows),
 ))]
-pub type VaListType = *mut rsmpeg::ffi::__va_list_tag_aarch64;
+pub type VaListType = rsmpeg::ffi::__BindgenOpaqueArray<u64, 4>;
 
 #[cfg(all(target_arch = "powerpc", not(target_os = "uefi"), not(windows)))]
 pub type VaListType = *mut rsmpeg::ffi::__va_list_tag_powerpc;
