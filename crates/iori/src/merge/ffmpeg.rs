@@ -64,7 +64,22 @@ unsafe extern "C" fn ffmpeg_log_callback(
         return;
     }
 
+    #[cfg(all(
+        target_arch = "aarch64",
+        not(target_vendor = "apple"),
+        not(target_os = "uefi"),
+        not(windows),
+    ))]
+    let mut buf = [0u8; 1024];
+
+    #[cfg(not(all(
+        target_arch = "aarch64",
+        not(target_vendor = "apple"),
+        not(target_os = "uefi"),
+        not(windows),
+    )))]
     let mut buf = [0i8; 1024];
+
     let mut print_prefix = 1;
 
     let buf_len = av_log_format_line2(
