@@ -25,7 +25,7 @@ where
     // .bytes_stream();
     let decryptor = segment
         .key()
-        .map(|key| key.to_decryptor(shaka_packager_command));
+        .map(|key| key.to_decryptor(segment.format(), shaka_packager_command));
     if let Some(decryptor) = decryptor {
         let decrypted_bytes = match segment.initial_segment() {
             crate::InitialSegment::Encrypted(data) => {

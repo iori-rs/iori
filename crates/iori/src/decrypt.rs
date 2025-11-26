@@ -11,15 +11,25 @@ use aes::cipher::{BlockDecryptMut, KeyIvInit, block_padding::Pkcs7};
 use m3u8_rs::KeyMethod;
 
 use crate::{
+    SegmentFormat,
     error::{IoriError, IoriResult},
     util::http::HttpClient,
 };
 
 #[derive(Debug)]
 pub enum IoriKey {
-    Aes128 { key: [u8; 16], iv: [u8; 16] },
-    ClearKey { keys: HashMap<String, String> },
-    SampleAes { key: [u8; 16], iv: [u8; 16] },
+    Aes128 {
+        key: [u8; 16],
+        iv: [u8; 16],
+    },
+    ClearKey {
+        keys: HashMap<String, String>,
+    },
+    SampleAes {
+        key: [u8; 16],
+        iv: [u8; 16],
+        keys: HashMap<String, String>,
+    },
 }
 
 impl IoriKey {
@@ -71,9 +81,30 @@ impl IoriKey {
                 })
             }
             KeyMethod::SampleAES => {
-                let Some(key_bytes) = manual_key.map(hex::decode).transpose()? else {
+                let Some(manual_key) = manual_key else {
                     return Err(IoriError::DecryptionKeyRequired);
                 };
+
+                // Support two formats:
+                // 1. <kid>:<key>;<kid>:<key>;...
+                // 2. <key>
+                let mut keys = HashMap::new();
+                for pair in manual_key.split(';') {
+                    match pair.split_once(':') {
+                        Some((kid, key)) if is_valid_kid_key_pair(kid, key) => {
+                            keys.insert(kid.to_string(), key.to_string());
+                        }
+                        _ => tracing::warn!("Ignored key-only format: {}", pair),
+                    }
+                }
+
+                let raw_key = if keys.is_empty() {
+                    manual_key
+                } else {
+                    keys.iter().next().unwrap().1.clone()
+                };
+                let key_bytes =
+                    hex::decode(raw_key).map_err(|_| IoriError::DecryptionKeyRequired)?;
 
                 Some(Self::SampleAes {
                     key: key_bytes.try_into().map_err(IoriError::InvalidBinaryKey)?,
@@ -86,6 +117,7 @@ impl IoriKey {
                         })
                         .unwrap_or(media_sequence as u128)
                         .to_be_bytes(),
+                    keys,
                 })
             }
             KeyMethod::Other(name) => match name.as_str() {
@@ -116,7 +148,11 @@ impl IoriKey {
         })
     }
 
-    pub fn to_decryptor(&self, shaka_packager_command: Option<PathBuf>) -> IoriDecryptor {
+    pub fn to_decryptor(
+        &self,
+        segment_format: SegmentFormat,
+        shaka_packager_command: Option<PathBuf>,
+    ) -> IoriDecryptor {
         match self {
             IoriKey::Aes128 { key, iv } => IoriDecryptor::Aes128(Box::new(cbc::Decryptor::<
                 aes::Aes128,
@@ -133,7 +169,21 @@ impl IoriKey {
                     IoriDecryptor::Mp4Decrypt { keys: keys.clone() }
                 }
             }
-            IoriKey::SampleAes { key, iv } => IoriDecryptor::SampleAes { key: *key, iv: *iv },
+            IoriKey::SampleAes { key, iv, keys } => match segment_format {
+                SegmentFormat::Mpeg2TS | SegmentFormat::Aac => {
+                    IoriDecryptor::SampleAes { key: *key, iv: *iv }
+                }
+                _ => {
+                    if let Some(shaka_packager) = shaka_packager_command {
+                        IoriDecryptor::ShakaPackager {
+                            command: shaka_packager,
+                            keys: keys.clone(),
+                        }
+                    } else {
+                        IoriDecryptor::Mp4Decrypt { keys: keys.clone() }
+                    }
+                }
+            },
         }
     }
 }
