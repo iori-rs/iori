@@ -93,8 +93,14 @@ pub async fn merge_command(me: MergeCommand) -> anyhow::Result<()> {
         let mut files = Vec::new();
         while let Some(entry) = dir.next_entry().await? {
             let path = entry.path();
-            if path.ends_with(".DS_Store") {
-                continue;
+
+            match entry.file_name().to_string_lossy().as_bytes() {
+                b".DS_Store" => continue,
+                file_name if file_name.starts_with(b"._") => {
+                    // https://en.wikipedia.org/wiki/AppleSingle_and_AppleDouble_formats
+                    continue;
+                }
+                _ => {}
             }
 
             if path.is_file() {

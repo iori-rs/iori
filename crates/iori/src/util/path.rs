@@ -1,9 +1,10 @@
 use std::{
     ffi::{OsStr, OsString},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use crate::{IoriError, IoriResult};
+use futures::FutureExt;
 pub use sanitize_filename_reader_friendly::sanitize;
 
 pub struct DuplicateOutputFileNamer {
@@ -185,6 +186,68 @@ impl IoriPathExt for PathBuf {
         self.metadata()
             .map(|m| m.is_file() && m.len() > 0)
             .unwrap_or(false)
+    }
+}
+
+pub struct SystemDotFiles {
+    pub root: PathBuf,
+}
+
+impl SystemDotFiles {
+    pub fn new(root: PathBuf) -> Self {
+        Self { root }
+    }
+
+    pub async fn scan<F>(&self, recursive: bool, action: F) -> IoriResult<()>
+    where
+        F: Fn(PathBuf) -> std::pin::Pin<Box<dyn Future<Output = IoriResult<()>> + Send>>
+            + Copy
+            + Send,
+    {
+        SystemDotFiles::do_scan(&self.root, recursive, action).await
+    }
+
+    #[async_recursion::async_recursion]
+    async fn do_scan<P, F>(path: P, recursive: bool, action: F) -> IoriResult<()>
+    where
+        P: AsRef<Path> + Send,
+        F: Fn(PathBuf) -> std::pin::Pin<Box<dyn Future<Output = IoriResult<()>> + Send>>
+            + Copy
+            + Send,
+    {
+        let mut entries = tokio::fs::read_dir(path).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            if entry.file_type().await?.is_dir() && recursive {
+                SystemDotFiles::do_scan(entry.path(), recursive, action).await?;
+            }
+            if entry.file_type().await?.is_file() {
+                match entry.file_name().to_string_lossy().as_bytes() {
+                    b".DS_Store" => {
+                        action(entry.path()).await?;
+                    }
+                    b".directory" => {
+                        action(entry.path()).await?;
+                    }
+                    file_name if file_name.starts_with(b"._") => {
+                        // https://en.wikipedia.org/wiki/AppleSingle_and_AppleDouble_formats
+                        action(entry.path()).await?;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn clean(&self, recursive: bool) -> IoriResult<()> {
+        self.scan(recursive, |path| {
+            async {
+                tokio::fs::remove_file(path).await?;
+                Ok(())
+            }
+            .boxed()
+        })
+        .await
     }
 }
 
