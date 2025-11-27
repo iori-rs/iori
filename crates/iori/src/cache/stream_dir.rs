@@ -6,7 +6,7 @@ use tokio::fs::File;
 use crate::{
     IoriError, IoriResult, StreamType,
     cache::{CacheSource, CacheSourceReader, CacheSourceWriter},
-    util::path::IoriPathExt,
+    util::path::{IoriPathExt, SystemDotFiles},
 };
 
 const IGNORED_FILES: [&str; 2] = [
@@ -149,13 +149,10 @@ impl CacheSource for StreamDirCacheSource {
             tokio::fs::remove_dir_all(&streams_dir).await?;
         }
 
-        // Cleanup for .DS_Store files or KDE files
-        for file in IGNORED_FILES.iter() {
-            let path = self.cache_dir.join(file);
-            if path.exists() {
-                tokio::fs::remove_file(path).await?;
-            }
-        }
+        // dot_clean for macOS
+        SystemDotFiles::new(self.cache_dir.clone())
+            .clean(true)
+            .await?;
 
         // Then try to remove the cache directory but do not call it recursively
         if let Err(e) = tokio::fs::remove_dir(&self.cache_dir).await {
