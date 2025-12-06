@@ -7,8 +7,6 @@ pub enum FfmpegError {
     Ffmpeg(#[from] rsmpeg::error::RsmpegError),
     #[error(transparent)]
     Nul(#[from] std::ffi::NulError),
-    // #[error(transparent)]
-    // Io(#[from] std::io::Error),
     #[error(transparent)]
     Join(#[from] tokio::task::JoinError),
 }
@@ -16,7 +14,6 @@ pub enum FfmpegError {
 impl From<FfmpegError> for IoriError {
     fn from(error: FfmpegError) -> Self {
         match error {
-            // FfmpegError::Io(error) => IoriError::IOError(error),
             FfmpegError::Ffmpeg(error) => IoriError::Custom(Box::new(error)),
             FfmpegError::Nul(error) => IoriError::Custom(Box::new(error)),
             FfmpegError::Join(error) => IoriError::Custom(Box::new(error)),
