@@ -9,6 +9,7 @@ license.workspace = true
 
 [dependencies]
 iori = { workspace = true, features = ["opendal-fs"] }
+iori-ffmpeg = { workspace = true, optional = true }
 iori-nicolive.workspace = true
 iori-showroom.workspace = true
 iori-gigafile.workspace = true
@@ -55,13 +56,14 @@ i18n-embed = { version = "0.15.4", features = [
 ] }
 i18n-embed-fl = "0.9.4"
 rust-embed = "8.7.0"
+cfg-if = "1.0.4"
 
 [build-dependencies]
 winresource = "0.1.22"
 
 [features]
-default = ["proxy"]
-ffmpeg = ["iori/ffmpeg"]
+default = ["ffmpeg", "proxy"]
+ffmpeg = ["iori-ffmpeg"]
 proxy = ["iori/proxy"]
 
 [[bin]]

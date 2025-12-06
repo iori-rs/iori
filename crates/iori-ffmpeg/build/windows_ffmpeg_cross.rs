@@ -1,6 +1,6 @@
 #!/bin/sh
 #![allow(unused_attributes)] /*
-                             OUT=/tmp/tmp && rustc "$0" -o ${OUT} && exec ${OUT} $@ || exit $? #*/
+OUT=/tmp/tmp && rustc "$0" -o ${OUT} && exec ${OUT} $@ || exit $? #*/
 
 use std::fs;
 use std::io::Result;

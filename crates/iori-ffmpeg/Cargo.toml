@@ -1,0 +1,18 @@
+[package]
+name = "iori-ffmpeg"
+version = "0.0.1"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+rsmpeg = "0.16.0"
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+iori.workspace = true
+
+[features]
+default = []
+link-system = ["rsmpeg/link_system_ffmpeg"]

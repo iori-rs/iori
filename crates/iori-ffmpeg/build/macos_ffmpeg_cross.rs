@@ -1,6 +1,6 @@
 #!/bin/sh
 #![allow(unused_attributes)] /*
-                             OUT=/tmp/tmp && rustc "$0" -o ${OUT} && exec ${OUT} $@ || exit $? #*/
+OUT=/tmp/tmp && rustc "$0" -o ${OUT} && exec ${OUT} $@ || exit $? #*/
 
 use std::fs;
 use std::io::Result;
@@ -20,6 +20,8 @@ fn cd(dir_name: &str) -> Result<()> {
 }
 
 fn main() -> Result<()> {
+    let arch = "x86_64";
+
     let _ = mkdir("tmp");
 
     cd("tmp")?;
@@ -58,12 +60,20 @@ fn main() -> Result<()> {
         .arg("FETCH_HEAD")
         .status()?;
 
+    // Force x86_64 target flags so configure tests use the intended arch.
     Command::new("./configure")
         .arg(format!("--prefix={}", build_path))
+        .arg("--enable-cross-compile")
+        .arg("--target-os=darwin")
+        .arg(format!("--arch={arch}"))
+        .arg("--cc=clang")
+        .arg("--cxx=clang++")
+        .arg(format!("--extra-cflags=-arch {arch}"))
+        .arg(format!("--extra-cxxflags=-arch {arch}"))
+        .arg(format!("--extra-ldflags=-arch {arch}"))
         // To workaround `https://github.com/larksuite/rsmpeg/pull/98#issuecomment-1467511193`
         .arg("--disable-decoder=exr,phm")
         .arg("--disable-programs")
-        .arg("--disable-autodetect")
         .status()?;
 
     Command::new("make")

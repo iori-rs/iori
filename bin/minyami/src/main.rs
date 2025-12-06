@@ -17,7 +17,7 @@ use iori::{
     dash::live::CommonDashLiveSource,
     download::{ParallelDownloader, TracingApp},
     hls::{CommonM3u8ArchiveSource, HlsLiveSource, SegmentRange},
-    merge::IoriMerger,
+    merge::{IoriMerger, MkvmergeMerger},
 };
 use iori_nicolive::source::NicoTimeshiftSource;
 use reqwest::{
@@ -244,7 +244,7 @@ impl MinyamiArgs {
         output_file
     }
 
-    fn merger(&self) -> IoriMerger {
+    fn merger(&self) -> IoriMerger<MkvmergeMerger, MkvmergeMerger> {
         if self.dash {
             let target_file = self.final_output_file();
             if self.pipe {
@@ -254,7 +254,7 @@ impl MinyamiArgs {
                     std::env::var("RE_LIVE_PIPE_OPTIONS").ok(),
                 )
             } else {
-                IoriMerger::auto(target_file, !self.keep)
+                IoriMerger::mkvmerge(target_file, !self.keep)
             }
         } else if self.pipe && self.output.is_none() {
             IoriMerger::pipe(!self.keep)
@@ -265,7 +265,7 @@ impl MinyamiArgs {
             if self.pipe {
                 IoriMerger::pipe_to_file(target_file, !self.keep)
             } else {
-                IoriMerger::auto(target_file, !self.keep)
+                IoriMerger::mkvmerge(target_file, !self.keep)
             }
         }
     }

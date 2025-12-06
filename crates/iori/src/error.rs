@@ -83,24 +83,8 @@ pub enum IoriError {
     #[error("Invalid date time: {0}")]
     DateTimeParsing(String),
 
-    #[cfg(feature = "ffmpeg")]
-    #[error(transparent)]
-    RsmpegError(Box<rsmpeg::error::RsmpegError>),
-
-    #[cfg(feature = "ffmpeg")]
-    #[error(transparent)]
-    InvalidTrackPath(#[from] std::ffi::NulError),
-
-    #[cfg(feature = "ffmpeg")]
-    #[error(transparent)]
-    JoinError(#[from] tokio::task::JoinError),
-}
-
-#[cfg(feature = "ffmpeg")]
-impl From<rsmpeg::error::RsmpegError> for IoriError {
-    fn from(err: rsmpeg::error::RsmpegError) -> Self {
-        IoriError::RsmpegError(Box::new(err))
-    }
+    #[error("{0}")]
+    Custom(#[from] Box<dyn std::error::Error + Send + Sync>),
 }
 
 #[cfg(feature = "opendal")]

@@ -1,22 +1,20 @@
 mod auto;
 mod concat;
-#[cfg(feature = "ffmpeg")]
-mod ffmpeg;
 mod pipe;
-mod skip;
 #[cfg(feature = "proxy")]
 mod proxy;
+mod skip;
 
-pub use auto::AutoMerger;
+pub use auto::{AutoMerger, MkvmergeMerger};
 pub use concat::ConcatAfterMerger;
 pub use pipe::PipeMerger;
-pub use skip::SkipMerger;
 #[cfg(feature = "proxy")]
 pub use proxy::ProxyMerger;
+pub use skip::SkipMerger;
 use tokio::io::AsyncWrite;
 
-use crate::{SegmentInfo, cache::CacheSource, error::IoriResult};
-use std::path::PathBuf;
+use crate::{SegmentFormat, SegmentInfo, cache::CacheSource, error::IoriResult};
+use std::path::{Path, PathBuf};
 
 pub trait Merger {
     /// Result of the merge.
@@ -46,16 +44,16 @@ pub trait Merger {
     ) -> impl Future<Output = IoriResult<Self::Result>> + Send;
 }
 
-pub enum IoriMerger {
+pub enum IoriMerger<C, M> {
     Pipe(PipeMerger),
     Skip(SkipMerger),
     Concat(ConcatAfterMerger),
-    Auto(AutoMerger),
+    Auto(AutoMerger<C, M>),
     #[cfg(feature = "proxy")]
     Proxy(ProxyMerger),
 }
 
-impl IoriMerger {
+impl<C, M> IoriMerger<C, M> {
     pub fn pipe(recycle: bool) -> Self {
         Self::Pipe(PipeMerger::stdout(recycle))
     }
@@ -83,17 +81,34 @@ impl IoriMerger {
         Self::Concat(ConcatAfterMerger::new(output_file, recycle))
     }
 
-    pub fn auto(output_file: PathBuf, recycle: bool) -> Self {
-        Self::Auto(AutoMerger::new(output_file, recycle))
-    }
-
     #[cfg(feature = "proxy")]
     pub fn proxy(addr: std::net::SocketAddr) -> Self {
         Self::Proxy(ProxyMerger::new(addr))
     }
 }
 
-impl Merger for IoriMerger {
+impl IoriMerger<MkvmergeMerger, MkvmergeMerger> {
+    pub fn mkvmerge(output_file: PathBuf, recycle: bool) -> Self {
+        Self::Auto(AutoMerger::mkvmerge(output_file, recycle))
+    }
+}
+
+impl<C, M> IoriMerger<C, M> {
+    pub fn auto(output_file: PathBuf, recycle: bool, concat_merger: C, merge_merger: M) -> Self {
+        Self::Auto(AutoMerger::new(
+            output_file,
+            recycle,
+            concat_merger,
+            merge_merger,
+        ))
+    }
+}
+
+impl<C, M> Merger for IoriMerger<C, M>
+where
+    C: AutoMergerConcat + Send,
+    M: AutoMergerMerge + Send,
+{
     type Result = (); // TODO: merger might have different result types
 
     async fn update(&mut self, segment: SegmentInfo, cache: impl CacheSource) -> IoriResult<()> {
@@ -127,5 +142,56 @@ impl Merger for IoriMerger {
             #[cfg(feature = "proxy")]
             Self::Proxy(merger) => merger.finish(cache).await,
         }
+    }
+}
+
+pub trait AutoMergerConcat {
+    fn format(&self) -> SegmentFormat;
+
+    fn concat<O>(
+        &mut self,
+        segments: &[&SegmentInfo],
+        cache: &impl CacheSource,
+        output_path: O,
+    ) -> impl Future<Output = IoriResult<()>> + Send
+    where
+        O: AsRef<Path> + Send;
+}
+
+pub trait AutoMergerMerge {
+    fn format(&self) -> SegmentFormat;
+
+    fn merge<O>(
+        &mut self,
+        tracks: Vec<PathBuf>,
+        output: O,
+    ) -> impl Future<Output = IoriResult<()>> + Send
+    where
+        O: AsRef<Path> + Send;
+}
+
+impl AutoMergerConcat for () {
+    fn format(&self) -> SegmentFormat {
+        SegmentFormat::Mpeg2TS
+    }
+
+    async fn concat<O>(&mut self, _: &[&SegmentInfo], _: &impl CacheSource, _: O) -> IoriResult<()>
+    where
+        O: AsRef<Path> + Send,
+    {
+        Ok(())
+    }
+}
+
+impl AutoMergerMerge for () {
+    fn format(&self) -> SegmentFormat {
+        SegmentFormat::Mpeg2TS
+    }
+
+    async fn merge<O>(&mut self, _: Vec<PathBuf>, _: O) -> IoriResult<()>
+    where
+        O: AsRef<Path> + Send,
+    {
+        Ok(())
     }
 }

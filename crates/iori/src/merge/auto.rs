@@ -1,15 +1,16 @@
+use super::{AutoMergerConcat, AutoMergerMerge, Merger, concat::ConcatSegment};
 use crate::{
     SegmentFormat, SegmentInfo, StreamType, cache::CacheSource, error::IoriResult,
     util::path::IoriPathExt,
 };
 use std::{
     collections::HashMap,
-    io::Write,
     path::{Path, PathBuf},
 };
-use tokio::{fs::File, io::BufWriter, process::Command};
+use tokio::{fs::File, io::BufWriter};
 
-use super::{Merger, concat::ConcatSegment};
+mod mkvmerge;
+pub use mkvmerge::MkvmergeMerger;
 
 /// AutoMerger is a merger that automatically chooses the best strategy to merge segments.
 ///
@@ -22,7 +23,7 @@ use super::{Merger, concat::ConcatSegment};
 ///
 /// If there are multiple tracks to merge, it will use mkvmerge to merge them.
 /// If there are any missing segments, the merge will be skipped.
-pub struct AutoMerger {
+pub struct AutoMerger<C, M> {
     segments: HashMap<u64, Vec<ConcatSegment>>,
 
     /// Whether to recycle downloaded segments after merging.
@@ -34,10 +35,13 @@ pub struct AutoMerger {
     output_file: PathBuf,
     /// A list of file extensions which should skip adding an auto extension.
     allowed_extensions: Vec<&'static str>,
+
+    concat_merger: C,
+    merge_merger: M,
 }
 
-impl AutoMerger {
-    pub fn new(output_file: PathBuf, recycle: bool) -> Self {
+impl<C, M> AutoMerger<C, M> {
+    pub fn new(output_file: PathBuf, recycle: bool, concat_merger: C, merge_merger: M) -> Self {
         Self {
             segments: HashMap::new(),
             recycle,
@@ -45,11 +49,23 @@ impl AutoMerger {
 
             output_file,
             allowed_extensions: vec!["mkv", "mp4", "ts"],
+            concat_merger,
+            merge_merger,
         }
     }
 }
 
-impl Merger for AutoMerger {
+impl AutoMerger<MkvmergeMerger, MkvmergeMerger> {
+    pub fn mkvmerge(output_file: PathBuf, recycle: bool) -> Self {
+        Self::new(output_file, recycle, MkvmergeMerger, MkvmergeMerger)
+    }
+}
+
+impl<C, M> Merger for AutoMerger<C, M>
+where
+    C: AutoMergerConcat + Send,
+    M: AutoMergerMerge + Send,
+{
     type Result = ();
 
     async fn update(&mut self, segment: SegmentInfo, _cache: impl CacheSource) -> IoriResult<()> {
@@ -113,16 +129,10 @@ impl Merger for AutoMerger {
             if can_concat {
                 concat_merge(&segments, &cache, &output_path).await?;
             } else {
-                #[cfg(feature = "ffmpeg")]
-                {
-                    output_path.set_extension("ts");
-                    super::ffmpeg::ffmpeg_concat(&segments, &cache, &output_path).await?;
-                }
-                #[cfg(not(feature = "ffmpeg"))]
-                {
-                    output_path.set_extension("mkv");
-                    mkvmerge_concat(&segments, &cache, &output_path).await?;
-                }
+                output_path.set_extension(self.concat_merger.format().as_ext());
+                self.concat_merger
+                    .concat(&segments, &cache, &output_path)
+                    .await?;
             }
 
             tracks.push(output_path);
@@ -143,26 +153,16 @@ impl Merger for AutoMerger {
             tokio::fs::rename(&tracks[0], &output).await?;
             output
         } else {
-            #[cfg(feature = "ffmpeg")]
-            {
-                let mut output = self
-                    .output_file
-                    .with_replaced_extension("mp4", &self.allowed_extensions)
-                    .sanitize()
-                    .deduplicate()?;
-                super::ffmpeg::ffmpeg_merge(tracks, &output).await?;
-                output
-            }
-            #[cfg(not(feature = "ffmpeg"))]
-            {
-                let output = self
-                    .output_file
-                    .with_replaced_extension("mkv", &self.allowed_extensions)
-                    .sanitize()
-                    .deduplicate()?;
-                mkvmerge_merge(tracks, &output).await?;
-                output
-            }
+            let output = self
+                .output_file
+                .with_replaced_extension(
+                    self.merge_merger.format().as_ext(),
+                    &self.allowed_extensions,
+                )
+                .sanitize()
+                .deduplicate()?;
+            self.merge_merger.merge(tracks, &output).await?;
+            output
         };
 
         if self.recycle {
@@ -194,117 +194,5 @@ where
         let mut reader = cache.open_reader(segment).await?;
         tokio::io::copy(&mut reader, &mut output).await?;
     }
-    Ok(())
-}
-
-#[allow(unused)]
-async fn mkvmerge_concat<O>(
-    segments: &[&SegmentInfo],
-    cache: &impl CacheSource,
-    output_path: O,
-) -> IoriResult<()>
-where
-    O: AsRef<Path>,
-{
-    tracing::debug!("Concatenating with mkvmerge...");
-
-    let mkvmerge = which::which("mkvmerge")?;
-
-    let mut args = vec!["-q".to_string(), "[".to_string()];
-    for segment in segments {
-        let filename = cache.segment_path(segment).await.unwrap();
-        args.push(filename.to_string_lossy().to_string());
-    }
-    args.push("]".to_string());
-    args.push("-o".to_string());
-    args.push(output_path.as_ref().to_string_lossy().to_string());
-
-    let mut temp = tempfile::Builder::new().tempfile()?;
-    let temp_path = temp.path().to_path_buf();
-    temp.write_all(serde_json::to_string(&args)?.as_bytes())?;
-    temp.flush()?;
-
-    use tokio::io::{AsyncBufReadExt, BufReader};
-
-    let mut child = Command::new(mkvmerge)
-        .arg(format!("@{}", temp_path.to_string_lossy()))
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()?;
-
-    // Capture and log stdout
-    if let Some(stdout) = child.stdout.take() {
-        let stdout_reader = BufReader::new(stdout);
-        tokio::spawn(async move {
-            let mut lines = stdout_reader.lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                tracing::info!("[mkvmerge] {}", line);
-            }
-        });
-    }
-
-    // Capture and log stderr
-    if let Some(stderr) = child.stderr.take() {
-        let stderr_reader = BufReader::new(stderr);
-        tokio::spawn(async move {
-            let mut lines = stderr_reader.lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                tracing::warn!("[mkvmerge] {}", line);
-            }
-        });
-    }
-
-    child.wait().await?;
-
-    Ok(())
-}
-
-#[allow(unused)]
-async fn mkvmerge_merge<O>(tracks: Vec<PathBuf>, output: O) -> IoriResult<()>
-where
-    O: AsRef<Path>,
-{
-    use tokio::io::{AsyncBufReadExt, BufReader};
-
-    assert!(tracks.len() > 1);
-
-    let mkvmerge = which::which("mkvmerge")?;
-    let mut merge = Command::new(mkvmerge)
-        .args(tracks.iter())
-        .arg("-o")
-        .arg(output.as_ref().with_extension("mkv"))
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()?;
-
-    // Capture and log stdout
-    if let Some(stdout) = merge.stdout.take() {
-        let stdout_reader = BufReader::new(stdout);
-        tokio::spawn(async move {
-            let mut lines = stdout_reader.lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                tracing::info!("[mkvmerge] {}", line);
-            }
-        });
-    }
-
-    // Capture and log stderr
-    if let Some(stderr) = merge.stderr.take() {
-        let stderr_reader = BufReader::new(stderr);
-        tokio::spawn(async move {
-            let mut lines = stderr_reader.lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                tracing::warn!("[mkvmerge] {}", line);
-            }
-        });
-    }
-
-    merge.wait().await?;
-
-    // remove temporary files
-    for track in tracks {
-        tokio::fs::remove_file(track).await?;
-    }
-
     Ok(())
 }

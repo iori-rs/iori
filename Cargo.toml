@@ -10,6 +10,7 @@ license = "Apache-2.0"
 
 [workspace.dependencies]
 iori = { path = "crates/iori" }
+iori-ffmpeg = { path = "crates/iori-ffmpeg" }
 iori-ssa = { path = "crates/ssa" }
 
 iori-nicolive = { path = "platforms/nicolive" }

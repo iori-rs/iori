@@ -157,9 +157,9 @@ dependencies = [
 
 [[package]]
 name = "async-trait"
-version = "0.1.86"
+version = "0.1.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "644dd749086bf3771a2fbc5f256fdb982d53f011c7d5d560304eafeecebce79d"
+checksum = "9035ad2d096bed7955a320ee7e2230574d28fd3c3a0f186cbea1ff3c7eed5dbb"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -433,9 +433,9 @@ dependencies = [
 
 [[package]]
 name = "cfg-if"
-version = "1.0.0"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
+checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
 name = "cfg_aliases"
@@ -2084,7 +2084,6 @@ dependencies = [
  "regex",
  "reqwest",
  "reqwest_cookie_store",
- "rsmpeg",
  "sanitize-filename-reader-friendly",
  "serde",
  "serde_json",
@@ -2100,6 +2099,17 @@ dependencies = [
  "url",
  "which",
  "wiremock",
+]
+
+[[package]]
+name = "iori-ffmpeg"
+version = "0.0.1"
+dependencies = [
+ "iori",
+ "rsmpeg",
+ "thiserror 2.0.11",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -3763,6 +3773,7 @@ dependencies = [
  "anyhow",
  "async-recursion",
  "base64",
+ "cfg-if",
  "chrono",
  "clap",
  "clap-handler",
@@ -3771,6 +3782,7 @@ dependencies = [
  "i18n-embed",
  "i18n-embed-fl",
  "iori",
+ "iori-ffmpeg",
  "iori-gigafile",
  "iori-nicolive",
  "iori-radiko",

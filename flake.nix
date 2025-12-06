@@ -53,6 +53,7 @@
             rustPlatform.bindgenHook # for clang
             nasm
             protobuf
+            gcc # ffmpeg uses gcc to check host C11 support
 
             mkvtoolnix-cli
           ];
@@ -60,7 +61,7 @@
             LC_ALL = "C";
           };
           shellHook = ''
-            pushd crates/iori
+            pushd crates/iori-ffmpeg
             ./build/build.rs
 
             export FFMPEG_INCLUDE_DIR="$PWD/tmp/ffmpeg_build/include"

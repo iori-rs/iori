@@ -35,6 +35,11 @@ use std::{
 };
 use tokio::sync::oneshot;
 
+#[cfg(feature = "ffmpeg")]
+type MergerType = iori_ffmpeg::FFmpegMerger;
+#[cfg(not(feature = "ffmpeg"))]
+type MergerType = iori::merge::auto::MkvmergeMerger;
+
 #[derive(Parser, Clone, Default)]
 #[clap(name = "download", visible_alias = "dl", short_flag = 'D')]
 pub struct DownloadCommand<I>
@@ -361,7 +366,7 @@ pub struct OutputModeOptions {
 }
 
 impl OutputOptions {
-    pub fn into_merger(self) -> anyhow::Result<IoriMerger> {
+    pub fn into_merger(self) -> anyhow::Result<IoriMerger<MergerType, MergerType>> {
         Ok(if self.output_mode.no_merge {
             IoriMerger::skip()
         } else if self.output_mode.proxy {
@@ -390,7 +395,13 @@ impl OutputOptions {
             if self.output_mode.concat {
                 IoriMerger::concat(output, self.recycle)
             } else {
-                IoriMerger::auto(output, self.recycle)
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "ffmpeg")] {
+                        IoriMerger::auto(output, self.recycle, iori_ffmpeg::FFmpegMerger, iori_ffmpeg::FFmpegMerger)
+                    } else {
+                        IoriMerger::mkvmerge(output, self.recycle)
+                    }
+                }
             }
         } else {
             anyhow::bail!("Output file must be specified unless --pipe or --no-merge is used");
