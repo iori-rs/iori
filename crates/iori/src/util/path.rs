@@ -1,6 +1,5 @@
 use std::{
     ffi::{OsStr, OsString},
-    os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
 };
 
@@ -222,18 +221,13 @@ impl SystemDotFiles {
                 SystemDotFiles::do_scan(entry.path(), recursive, action).await?;
             }
             if entry.file_type().await?.is_file() {
-                match entry.file_name().as_bytes() {
-                    b".DS_Store" => {
+                if let Some(file_name_str) = entry.file_name().to_str() {
+                    if file_name_str == ".DS_Store"
+                        || file_name_str == ".directory"
+                        || file_name_str.starts_with("._")
+                    {
                         action(entry.path()).await?;
                     }
-                    b".directory" => {
-                        action(entry.path()).await?;
-                    }
-                    file_name if file_name.starts_with(b"._") => {
-                        // https://en.wikipedia.org/wiki/AppleSingle_and_AppleDouble_formats
-                        action(entry.path()).await?;
-                    }
-                    _ => {}
                 }
             }
         }
