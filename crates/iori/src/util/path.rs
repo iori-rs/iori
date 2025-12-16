@@ -221,13 +221,13 @@ impl SystemDotFiles {
                 SystemDotFiles::do_scan(entry.path(), recursive, action).await?;
             }
             if entry.file_type().await?.is_file() {
-                if let Some(file_name_str) = entry.file_name().to_str() {
-                    if file_name_str == ".DS_Store"
-                        || file_name_str == ".directory"
-                        || file_name_str.starts_with("._")
-                    {
-                        action(entry.path()).await?;
-                    }
+                let file_name = entry.file_name();
+                let file_name_str = file_name.to_string_lossy();
+                if file_name_str == ".DS_Store"
+                    || file_name_str == ".directory"
+                    || file_name_str.starts_with("._")
+                {
+                    action(entry.path()).await?;
                 }
             }
         }
