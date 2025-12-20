@@ -126,7 +126,7 @@ where
         let mut namer = DuplicateOutputFileNamer::new(self.output_file.clone());
         let mut final_outputs = Vec::new();
 
-        for (i, part_index) in all_part_indexes.into_iter().enumerate() {
+        for part_index in all_part_indexes {
             let mut tracks = Vec::new();
 
             for stream_id in &streams {
@@ -170,11 +170,7 @@ where
                 tokio::fs::create_dir_all(parent).await?;
             }
 
-            let part_output_path = if i == 0 {
-                self.output_file.clone()
-            } else {
-                namer.next_path()
-            };
+            let part_output_path = namer.next_path();
 
             let output_path = if tracks.len() == 1 {
                 let track_format = tracks[0].extension().and_then(|e| e.to_str());

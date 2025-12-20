@@ -66,11 +66,7 @@ impl PipeMerger {
         let mut stream: OrderedStream<(u64, Option<SendSegment>)> = OrderedStream::new(rx);
         let future = tokio::spawn(async move {
             let mut namer = DuplicateOutputFileNamer::new(target_path.clone());
-            let mut target = Some(
-                tokio::fs::File::create(&target_path)
-                    .await
-                    .expect("Failed to create file"),
-            );
+            let mut target: Option<tokio::fs::File> = None;
             let mut current_part_index: Option<u64> = None;
 
             while let Some((_, (part_index, segment))) = stream.next().await {
