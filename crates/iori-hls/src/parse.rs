@@ -19,12 +19,14 @@ pub fn parse_playlist_res(input: &[u8]) -> Result<Playlist, M3u8ParseError> {
 
     // media playlist
     let mut media_sequence = 0;
+    let mut discontinuity_sequence = 0;
     let mut segments: Vec<MediaSegment> = Vec::new();
     let mut end_list = false;
 
     // Maps(initial segment information) and keys(encryption information)
     let mut current_key: Option<Key> = None;
     let mut current_map: Option<Map> = None;
+    let mut current_part_index = 0;
 
     // Pending tags, which should be cleared after the URI line is processed
     let mut pending_inf: Option<hls::Inf> = None;
@@ -35,6 +37,13 @@ pub fn parse_playlist_res(input: &[u8]) -> Result<Playlist, M3u8ParseError> {
         match line {
             HlsLine::KnownTag(KnownTag::Hls(tag)) => match tag {
                 hls::Tag::MediaSequence(seq) => media_sequence = seq.media_sequence(),
+                hls::Tag::DiscontinuitySequence(seq) => {
+                    discontinuity_sequence = seq.discontinuity_sequence();
+                    current_part_index = discontinuity_sequence;
+                }
+                hls::Tag::Discontinuity(_) => {
+                    current_part_index += 1;
+                }
                 hls::Tag::Inf(inf) => pending_inf = Some(inf),
                 hls::Tag::Byterange(range) => pending_byterange = Some(range.into()),
                 hls::Tag::Key(key) => current_key = Some(key.into()),
@@ -63,6 +72,7 @@ pub fn parse_playlist_res(input: &[u8]) -> Result<Playlist, M3u8ParseError> {
                             pending_byterange.take(),
                             current_key.clone(),
                             current_map.clone(),
+                            current_part_index,
                         )
                             .into(),
                     );
@@ -84,6 +94,7 @@ pub fn parse_playlist_res(input: &[u8]) -> Result<Playlist, M3u8ParseError> {
     } else {
         Playlist::MediaPlaylist(MediaPlaylist {
             media_sequence,
+            discontinuity_sequence,
             segments,
             end_list,
         })

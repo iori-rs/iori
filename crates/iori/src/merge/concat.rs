@@ -89,21 +89,53 @@ async fn concat_merge(
     cache: &impl CacheSource,
     output_path: PathBuf,
 ) -> IoriResult<()> {
-    segments.sort_by(|a, b| a.segment.sequence.cmp(&b.segment.sequence));
-    let segments = trim_end(segments, |s| !s.success);
+    segments.sort_by(|a, b| {
+        a.segment
+            .part_index
+            .cmp(&b.segment.part_index)
+            .then(a.segment.sequence.cmp(&b.segment.sequence))
+    });
 
     let mut namer = DuplicateOutputFileNamer::new(output_path.clone());
-    let mut output = File::create(output_path).await?;
-    for segment in segments {
-        let success = segment.success;
-        let segment = &segment.segment;
-        if !success {
-            output = File::create(namer.next_path()).await?;
+    let mut current_part_index: Option<u64> = None;
+    let mut output: Option<File> = None;
+
+    // We don't use trim_end here because we want to handle parts individually.
+    // However, we should still skip trailing failed segments in each part.
+
+    let mut part_start = 0;
+    while part_start < segments.len() {
+        let part_index = segments[part_start].segment.part_index;
+        let mut part_end = part_start + 1;
+        while part_end < segments.len() && segments[part_end].segment.part_index == part_index {
+            part_end += 1;
         }
 
-        let mut reader = cache.open_reader(segment).await?;
-        tokio::io::copy(&mut reader, &mut output).await?;
+        let part_segments = &mut segments[part_start..part_end];
+        let trimmed_part_segments = trim_end(part_segments, |s| !s.success);
+
+        if !trimmed_part_segments.is_empty() {
+            let path = if current_part_index.is_none() {
+                output_path.clone()
+            } else {
+                namer.next_path()
+            };
+
+            let mut out = File::create(path).await?;
+            for segment in trimmed_part_segments {
+                if !segment.success {
+                    out = File::create(namer.next_path()).await?;
+                }
+
+                let mut reader = cache.open_reader(&segment.segment).await?;
+                tokio::io::copy(&mut reader, &mut out).await?;
+            }
+            current_part_index = Some(part_index);
+        }
+
+        part_start = part_end;
     }
+
     Ok(())
 }
 

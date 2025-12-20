@@ -1,10 +1,10 @@
 use super::{AutoMergerConcat, AutoMergerMerge, Merger, concat::ConcatSegment};
 use crate::{
     SegmentFormat, SegmentInfo, StreamType, cache::CacheSource, error::IoriResult,
-    util::path::IoriPathExt,
+    util::path::IoriPathExt, utils::DuplicateOutputFileNamer,
 };
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, BTreeSet, HashMap},
     path::{Path, PathBuf},
 };
 use tokio::{fs::File, io::BufWriter};
@@ -24,7 +24,8 @@ pub use mkvmerge::MkvmergeMerger;
 /// If there are multiple tracks to merge, it will use mkvmerge to merge them.
 /// If there are any missing segments, the merge will be skipped.
 pub struct AutoMerger<C, M> {
-    segments: HashMap<u64, Vec<ConcatSegment>>,
+    // stream_id -> part_index -> segments
+    segments: HashMap<u64, BTreeMap<u64, Vec<ConcatSegment>>>,
 
     /// Whether to recycle downloaded segments after merging.
     recycle: bool,
@@ -73,6 +74,8 @@ where
         self.segments
             .entry(segment.stream_id)
             .or_default()
+            .entry(segment.part_index)
+            .or_default()
             .push(ConcatSegment {
                 segment,
                 success: true,
@@ -84,6 +87,8 @@ where
         cache.invalidate(&segment).await?;
         self.segments
             .entry(segment.stream_id)
+            .or_default()
+            .entry(segment.part_index)
             .or_default()
             .push(ConcatSegment {
                 segment,
@@ -104,68 +109,97 @@ where
             return Ok(());
         }
 
-        let mut tracks = Vec::new();
-        for (stream_id, segments) in self.segments.iter() {
-            let mut segments: Vec<_> = segments.iter().map(|s| &s.segment).collect();
+        // 1. Collect all parts for each stream
+        let mut streams: Vec<u64> = self.segments.keys().copied().collect();
+        streams.sort();
 
-            let first_segment = segments[0];
-            let mut output_path = self.output_file.to_owned();
-            output_path.add_suffix(format!("{stream_id:02}"));
-            output_path.set_extension(first_segment.format.as_ext());
-
-            segments.sort_by(|a, b| a.sequence.cmp(&b.sequence));
-
-            if output_path.exists() {
-                let timestamp = chrono::Utc::now().timestamp();
-                output_path.add_suffix(format!("{timestamp}"));
+        // 2. Determine global parts.
+        // We use the unique set of part_indexes across all streams.
+        // If a stream doesn't have a part_index, it will be missing in that muxed part.
+        let mut all_part_indexes: BTreeSet<u64> = BTreeSet::new();
+        for parts in self.segments.values() {
+            for part_index in parts.keys() {
+                all_part_indexes.insert(*part_index);
             }
-            // TODO: if the file still exists, throw error
+        }
 
-            let can_concat = segments.iter().all(|s| {
-                matches!(
-                    s.format,
-                    SegmentFormat::Mpeg2TS | SegmentFormat::Aac | SegmentFormat::Raw(_)
-                ) || matches!(s.stream_type, StreamType::Subtitle)
-            });
-            if can_concat {
-                concat_merge(&segments, &cache, &output_path).await?;
+        let mut namer = DuplicateOutputFileNamer::new(self.output_file.clone());
+        let mut final_outputs = Vec::new();
+
+        for (i, part_index) in all_part_indexes.into_iter().enumerate() {
+            let mut tracks = Vec::new();
+
+            for stream_id in &streams {
+                if let Some(segments) = self.segments[stream_id].get(&part_index) {
+                    let mut segments: Vec<_> = segments.iter().map(|s| &s.segment).collect();
+                    let first_segment = segments[0];
+
+                    // Temporary track file
+                    let mut track_output_path = self.output_file.to_owned();
+                    track_output_path.add_suffix(format!("_part{part_index}_stream{stream_id}"));
+                    track_output_path.set_extension(first_segment.format.as_ext());
+
+                    segments.sort_by(|a, b| a.sequence.cmp(&b.sequence));
+
+                    let can_concat = segments.iter().all(|s| {
+                        matches!(
+                            s.format,
+                            SegmentFormat::Mpeg2TS | SegmentFormat::Aac | SegmentFormat::Raw(_)
+                        ) || matches!(s.stream_type, StreamType::Subtitle)
+                    });
+
+                    if can_concat {
+                        concat_merge(&segments, &cache, &track_output_path).await?;
+                    } else {
+                        track_output_path.set_extension(self.concat_merger.format().as_ext());
+                        self.concat_merger
+                            .concat(&segments, &cache, &track_output_path)
+                            .await?;
+                    }
+
+                    tracks.push(track_output_path);
+                }
+            }
+
+            if tracks.is_empty() {
+                continue;
+            }
+
+            tracing::info!("Merging streams for part {part_index}...");
+            if let Some(parent) = self.output_file.parent() {
+                tokio::fs::create_dir_all(parent).await?;
+            }
+
+            let part_output_path = if i == 0 {
+                self.output_file.clone()
             } else {
-                output_path.set_extension(self.concat_merger.format().as_ext());
-                self.concat_merger
-                    .concat(&segments, &cache, &output_path)
-                    .await?;
-            }
+                namer.next_path()
+            };
 
-            tracks.push(output_path);
-        }
-
-        tracing::info!("Merging streams...");
-        if let Some(parent) = self.output_file.parent() {
-            tracing::info!("Creating directory: {}", parent.display());
-            tokio::fs::create_dir_all(parent).await?;
-        }
-        let output_path = if tracks.len() == 1 {
-            let track_format = tracks[0].extension().and_then(|e| e.to_str());
-            let output = match track_format {
-                Some(ext) => self
-                    .output_file
-                    .with_replaced_extension(ext, &self.allowed_extensions),
-                None => self.output_file.clone(),
-            }
-            .deduplicate()?;
-            tokio::fs::rename(&tracks[0], &output).await?;
-            output
-        } else {
-            let output = self
-                .output_file
-                .with_replaced_extension(
-                    self.merge_merger.format().as_ext(),
-                    &self.allowed_extensions,
-                )
+            let output_path = if tracks.len() == 1 {
+                let track_format = tracks[0].extension().and_then(|e| e.to_str());
+                let output = match track_format {
+                    Some(ext) => {
+                        part_output_path.with_replaced_extension(ext, &self.allowed_extensions)
+                    }
+                    None => part_output_path,
+                }
                 .deduplicate()?;
-            self.merge_merger.merge(tracks, &output).await?;
-            output
-        };
+                tokio::fs::rename(&tracks[0], &output).await?;
+                output
+            } else {
+                let output = part_output_path
+                    .with_replaced_extension(
+                        self.merge_merger.format().as_ext(),
+                        &self.allowed_extensions,
+                    )
+                    .deduplicate()?;
+                self.merge_merger.merge(tracks, &output).await?;
+                output
+            };
+
+            final_outputs.push(output_path);
+        }
 
         if self.recycle {
             tracing::info!("End of merging.");
@@ -173,10 +207,12 @@ where
             cache.clear().await?;
         }
 
-        tracing::info!(
-            "All finished. Please checkout your files at {}",
-            output_path.display()
-        );
+        for output_path in final_outputs {
+            tracing::info!(
+                "Part finished. Please checkout your files at {}",
+                output_path.display()
+            );
+        }
         Ok(())
     }
 }

@@ -58,6 +58,7 @@ pub trait StreamingSource {
     ) -> impl Future<Output = IoriResult<impl Stream<Item = IoriResult<Vec<Self::Segment>>>>>;
 }
 
+/// A segment of a streaming source
 pub trait StreamingSegment {
     /// Stream id
     fn stream_id(&self) -> u64;
@@ -67,6 +68,11 @@ pub trait StreamingSegment {
 
     /// Sequence ID of the segment, starts from 0
     fn sequence(&self) -> u64;
+
+    /// Optional part index of the segment
+    fn part_index(&self) -> u64 {
+        0
+    }
 
     /// File name of the segment
     fn file_name(&self) -> &str;
