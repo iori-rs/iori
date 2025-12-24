@@ -201,13 +201,20 @@ impl Inspect for NicoLiveInspector {
                 initial_playlist_data: Some(danmaku.to_json(true)?),
                 ..Default::default()
             });
-            result.push(InspectPlaylist {
-                title: Some(data.program_title()),
-                playlist_url: "danmaku.ass".to_string(),
-                playlist_type: PlaylistType::RawData,
-                initial_playlist_data: Some(danmaku.to_ass()?),
-                ..Default::default()
-            });
+            match danmaku.to_ass() {
+                Ok(ass_data) => {
+                    result.push(InspectPlaylist {
+                        title: Some(data.program_title()),
+                        playlist_url: "danmaku.ass".to_string(),
+                        playlist_type: PlaylistType::RawData,
+                        initial_playlist_data: Some(ass_data),
+                        ..Default::default()
+                    });
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to generate ASS subtitle from danmaku: {e:?}");
+                }
+            }
         }
 
         Ok(InspectResult::Playlists(result))
