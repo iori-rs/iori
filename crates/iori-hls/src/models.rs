@@ -104,6 +104,7 @@ impl From<hls::MediaType> for AlternativeMediaType {
 #[derive(Debug, Clone, PartialEq, Comparable)]
 pub struct MediaPlaylist {
     pub media_sequence: u64,
+    pub discontinuity_sequence: u64,
     pub segments: Vec<MediaSegment>,
     pub end_list: bool,
 }
@@ -116,6 +117,7 @@ pub struct MediaSegment {
     pub byte_range: Option<ByteRange>,
     pub key: Option<Key>,
     pub map: Option<Map>,
+    pub part_index: u64,
 }
 
 impl<'a>
@@ -125,15 +127,17 @@ impl<'a>
         Option<ByteRange>,
         Option<Key>,
         Option<Map>,
+        u64,
     )> for MediaSegment
 {
     fn from(
-        (inf, uri, byte_range, key, map): (
+        (inf, uri, byte_range, key, map, part_index): (
             hls::Inf<'a>,
             Cow<'a, str>,
             Option<ByteRange>,
             Option<Key>,
             Option<Map>,
+            u64,
         ),
     ) -> Self {
         Self {
@@ -146,6 +150,7 @@ impl<'a>
             byte_range,
             key,
             map,
+            part_index,
         }
     }
 }
