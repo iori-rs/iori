@@ -69,7 +69,8 @@ pub trait StreamingSegment {
     /// Sequence ID of the segment, starts from 0
     fn sequence(&self) -> u64;
 
-    /// Optional part index of the segment
+    /// Part index of the segment. For segments without sub-parts or discontinuities,
+    /// this defaults to 0.
     fn part_index(&self) -> u64 {
         0
     }
