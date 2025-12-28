@@ -76,16 +76,29 @@ impl From<m3u8_rs::Resolution> for Resolution {
 
 impl From<m3u8_rs::MediaPlaylist> for MediaPlaylist {
     fn from(value: m3u8_rs::MediaPlaylist) -> Self {
+        let mut current_part_index = value.discontinuity_sequence;
+        let mut segments = Vec::with_capacity(value.segments.len());
+
+        for segment in value.segments {
+            if segment.discontinuity {
+                current_part_index += 1;
+            }
+
+            let segment: crate::models::MediaSegment = (segment, current_part_index).into();
+            segments.push(segment);
+        }
+
         MediaPlaylist {
             media_sequence: value.media_sequence,
-            segments: value.segments.into_iter().map(MediaSegment::from).collect(),
+            segments,
             end_list: value.end_list,
+            discontinuity_sequence: value.discontinuity_sequence,
         }
     }
 }
 
-impl From<m3u8_rs::MediaSegment> for MediaSegment {
-    fn from(value: m3u8_rs::MediaSegment) -> Self {
+impl From<(m3u8_rs::MediaSegment, u64)> for MediaSegment {
+    fn from((value, part_index): (m3u8_rs::MediaSegment, u64)) -> Self {
         MediaSegment {
             uri: value.uri,
             duration: (value.duration as f64).into(),
@@ -93,6 +106,7 @@ impl From<m3u8_rs::MediaSegment> for MediaSegment {
             byte_range: value.byte_range.map(ByteRange::from),
             key: value.key.map(Key::from),
             map: value.map.map(Map::from),
+            part_index,
         }
     }
 }

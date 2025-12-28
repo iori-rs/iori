@@ -25,7 +25,7 @@ type SendSegment = (
 pub struct PipeMerger {
     recycle: bool,
 
-    sender: Option<mpsc::UnboundedSender<(u64, u64, Option<SendSegment>)>>,
+    sender: Option<mpsc::UnboundedSender<(u64 /* stream_id */, u64 /* sequence */, (u64 /* part_index */, Option<SendSegment>))>>,
     future: Option<JoinHandle<()>>,
 }
 
@@ -40,9 +40,9 @@ impl PipeMerger {
     ) -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
 
-        let mut stream: OrderedStream<Option<SendSegment>> = OrderedStream::new(rx);
+        let mut stream: OrderedStream<(u64, Option<SendSegment>)> = OrderedStream::new(rx);
         let future = tokio::spawn(async move {
-            while let Some((_, segment)) = stream.next().await {
+            while let Some((_, (_, segment))) = stream.next().await {
                 if let Some((mut reader, _type, invalidate)) = segment {
                     _ = tokio::io::copy(&mut reader, &mut writer).await;
                     if recycle {
@@ -63,16 +63,20 @@ impl PipeMerger {
     pub fn file(recycle: bool, target_path: PathBuf) -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
 
-        let mut stream: OrderedStream<Option<SendSegment>> = OrderedStream::new(rx);
+        let mut stream: OrderedStream<(u64, Option<SendSegment>)> = OrderedStream::new(rx);
         let future = tokio::spawn(async move {
             let mut namer = DuplicateOutputFileNamer::new(target_path.clone());
-            let mut target = Some(
-                tokio::fs::File::create(&target_path)
-                    .await
-                    .expect("Failed to create file"),
-            );
-            while let Some((_, segment)) = stream.next().await {
+            let mut target: Option<tokio::fs::File> = None;
+            let mut current_part_index: Option<u64> = None;
+
+            while let Some((_, (part_index, segment))) = stream.next().await {
                 if let Some((mut reader, _type, invalidate)) = segment {
+                    if let Some(prev) = current_part_index {
+                        if part_index != prev {
+                            target = None;
+                        }
+                    }
+
                     if target.is_none() {
                         let file = tokio::fs::File::create(namer.next_path())
                             .await
@@ -86,6 +90,7 @@ impl PipeMerger {
                     if recycle {
                         _ = invalidate.await;
                     }
+                    current_part_index = Some(part_index);
                 } else {
                     target = None;
                 }
@@ -103,7 +108,7 @@ impl PipeMerger {
     pub fn mux(recycle: bool, output: PathBuf, extra_command: Option<String>) -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
 
-        let mut stream: OrderedStream<Option<SendSegment>> = OrderedStream::new(rx);
+        let mut stream: OrderedStream<(u64, Option<SendSegment>)> = OrderedStream::new(rx);
 
         #[cfg(target_os = "windows")]
         let (mut audio_pipe, audio_receiver) = {
@@ -207,7 +212,7 @@ impl PipeMerger {
                 }
             });
 
-            while let Some((_, segment)) = stream.next().await {
+            while let Some((_, (_, segment))) = stream.next().await {
                 if let Some((reader, r#type, invalidate)) = segment {
                     match r#type {
                         StreamType::Video => {
@@ -242,7 +247,7 @@ impl PipeMerger {
         }
     }
 
-    fn send(&self, message: (u64, u64, Option<SendSegment>)) {
+    fn send(&self, message: (u64, u64, (u64, Option<SendSegment>))) {
         if let Some(sender) = &self.sender {
             sender.send(message).expect("Failed to send segment");
         }
@@ -255,6 +260,7 @@ impl Merger for PipeMerger {
     async fn update(&mut self, segment: SegmentInfo, cache: impl CacheSource) -> IoriResult<()> {
         let stream_id = segment.stream_id;
         let sequence = segment.sequence;
+        let part_index = segment.part_index;
         let stream_type = segment.stream_type;
         let reader = cache.open_reader(&segment).await?;
         let invalidate = async move { cache.invalidate(&segment).await };
@@ -262,7 +268,10 @@ impl Merger for PipeMerger {
         self.send((
             stream_id,
             sequence,
-            Some((Box::pin(reader), stream_type, Box::pin(invalidate))),
+            (
+                part_index,
+                Some((Box::pin(reader), stream_type, Box::pin(invalidate))),
+            ),
         ));
 
         Ok(())
@@ -272,7 +281,7 @@ impl Merger for PipeMerger {
         let stream_id = segment.stream_id;
         cache.invalidate(&segment).await?;
 
-        self.send((stream_id, segment.sequence, None));
+        self.send((stream_id, segment.sequence, (segment.part_index, None)));
 
         Ok(())
     }

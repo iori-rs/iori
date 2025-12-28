@@ -166,6 +166,7 @@ impl HlsMediaPlaylistSource {
                 initial_segment: initial_segment.clone(),
                 sequence: self.sequence.fetch_add(1, Ordering::Relaxed),
                 media_sequence,
+                part_index: segment.part_index,
                 byte_range: segment.byte_range.as_ref().map(|r| crate::ByteRange {
                     offset: r.offset.unwrap_or(next_range_start),
                     length: Some(r.length),

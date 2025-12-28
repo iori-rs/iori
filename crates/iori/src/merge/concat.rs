@@ -89,26 +89,56 @@ async fn concat_merge(
     cache: &impl CacheSource,
     output_path: PathBuf,
 ) -> IoriResult<()> {
-    segments.sort_by(|a, b| a.segment.sequence.cmp(&b.segment.sequence));
-    let segments = trim_end(segments, |s| !s.success);
+    segments.sort_by(|a, b| {
+        a.segment
+            .part_index
+            .cmp(&b.segment.part_index)
+            .then(a.segment.sequence.cmp(&b.segment.sequence))
+    });
 
     let mut namer = DuplicateOutputFileNamer::new(output_path.clone());
-    let mut output = File::create(output_path).await?;
-    for segment in segments {
-        let success = segment.success;
-        let segment = &segment.segment;
-        if !success {
-            output = File::create(namer.next_path()).await?;
+
+    // We don't use trim_end here because we want to handle parts individually.
+    // However, we should still skip trailing failed segments in each part.
+
+    let mut part_start = 0;
+    while part_start < segments.len() {
+        let part_index = segments[part_start].segment.part_index;
+        let mut part_end = part_start + 1;
+        while part_end < segments.len() && segments[part_end].segment.part_index == part_index {
+            part_end += 1;
         }
 
-        let mut reader = cache.open_reader(segment).await?;
-        tokio::io::copy(&mut reader, &mut output).await?;
+        let part_segments = &mut segments[part_start..part_end];
+        let trimmed_part_segments = trim_end(part_segments, |s| !s.success);
+
+        if !trimmed_part_segments.is_empty() {
+            let path = namer.next_path();
+
+            let mut out = File::create(path).await?;
+            for segment in trimmed_part_segments {
+                if !segment.success {
+                    out = File::create(namer.next_path()).await?;
+                    continue;
+                }
+
+                let mut reader = cache.open_reader(&segment.segment).await?;
+                tokio::io::copy(&mut reader, &mut out).await?;
+            }
+        }
+
+        part_start = part_end;
     }
+
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::cache::memory::MemoryCacheSource;
+    use tokio::io::AsyncWriteExt;
+
     #[test]
     fn test_trim_end() {
         let input = [1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -122,5 +152,136 @@ mod tests {
         let input = [1, 2, 3, 0, 0, 3, 0, 0, 0];
         let output = super::trim_end(&input, |&x| x == 0);
         assert_eq!(output, [1, 2, 3, 0, 0, 3]);
+    }
+
+    async fn create_segment(
+        cache: &MemoryCacheSource,
+        sequence: u64,
+        part_index: u64,
+        data: &[u8],
+    ) -> ConcatSegment {
+        let segment = SegmentInfo {
+            sequence,
+            part_index,
+            ..Default::default()
+        };
+        let mut writer = cache.open_writer(&segment).await.unwrap().unwrap();
+        writer.write_all(data).await.unwrap();
+        writer.shutdown().await.unwrap();
+        drop(writer);
+        ConcatSegment {
+            segment,
+            success: true,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_concat_merge_basic() {
+        let cache = MemoryCacheSource::new();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let output_path = temp_dir.path().join("output.ts");
+
+        let mut segments = vec![
+            create_segment(&cache, 0, 0, b"part0_seq0").await,
+            create_segment(&cache, 1, 0, b"part0_seq1").await,
+        ];
+
+        concat_merge(&mut segments, &cache, output_path.clone())
+            .await
+            .unwrap();
+
+        // Give some time for the namer Drop to run if needed,
+        // but here it's sync and should have run.
+        let content = tokio::fs::read(&output_path).await.unwrap();
+        assert_eq!(content, b"part0_seq0part0_seq1");
+    }
+
+    #[tokio::test]
+    async fn test_concat_merge_discontinuity() {
+        let cache = MemoryCacheSource::new();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let output_path = temp_dir.path().join("output.ts");
+
+        let mut segments = vec![
+            create_segment(&cache, 0, 0, b"part0_seq0").await,
+            create_segment(&cache, 1, 0, b"part0_seq1").await,
+            create_segment(&cache, 2, 1, b"part1_seq2").await,
+            create_segment(&cache, 3, 1, b"part1_seq3").await,
+        ];
+
+        concat_merge(&mut segments, &cache, output_path.clone())
+            .await
+            .unwrap();
+
+        // Check first part
+        let output_path1 = temp_dir.path().join("output.1.ts");
+        let content1 = tokio::fs::read(&output_path1).await.unwrap();
+        assert_eq!(content1, b"part0_seq0part0_seq1");
+
+        // Check second part
+        let output_path2 = temp_dir.path().join("output.2.ts");
+        let content2 = tokio::fs::read(&output_path2).await.unwrap();
+        assert_eq!(content2, b"part1_seq2part1_seq3");
+    }
+
+    #[tokio::test]
+    async fn test_concat_merge_failure() {
+        let cache = MemoryCacheSource::new();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let output_path = temp_dir.path().join("output.ts");
+
+        let mut segments = vec![
+            create_segment(&cache, 0, 0, b"part0_seq0").await,
+            ConcatSegment {
+                segment: SegmentInfo {
+                    sequence: 1,
+                    part_index: 0,
+                    ..Default::default()
+                },
+                success: false,
+            },
+            create_segment(&cache, 2, 0, b"part0_seq2").await,
+        ];
+
+        concat_merge(&mut segments, &cache, output_path.clone())
+            .await
+            .unwrap();
+
+        // First part before failure
+        let output_path1 = temp_dir.path().join("output.1.ts");
+        let content1 = tokio::fs::read(&output_path1).await.unwrap();
+        assert_eq!(content1, b"part0_seq0");
+
+        // Second part after failure
+        let output_path2 = temp_dir.path().join("output.2.ts");
+        let content2 = tokio::fs::read(&output_path2).await.unwrap();
+        assert_eq!(content2, b"part0_seq2");
+    }
+
+    #[tokio::test]
+    async fn test_concat_merge_sorting() {
+        let cache = MemoryCacheSource::new();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let output_path = temp_dir.path().join("output.ts");
+
+        // Out of order segments
+        let mut segments = vec![
+            create_segment(&cache, 1, 0, b"part0_seq1").await,
+            create_segment(&cache, 0, 0, b"part0_seq0").await,
+            create_segment(&cache, 3, 1, b"part1_seq3").await,
+            create_segment(&cache, 2, 1, b"part1_seq2").await,
+        ];
+
+        concat_merge(&mut segments, &cache, output_path.clone())
+            .await
+            .unwrap();
+
+        let output_path1 = temp_dir.path().join("output.1.ts");
+        let content1 = tokio::fs::read(&output_path1).await.unwrap();
+        assert_eq!(content1, b"part0_seq0part0_seq1");
+
+        let output_path2 = temp_dir.path().join("output.2.ts");
+        let content2 = tokio::fs::read(&output_path2).await.unwrap();
+        assert_eq!(content2, b"part1_seq2part1_seq3");
     }
 }

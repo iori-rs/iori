@@ -74,6 +74,7 @@ pub struct SegmentInfo {
     pub key: Option<std::sync::Arc<IoriKey>>,
     pub duration: Option<f64>,
     pub format: SegmentFormat,
+    pub part_index: u64,
 }
 
 impl<T> From<&T> for SegmentInfo
@@ -90,6 +91,7 @@ where
             duration: segment.duration(),
             stream_type: segment.stream_type(),
             format: segment.format(),
+            part_index: segment.part_index(),
         }
     }
 }
@@ -126,6 +128,10 @@ impl StreamingSegment for Box<dyn StreamingSegment + Send + Sync + '_> {
     fn format(&self) -> SegmentFormat {
         self.as_ref().format()
     }
+
+    fn part_index(&self) -> u64 {
+        self.as_ref().part_index()
+    }
 }
 
 impl StreamingSegment for &Box<dyn StreamingSegment + Send + Sync + '_> {
@@ -159,6 +165,10 @@ impl StreamingSegment for &Box<dyn StreamingSegment + Send + Sync + '_> {
 
     fn format(&self) -> SegmentFormat {
         self.as_ref().format()
+    }
+
+    fn part_index(&self) -> u64 {
+        self.as_ref().part_index()
     }
 }
 

@@ -183,30 +183,19 @@ fn generate_media_playlist(
     playlist.push_str("#EXT-X-TARGETDURATION:10\n"); // TODO: validate whether this is correct
     playlist.push_str("#EXT-X-MEDIA-SEQUENCE:0\n");
 
-    // Calculate discontinuity sequence
-    // Discontinuity occurs when:
-    // 1. There's a gap in sequence numbers (missing segments)
-    // 2. The previous segment failed (marked in failed_segments)
-    let mut prev_sequence: Option<u64> = None;
+    let mut prev_part_index: Option<u64> = None;
     let mut discontinuity_sequence = 0u64;
-    let mut prev_failed = false;
 
     for (sequence, segment) in segments.iter() {
         let current_failed = failed_segments.contains(&(stream_id, *sequence));
 
         // Mark discontinuity if:
-        // 1. There's a gap in sequences, OR
-        // 2. The previous segment failed (we're resuming after failure)
-        let should_add_discontinuity = if let Some(prev) = prev_sequence {
-            // Gap in sequence or previous segment failed
-            *sequence != prev + 1 || prev_failed
-        } else {
-            false
-        };
-
-        if should_add_discontinuity {
-            playlist.push_str("#EXT-X-DISCONTINUITY\n");
-            discontinuity_sequence += 1;
+        // 1. part_index changed
+        if let Some(prev) = prev_part_index {
+            if segment.part_index != prev {
+                playlist.push_str("#EXT-X-DISCONTINUITY\n");
+                discontinuity_sequence += 1;
+            }
         }
 
         // Skip failed segments in the playlist output
@@ -218,8 +207,7 @@ fn generate_media_playlist(
             playlist.push_str(&format!("/segment/{}/{}\n", stream_id, sequence));
         }
 
-        prev_sequence = Some(*sequence);
-        prev_failed = current_failed;
+        prev_part_index = Some(segment.part_index);
     }
 
     // Add discontinuity sequence at the beginning if there were any discontinuities
