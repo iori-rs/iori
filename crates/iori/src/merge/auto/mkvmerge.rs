@@ -7,15 +7,18 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use tokio::process::Command;
 
-#[derive(Debug, Clone)]
-pub struct MkvmergeMerger(PathBuf);
+#[derive(Debug, Clone, Default)]
+pub struct MkvmergeMerger;
 
 impl MkvmergeMerger {
-    pub fn new() -> IoriResult<Self> {
-        let mkvmerge = which::which("mkvmerge").map_err(|_| {
+    pub fn new() -> Self {
+        Self
+    }
+
+    fn mkvmerge_path() -> IoriResult<PathBuf> {
+        which::which("mkvmerge").map_err(|_| {
             crate::IoriError::ExecutableNotFound("mkvmerge".to_string())
-        })?;
-        Ok(Self(mkvmerge))
+        })
     }
 }
 
@@ -51,7 +54,8 @@ impl AutoMergerConcat for MkvmergeMerger {
 
         use tokio::io::{AsyncBufReadExt, BufReader};
 
-        let mut child = Command::new(&self.0)
+        let mkvmerge = Self::mkvmerge_path()?;
+        let mut child = Command::new(&mkvmerge)
             .arg(format!("@{}", temp_path.to_string_lossy()))
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -98,9 +102,7 @@ impl AutoMergerMerge for MkvmergeMerger {
 
         assert!(tracks.len() > 1);
 
-        let mkvmerge = which::which("mkvmerge").map_err(|_| {
-            crate::IoriError::ExecutableNotFound("mkvmerge".to_string())
-        })?;
+        let mkvmerge = Self::mkvmerge_path()?;
         let mut merge = Command::new(mkvmerge)
             .args(tracks.iter())
             .arg("-o")

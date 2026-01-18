@@ -258,7 +258,7 @@ impl MinyamiArgs {
                     std::env::var("RE_LIVE_PIPE_OPTIONS").ok(),
                 )?
             } else {
-                IoriMerger::mkvmerge(target_file, !self.keep)?
+                IoriMerger::mkvmerge(target_file, !self.keep)
             }
         } else if self.pipe && self.output.is_none() {
             IoriMerger::pipe(!self.keep)
@@ -269,7 +269,7 @@ impl MinyamiArgs {
             if self.pipe {
                 IoriMerger::pipe_to_file(target_file, !self.keep)
             } else {
-                IoriMerger::mkvmerge(target_file, !self.keep)?
+                IoriMerger::mkvmerge(target_file, !self.keep)
             }
         })
     }

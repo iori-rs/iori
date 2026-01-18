@@ -88,8 +88,8 @@ impl<C, M> IoriMerger<C, M> {
 }
 
 impl IoriMerger<MkvmergeMerger, MkvmergeMerger> {
-    pub fn mkvmerge(output_file: PathBuf, recycle: bool) -> IoriResult<Self> {
-        Ok(Self::Auto(AutoMerger::mkvmerge(output_file, recycle)?))
+    pub fn mkvmerge(output_file: PathBuf, recycle: bool) -> Self {
+        Self::Auto(AutoMerger::mkvmerge(output_file, recycle))
     }
 }
 

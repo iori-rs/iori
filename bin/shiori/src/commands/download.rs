@@ -406,7 +406,7 @@ impl OutputOptions {
                     if #[cfg(feature = "ffmpeg")] {
                         IoriMerger::auto(output, self.recycle, iori_ffmpeg::FFmpegMerger, iori_ffmpeg::FFmpegMerger)
                     } else {
-                        IoriMerger::mkvmerge(output, self.recycle)?
+                        IoriMerger::mkvmerge(output, self.recycle)
                     }
                 }
             }
