@@ -382,7 +382,7 @@ impl OutputOptions {
             IoriMerger::proxy(addr)
         } else if self.output_mode.pipe || self.output_mode.pipe_mux {
             if self.output_mode.pipe_mux {
-                IoriMerger::pipe_mux(self.output.unwrap_or("-".into()), self.recycle, None)
+                IoriMerger::pipe_mux(self.output.unwrap_or("-".into()), self.recycle, None)?
             } else if let Some(file) = self.output {
                 IoriMerger::pipe_to_file(file, self.recycle)
             } else {

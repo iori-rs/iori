@@ -12,7 +12,9 @@ pub struct MkvmergeMerger(PathBuf);
 
 impl MkvmergeMerger {
     pub fn new() -> IoriResult<Self> {
-        let mkvmerge = which::which("mkvmerge")?;
+        let mkvmerge = which::which("mkvmerge").map_err(|_| {
+            crate::IoriError::ExecutableNotFound("mkvmerge".to_string())
+        })?;
         Ok(Self(mkvmerge))
     }
 }
@@ -96,7 +98,9 @@ impl AutoMergerMerge for MkvmergeMerger {
 
         assert!(tracks.len() > 1);
 
-        let mkvmerge = which::which("mkvmerge")?;
+        let mkvmerge = which::which("mkvmerge").map_err(|_| {
+            crate::IoriError::ExecutableNotFound("mkvmerge".to_string())
+        })?;
         let mut merge = Command::new(mkvmerge)
             .args(tracks.iter())
             .arg("-o")

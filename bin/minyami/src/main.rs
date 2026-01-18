@@ -256,7 +256,7 @@ impl MinyamiArgs {
                     target_file,
                     !self.keep,
                     std::env::var("RE_LIVE_PIPE_OPTIONS").ok(),
-                )
+                )?
             } else {
                 IoriMerger::mkvmerge(target_file, !self.keep)?
             }
