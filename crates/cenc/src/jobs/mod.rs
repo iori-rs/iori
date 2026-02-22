@@ -14,9 +14,8 @@ use crate::jobs::non_fmp4::parse_decrypt_jobs_non_fmp4;
 
 pub fn parse_decrypt_jobs(input: &[u8]) -> Result<ParsedCenc> {
     let (mp4, _) = Mp4File::<RootBox>::decode(input)?;
-    let has_moof = mp4.boxes.iter().any(|box_item| {
-        matches!(box_item, RootBox::Moof(_))
-    });
+    let has_moof = mp4.boxes.iter().any(|box_item| matches!(box_item, RootBox::Moof(_)));
+    let has_mdat = mp4.boxes.iter().any(|box_item| matches!(box_item, RootBox::Mdat(_)));
 
     let moov = mp4
         .boxes
@@ -32,6 +31,13 @@ pub fn parse_decrypt_jobs(input: &[u8]) -> Result<ParsedCenc> {
 
     if has_moof {
         return parse_decrypt_jobs_fmp4(input, moov);
+    }
+
+    // Init segment: moov only, no mdat and no moof.
+    // Nothing to decrypt; normalize_decrypted_fmp4 (called by decrypt_in_place) will
+    // rewrite the sample-entry metadata (encv/enca → original codec type, etc.).
+    if !has_mdat {
+        return Ok(ParsedCenc { jobs: vec![] });
     }
 
     parse_decrypt_jobs_non_fmp4(moov)

@@ -30,8 +30,14 @@ pub fn normalize_decrypted_fmp4(data: &mut [u8]) -> Result<()> {
 fn normalize_moov(data: &mut [u8], moov: &RawBox) -> Result<()> {
     let moov_children =
         parse_boxes_range(data, moov.start + moov.header_size, moov.start + moov.size)?;
-    for trak in moov_children.iter().filter(|b| b.typ == *b"trak") {
-        normalize_trak(data, *trak)?;
+    for child in &moov_children {
+        if child.typ == *b"pssh" {
+            // Zero out pssh from moov: hls.js collects moov-level pssh boxes and
+            // uses them to trigger EME key session setup.
+            free_box(data, child);
+        } else if child.typ == *b"trak" {
+            normalize_trak(data, *child)?;
+        }
     }
     Ok(())
 }
@@ -39,8 +45,13 @@ fn normalize_moov(data: &mut [u8], moov: &RawBox) -> Result<()> {
 fn normalize_moof(data: &mut [u8], moof: &RawBox) -> Result<()> {
     let moof_children =
         parse_boxes_range(data, moof.start + moof.header_size, moof.start + moof.size)?;
-    for traf in moof_children.iter().filter(|b| b.typ == *b"traf") {
-        normalize_traf(data, *traf)?;
+    for child in &moof_children {
+        if child.typ == *b"pssh" {
+            // Zero out pssh: hls.js uses pssh presence to trigger EME key loading.
+            free_box(data, child);
+        } else if child.typ == *b"traf" {
+            normalize_traf(data, *child)?;
+        }
     }
     Ok(())
 }
@@ -49,12 +60,16 @@ fn normalize_traf(data: &mut [u8], traf: RawBox) -> Result<()> {
     let traf_children =
         parse_boxes_range(data, traf.start + traf.header_size, traf.start + traf.size)?;
     for child in &traf_children {
-        if child.typ == *b"senc" || child.typ == *b"saiz" || child.typ == *b"saio" {
-            // Replace box type with 'free' and zero out payload (in-place)
-            data[child.start + 4..child.start + 8].copy_from_slice(b"free");
-            let payload_start = child.start + child.header_size;
-            let payload_end = child.start + child.size;
-            data[payload_start..payload_end].fill(0);
+        if child.typ == *b"senc"
+            || child.typ == *b"saiz"
+            || child.typ == *b"saio"
+            || child.typ == *b"sbgp"
+            || child.typ == *b"sgpd"
+        {
+            // Replace box type with 'free' and zero out payload (in-place).
+            // senc/saiz/saio carry per-sample encryption info.
+            // sbgp/sgpd seig signal sample-group encryption to media players.
+            free_box(data, child);
         }
     }
     Ok(())
@@ -101,8 +116,14 @@ fn normalize_stsd(data: &mut [u8], stsd: RawBox) -> Result<()> {
         }
         let entry_type = read_type(data, offset + 4)?;
         let base_size = match &entry_type {
+            // Standard CENC encrypted wrappers
             b"encv" => VISUAL_SAMPLE_ENTRY_SIZE,
             b"enca" => AUDIO_SAMPLE_ENTRY_SIZE,
+            // CMAF cbcs: original codec type used directly with sinf appended
+            b"avc1" | b"hvc1" | b"hev1" | b"vp08" | b"vp09" | b"av01" => {
+                VISUAL_SAMPLE_ENTRY_SIZE
+            }
+            b"mp4a" | b"opus" | b"flac" => AUDIO_SAMPLE_ENTRY_SIZE,
             _ => {
                 offset += entry_size;
                 continue;
@@ -129,18 +150,34 @@ fn normalize_sample_entry(
     let Some(sinf) = find_box(&children, *b"sinf") else {
         return Ok(());
     };
+
+    // Rewrite the sample entry's box type to the original codec format from frma.
+    // For CMAF cbcs (avc1 with sinf where frma.original_format == avc1) this is a
+    // no-op but is still correct.
     let sinf_children =
         parse_boxes_range(data, sinf.start + sinf.header_size, sinf.start + sinf.size)?;
-    let Some(frma) = find_box(&sinf_children, *b"frma") else {
-        return Ok(());
-    };
-    if frma.size < frma.header_size + 4 {
-        return Err(CencError::MetadataCleanup("frma too short".to_string()));
+    if let Some(frma) = find_box(&sinf_children, *b"frma") {
+        if frma.size >= frma.header_size + 4 {
+            let original_format = read_type(data, frma.start + frma.header_size)?;
+            let entry_type_offset = entry_payload_start - 4;
+            data[entry_type_offset..entry_type_offset + 4].copy_from_slice(&original_format);
+        }
     }
-    let original_format = read_type(data, frma.start + frma.header_size)?;
-    let entry_type_offset = entry_payload_start - 4;
-    data[entry_type_offset..entry_type_offset + 4].copy_from_slice(&original_format);
+
+    // Zero out sinf in-place: replace box type with 'free' and zero the payload.
+    // We cannot shrink the entry (in-place), so 'free' makes players skip the bytes.
+    free_box(data, sinf);
+
     Ok(())
+}
+
+/// Replace a box's type with `free` and zero its payload in-place.
+/// This keeps the file size unchanged while signaling to parsers that the bytes are free space.
+fn free_box(data: &mut [u8], b: &RawBox) {
+    data[b.start + 4..b.start + 8].copy_from_slice(b"free");
+    let payload_start = b.start + b.header_size;
+    let payload_end = b.start + b.size;
+    data[payload_start..payload_end].fill(0);
 }
 
 fn parse_boxes_range(data: &[u8], start: usize, end: usize) -> Result<Vec<RawBox>> {

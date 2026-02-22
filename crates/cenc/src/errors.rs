@@ -9,8 +9,6 @@ pub enum CencError {
     SampleTableError(#[from] SampleTableAccessorError),
     #[error("missing moov box")]
     MissingMoov,
-    #[error("fragmented mp4 is not supported yet")]
-    FragmentedMp4Unsupported,
     #[error("missing sample encryption box (senc)")]
     MissingSenc,
     #[error("unsupported scheme type: {0}")]

@@ -86,33 +86,46 @@ pub(crate) fn build_entry_encryption_info(
 }
 
 fn parse_sample_entry_encryption(entry: &SampleEntry) -> Result<Option<TrackEncryptionInfo>> {
-    let SampleEntry::Unknown(unknown) = entry else {
-        return Ok(None);
-    };
-    let BoxType::Normal(box_type) = unknown.box_type else {
-        return Ok(None);
-    };
-    if box_type != BOX_ENCV && box_type != BOX_ENCA {
-        return Ok(None);
+    // Standard CENC path: encv/enca box stored as SampleEntry::Unknown.
+    if let SampleEntry::Unknown(unknown) = entry {
+        let BoxType::Normal(box_type) = unknown.box_type else {
+            return Ok(None);
+        };
+        if box_type != BOX_ENCV && box_type != BOX_ENCA {
+            return Ok(None);
+        }
+        let base_size = if box_type == BOX_ENCV {
+            VISUAL_SAMPLE_ENTRY_SIZE
+        } else {
+            AUDIO_SAMPLE_ENTRY_SIZE
+        };
+        if unknown.payload.len() <= base_size {
+            return Err(CencError::UnsupportedSampleEntry(
+                String::from_utf8_lossy(&box_type).to_string(),
+            ));
+        }
+        let children = read_child_boxes(&unknown.payload[base_size..])?;
+        let sinf = children
+            .iter()
+            .find(|child| child.box_type == BOX_SINF)
+            .ok_or(CencError::MissingSinf)?;
+        return Ok(Some(parse_sinf_payload(sinf.payload)?));
     }
 
-    let base_size = if box_type == BOX_ENCV {
-        VISUAL_SAMPLE_ENTRY_SIZE
-    } else {
-        AUDIO_SAMPLE_ENTRY_SIZE
-    };
-    if unknown.payload.len() <= base_size {
-        return Err(CencError::UnsupportedSampleEntry(
-            String::from_utf8_lossy(&box_type).to_string(),
-        ));
+    // CMAF cbcs path: known codec type (avc1, hvc1, mp4a, …) with sinf appended as a
+    // child box rather than being wrapped in encv/enca.
+    for ub in unknown_boxes_from_sample_entry(entry) {
+        if ub.box_type == BoxType::Normal(BOX_SINF) {
+            return Ok(Some(parse_sinf_payload(&ub.payload)?));
+        }
     }
 
-    let children = read_child_boxes(&unknown.payload[base_size..])?;
-    let sinf = children
-        .iter()
-        .find(|child| child.box_type == BOX_SINF)
-        .ok_or(CencError::MissingSinf)?;
-    let sinf_children = read_child_boxes(sinf.payload)?;
+    Ok(None)
+}
+
+/// Parse a `sinf` box payload into [`TrackEncryptionInfo`].
+fn parse_sinf_payload(sinf_payload: &[u8]) -> Result<TrackEncryptionInfo> {
+    let sinf_children = read_child_boxes(sinf_payload)?;
     let schm = sinf_children
         .iter()
         .find(|child| child.box_type == BOX_SCHM)
@@ -129,7 +142,26 @@ fn parse_sample_entry_encryption(entry: &SampleEntry) -> Result<Option<TrackEncr
         .ok_or(CencError::MissingTenc)?;
     let mut info = parse_tenc(tenc.payload)?;
     info.scheme = scheme;
-    Ok(Some(info))
+    Ok(info)
+}
+
+/// Return the `unknown_boxes` slice from any known codec sample entry type.
+///
+/// All codec box types produced by shiguredo-mp4 store unrecognised child boxes
+/// (including `sinf` in CMAF-style cbcs files) in `unknown_boxes`.
+fn unknown_boxes_from_sample_entry(entry: &SampleEntry) -> &[UnknownBox] {
+    match entry {
+        SampleEntry::Avc1(b) => &b.unknown_boxes,
+        SampleEntry::Hev1(b) => &b.unknown_boxes,
+        SampleEntry::Hvc1(b) => &b.unknown_boxes,
+        SampleEntry::Vp08(b) => &b.unknown_boxes,
+        SampleEntry::Vp09(b) => &b.unknown_boxes,
+        SampleEntry::Av01(b) => &b.unknown_boxes,
+        SampleEntry::Opus(b) => &b.unknown_boxes,
+        SampleEntry::Mp4a(b) => &b.unknown_boxes,
+        SampleEntry::Flac(b) => &b.unknown_boxes,
+        SampleEntry::Unknown(_) => &[],
+    }
 }
 
 fn parse_schm(payload: &[u8]) -> Result<SchemeType> {
@@ -491,5 +523,181 @@ pub(crate) fn is_seig_grouping_box(b: &UnknownBox) -> bool {
             b.payload.len() >= 8 && &b.payload[4..8] == b"seig"
         }
         _ => false,
+    }
+}
+
+/// Entry from an SBGP (SampleToGroup) box that maps a run of samples to a group.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct SbgpEntry {
+    pub(crate) sample_count: u32,
+    /// 0 means "use track-level defaults", ≥1 is a 1-based index into the SGPD.
+    pub(crate) group_description_index: u32,
+}
+
+/// A single seig entry from an SGPD (SampleGroupDescription) box.
+///
+/// The on-disk layout mirrors a tenc v1 payload:
+/// `[ crypt<<4 | skip ] [ reserved ] [ is_protected ] [ per_sample_iv_size ] [ KID×16 ]`
+/// followed by `[ constant_iv_size ] [ constant_iv×N ]` when
+/// `is_protected == 1 && per_sample_iv_size == 0`.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct SeigEntry {
+    pub(crate) is_protected: bool,
+    pub(crate) per_sample_iv_size: u8,
+    pub(crate) kid: [u8; 16],
+    /// Present when `is_protected && per_sample_iv_size == 0` (cbcs constant-IV mode).
+    pub(crate) constant_iv: Option<[u8; 16]>,
+}
+
+/// Parse an SBGP box payload. Returns `None` when `grouping_type != "seig"`.
+pub(crate) fn parse_sbgp_seig(payload: &[u8]) -> Result<Option<Vec<SbgpEntry>>> {
+    let (version, _flags, mut offset) = read_full_box_header(payload)?;
+    if payload.len() < offset + 4 {
+        return Err(CencError::InvalidSenc("sbgp too short".to_string()));
+    }
+    if &payload[offset..offset + 4] != b"seig" {
+        return Ok(None);
+    }
+    offset += 4;
+    if version == 1 {
+        // grouping_type_parameter
+        let _ = read_u32(payload, &mut offset)?;
+    }
+    let entry_count = read_u32(payload, &mut offset)? as usize;
+    let mut entries = Vec::with_capacity(entry_count);
+    for _ in 0..entry_count {
+        let sample_count = read_u32(payload, &mut offset)?;
+        let group_description_index = read_u32(payload, &mut offset)?;
+        entries.push(SbgpEntry {
+            sample_count,
+            group_description_index,
+        });
+    }
+    Ok(Some(entries))
+}
+
+/// Parse an SGPD box payload for seig entries. Returns `None` when `grouping_type != "seig"`.
+pub(crate) fn parse_sgpd_seig(payload: &[u8]) -> Result<Option<Vec<SeigEntry>>> {
+    let (version, _flags, mut offset) = read_full_box_header(payload)?;
+    if payload.len() < offset + 4 {
+        return Err(CencError::InvalidSenc("sgpd too short".to_string()));
+    }
+    if &payload[offset..offset + 4] != b"seig" {
+        return Ok(None);
+    }
+    offset += 4;
+    let default_length = if version == 1 {
+        read_u32(payload, &mut offset)?
+    } else {
+        0u32
+    };
+    if version >= 2 {
+        let _ = read_u32(payload, &mut offset)?; // default_sample_description_index
+    }
+    let entry_count = read_u32(payload, &mut offset)? as usize;
+    let mut entries = Vec::with_capacity(entry_count);
+    for _ in 0..entry_count {
+        if version == 1 && default_length == 0 {
+            let _ = read_u32(payload, &mut offset)?; // length_including_length_field
+        }
+        // seig entry layout (mirrors tenc v1):
+        //   byte 0: (crypt_byte_block << 4) | skip_byte_block
+        //   byte 1: reserved
+        //   byte 2: is_protected (1 = encrypted)
+        //   byte 3: per_sample_iv_size
+        //   bytes 4-19: KID
+        //   if is_protected && per_sample_iv_size == 0:
+        //     byte 20: constant_iv_size
+        //     bytes 21+: constant_iv
+        let _crypt_skip = read_u8(payload, &mut offset)?;
+        let _reserved = read_u8(payload, &mut offset)?;
+        let is_protected = read_u8(payload, &mut offset)? != 0;
+        let per_sample_iv_size = read_u8(payload, &mut offset)?;
+        if payload.len() < offset + 16 {
+            return Err(CencError::InvalidSenc(
+                "sgpd seig entry truncated".to_string(),
+            ));
+        }
+        let mut kid = [0u8; 16];
+        kid.copy_from_slice(&payload[offset..offset + 16]);
+        offset += 16;
+        let constant_iv = if is_protected && per_sample_iv_size == 0 {
+            let constant_iv_size = read_u8(payload, &mut offset)? as usize;
+            if payload.len() < offset + constant_iv_size {
+                return Err(CencError::InvalidSenc(
+                    "sgpd seig constant_iv truncated".to_string(),
+                ));
+            }
+            let mut iv = [0u8; 16];
+            iv[..constant_iv_size].copy_from_slice(&payload[offset..offset + constant_iv_size]);
+            offset += constant_iv_size;
+            Some(iv)
+        } else {
+            None
+        };
+        entries.push(SeigEntry { is_protected, per_sample_iv_size, kid, constant_iv });
+    }
+    Ok(Some(entries))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Bytes of a real SGPD seig box (61 bytes total, 8-byte box header + 53-byte payload)
+    /// from a cbcs-encrypted fMP4 segment.
+    ///
+    /// Parsed layout:
+    ///   version=1, flags=0, grouping_type="seig"
+    ///   default_length=37, entry_count=1
+    ///   entry: crypt_skip=0x00, reserved=0x00, is_protected=0x01, per_sample_iv_size=0x00
+    ///   KID = 70B990CEB091313 8B2959F53280149 98
+    ///   constant_iv_size=16, constant_iv = 1F2DCCFCC9E936F57E63A723DD470A7D
+    const SGPD_SEIG_BOX: &[u8] = &[
+        0x00, 0x00, 0x00, 0x3D, 0x73, 0x67, 0x70, 0x64, // box header: size=61, type="sgpd"
+        0x01, 0x00, 0x00, 0x00,                         // version=1, flags=0
+        0x73, 0x65, 0x69, 0x67,                         // grouping_type="seig"
+        0x00, 0x00, 0x00, 0x25,                         // default_length=37
+        0x00, 0x00, 0x00, 0x01,                         // entry_count=1
+        // entry (37 bytes):
+        0x00, 0x00, 0x01, 0x00,                         // crypt_skip, reserved, is_protected=1, per_sample_iv_size=0
+        0x70, 0xB9, 0x90, 0xCE, 0xB0, 0x91, 0x31, 0x38, // KID (16 bytes)
+        0xB2, 0x95, 0x9F, 0x53, 0x28, 0x01, 0x49, 0x98,
+        0x10,                                           // constant_iv_size=16
+        0x1F, 0x2D, 0xCC, 0xFC, 0xC9, 0xE9, 0x36, 0xF5, // constant_iv (16 bytes)
+        0x7E, 0x63, 0xA7, 0x23, 0xDD, 0x47, 0x0A, 0x7D,
+    ];
+
+    #[test]
+    fn test_parse_sgpd_seig() {
+        // Strip the 8-byte box header; parse_sgpd_seig takes the payload only.
+        let payload = &SGPD_SEIG_BOX[8..];
+        let entries = parse_sgpd_seig(payload).unwrap().unwrap();
+        assert_eq!(entries.len(), 1);
+        let e = &entries[0];
+        assert!(e.is_protected);
+        assert_eq!(e.per_sample_iv_size, 0);
+        assert_eq!(
+            e.kid,
+            [
+                0x70, 0xB9, 0x90, 0xCE, 0xB0, 0x91, 0x31, 0x38,
+                0xB2, 0x95, 0x9F, 0x53, 0x28, 0x01, 0x49, 0x98,
+            ]
+        );
+        assert_eq!(
+            e.constant_iv,
+            Some([
+                0x1F, 0x2D, 0xCC, 0xFC, 0xC9, 0xE9, 0x36, 0xF5,
+                0x7E, 0x63, 0xA7, 0x23, 0xDD, 0x47, 0x0A, 0x7D,
+            ])
+        );
+    }
+
+    #[test]
+    fn test_parse_sgpd_seig_wrong_grouping_type() {
+        let mut payload = SGPD_SEIG_BOX[8..].to_vec();
+        // Replace "seig" with "maif" at offset 4 of the payload (bytes 12-15 of the box).
+        payload[4..8].copy_from_slice(b"maif");
+        assert!(parse_sgpd_seig(&payload).unwrap().is_none());
     }
 }
