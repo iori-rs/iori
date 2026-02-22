@@ -10,13 +10,6 @@ pub(crate) const BOX_TENC: [u8; 4] = *b"tenc";
 pub(crate) const BOX_SENC: [u8; 4] = *b"senc";
 pub(crate) const BOX_SBGP: [u8; 4] = *b"sbgp";
 pub(crate) const BOX_SGPD: [u8; 4] = *b"sgpd";
-pub(crate) const BOX_MOOF: [u8; 4] = *b"moof";
-pub(crate) const BOX_MFHD: [u8; 4] = *b"mfhd";
-pub(crate) const BOX_TRAF: [u8; 4] = *b"traf";
-pub(crate) const BOX_TFHD: [u8; 4] = *b"tfhd";
-pub(crate) const BOX_TRUN: [u8; 4] = *b"trun";
-pub(crate) const BOX_SAIZ: [u8; 4] = *b"saiz";
-pub(crate) const BOX_SAIO: [u8; 4] = *b"saio";
 pub(crate) const BOX_ENCV: [u8; 4] = *b"encv";
 pub(crate) const BOX_ENCA: [u8; 4] = *b"enca";
 
@@ -44,19 +37,8 @@ pub(crate) struct RawMp4Box<'a> {
     pub(crate) box_type: [u8; 4],
     pub(crate) start: usize,
     pub(crate) size: usize,
-    pub(crate) payload_start: usize,
-    pub(crate) payload: &'a [u8],
-}
-
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub(crate) struct MoofBox<'a> {
-    pub(crate) start: usize,
-    pub(crate) size: usize,
-    pub(crate) payload_start: usize,
-    pub(crate) mfhd_box: Option<RawMp4Box<'a>>,
-    pub(crate) traf_boxes: Vec<RawMp4Box<'a>>,
-    pub(crate) unknown_boxes: Vec<RawMp4Box<'a>>,
+    payload_start: usize,
+    payload: &'a [u8],
 }
 
 #[derive(Debug)]
@@ -97,40 +79,6 @@ pub(crate) fn parse_mp4_boxes<'a>(buf: &'a [u8], base_offset: usize) -> Result<V
         offset += size;
     }
     Ok(boxes)
-}
-
-pub(crate) fn parse_moof_box<'a>(moof: &RawMp4Box<'a>) -> Result<MoofBox<'a>> {
-    if moof.box_type != BOX_MOOF {
-        return Err(CencError::InvalidSenc("expected moof box".to_string()));
-    }
-    let children = parse_mp4_boxes(moof.payload, moof.payload_start)?;
-    let mut mfhd_box = None;
-    let mut traf_boxes = Vec::new();
-    let mut unknown_boxes = Vec::new();
-    for child in children {
-        if child.box_type == BOX_MFHD {
-            mfhd_box = Some(child);
-        } else if child.box_type == BOX_TRAF {
-            traf_boxes.push(child);
-        } else {
-            unknown_boxes.push(child);
-        }
-    }
-    Ok(MoofBox {
-        start: moof.start,
-        size: moof.size,
-        payload_start: moof.payload_start,
-        mfhd_box,
-        traf_boxes,
-        unknown_boxes,
-    })
-}
-
-pub(crate) fn find_mp4_box<'a>(
-    boxes: &'a [RawMp4Box<'a>],
-    box_type: [u8; 4],
-) -> Option<&'a RawMp4Box<'a>> {
-    boxes.iter().find(|b| b.box_type == box_type)
 }
 
 pub(crate) fn build_entry_encryption_info(
