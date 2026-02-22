@@ -33,12 +33,10 @@ pub(crate) struct TrackEncryptionInfo {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct RawMp4Box<'a> {
+pub(crate) struct RawMp4Box {
     pub(crate) box_type: [u8; 4],
     pub(crate) start: usize,
     pub(crate) size: usize,
-    payload_start: usize,
-    payload: &'a [u8],
 }
 
 #[derive(Debug)]
@@ -47,7 +45,7 @@ struct ChildBox<'a> {
     payload: &'a [u8],
 }
 
-pub(crate) fn parse_mp4_boxes<'a>(buf: &'a [u8], base_offset: usize) -> Result<Vec<RawMp4Box<'a>>> {
+pub(crate) fn parse_mp4_boxes(buf: &[u8], base_offset: usize) -> Result<Vec<RawMp4Box>> {
     let mut boxes = Vec::new();
     let mut offset = 0usize;
     while offset < buf.len() {
@@ -67,14 +65,10 @@ pub(crate) fn parse_mp4_boxes<'a>(buf: &'a [u8], base_offset: usize) -> Result<V
                 continue;
             }
         };
-        let payload_start = base_offset + offset + header_size;
-        let payload_end = offset + size;
         boxes.push(RawMp4Box {
             box_type,
             start: base_offset + offset,
             size,
-            payload_start,
-            payload: &buf[offset + header_size..payload_end],
         });
         offset += size;
     }
@@ -489,11 +483,6 @@ pub(crate) fn read_u64(buf: &[u8], offset: &mut usize) -> Result<u64> {
     ]);
     *offset += 8;
     Ok(value)
-}
-
-pub(crate) fn read_i32(buf: &[u8], offset: &mut usize) -> Result<i32> {
-    let value = read_u32(buf, offset)?;
-    Ok(i32::from_be_bytes(value.to_be_bytes()))
 }
 
 pub(crate) fn is_seig_grouping_box(b: &UnknownBox) -> bool {
