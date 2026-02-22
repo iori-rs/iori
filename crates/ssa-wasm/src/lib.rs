@@ -1,3 +1,4 @@
+use iori_cenc::decrypt_mp4;
 use js_sys::Uint8Array;
 use std::collections::HashMap;
 use std::io::Cursor;
@@ -62,13 +63,19 @@ pub fn decrypt_segment(
 }
 
 #[wasm_bindgen(js_name = decryptSegmentCenc)]
-pub fn decrypt_segment_cenc(input: Uint8Array, keyid_key: String) -> Result<Uint8Array, JsValue> {
-    let (kid, key) = parse_keyid_key(&keyid_key)?;
+pub fn decrypt_segment_cenc(
+    input: Uint8Array,
+    keyid_keys: Vec<String>,
+) -> Result<Uint8Array, JsValue> {
     let mut keys = HashMap::new();
-    keys.insert(kid, key);
+    for keyid_key in keyid_keys {
+        let (kid, key) = parse_keyid_key(&keyid_key)?;
+        keys.insert(kid, key);
+    }
 
-    let output = mp4decrypt::mp4decrypt(&input.to_vec(), &keys, None)
-        .map_err(|err| invalid_arg(&format!("mp4decrypt error: {err}")))?;
+    let buffer = input.to_vec();
+    let output = decrypt_mp4(buffer, &keys)
+        .map_err(|err| invalid_arg(&format!("iori-cenc error: {err:?}")))?;
 
     Ok(Uint8Array::from(output.as_slice()))
 }

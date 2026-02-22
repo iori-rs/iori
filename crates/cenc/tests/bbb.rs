@@ -33,7 +33,7 @@ fn decrypt_bbb_fixtures_with_zero_key() {
             .into_iter()
             .map(|kid| (hex::encode(kid), zero_key.clone()))
             .collect::<HashMap<_, _>>();
-        let decrypted = decrypt_mp4(encrypted, &keys).unwrap();
+        let decrypted = decrypt_mp4(encrypted.to_vec(), &keys).unwrap();
         let dec_name = name.replace(".mp4", "_dec.mp4");
         fs::write(base.join(dec_name), &decrypted).unwrap();
         let encrypted_mdat = read_mdat_payload(encrypted).unwrap();

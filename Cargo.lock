@@ -4086,9 +4086,9 @@ dependencies = [
 name = "ssa-wasm"
 version = "0.1.0"
 dependencies = [
+ "iori-cenc",
  "iori-ssa",
  "js-sys",
- "mp4decrypt",
  "wasm-bindgen",
 ]
 

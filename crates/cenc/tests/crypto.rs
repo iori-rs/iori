@@ -189,7 +189,7 @@ fn decrypt_fmp4_fixtures_mdat_matches_plain() {
 
     for name in ["cenc.mp4", "cens.mp4", "cbc1.mp4", "cbcs.mp4"] {
         let encrypted = fs::read(base.join(name)).unwrap();
-        let decrypted = decrypt_mp4(&encrypted, &keys).unwrap();
+        let decrypted = decrypt_mp4(encrypted, &keys).unwrap();
         if WRITE_DECRYPTED_FILES {
             let dec_name = name.replace(".mp4", "_dec.mp4");
             fs::write(base.join(dec_name), &decrypted).unwrap();

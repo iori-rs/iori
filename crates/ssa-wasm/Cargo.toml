@@ -11,6 +11,6 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 iori-ssa.workspace = true
+iori-cenc.workspace = true
 js-sys = "0.3.77"
-mp4decrypt = "0.5.1"
 wasm-bindgen = "0.2.100"

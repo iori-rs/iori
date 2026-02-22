@@ -12,6 +12,7 @@ license = "Apache-2.0"
 iori = { path = "crates/iori" }
 iori-ffmpeg = { path = "crates/iori-ffmpeg" }
 iori-ssa = { path = "crates/ssa" }
+iori-cenc = { path = "crates/cenc" }
 iori-hls = { path = "crates/iori-hls" }
 
 iori-nicolive = { path = "platforms/nicolive" }

@@ -23,10 +23,9 @@ pub use crate::types::{CbcPattern, DecryptJob, KeyMap, ParsedCenc, SchemeType, S
 
 use std::collections::HashMap;
 
-pub fn decrypt_mp4(input: &[u8], keys: &HashMap<String, String>) -> Result<Vec<u8>> {
+pub fn decrypt_mp4(mut input: Vec<u8>, keys: &HashMap<String, String>) -> Result<Vec<u8>> {
     let key_map = jobs::parse_key_map(keys)?;
-    let parsed = parse_decrypt_jobs(input)?;
-    let mut output = input.to_vec();
-    decrypt_in_place(&mut output, &parsed.jobs, &key_map, 0)?;
-    Ok(output)
+    let parsed = parse_decrypt_jobs(&input)?;
+    decrypt_in_place(&mut input, &parsed.jobs, &key_map, 0)?;
+    Ok(input)
 }
