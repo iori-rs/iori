@@ -15,6 +15,8 @@ use tokio::sync::oneshot;
 
 use crate::source::{TestSegment, TestSource};
 
+const SIMULATED_LIVE_DELAY: Duration = Duration::from_secs(60);
+
 struct DelayedBatchSource {
     batches: Vec<Vec<TestSegment>>,
     delay: Duration,
@@ -35,7 +37,7 @@ impl StreamingSource for DelayedBatchSource {
     ) -> IoriResult<impl Stream<Item = IoriResult<Vec<Self::Segment>>>> {
         let batches = self.batches.clone();
         let delay = self.delay;
-        Ok(Box::pin(stream::unfold(
+        Ok(stream::unfold(
             (0usize, batches),
             move |(idx, batches)| async move {
                 if idx > 0 {
@@ -46,7 +48,7 @@ impl StreamingSource for DelayedBatchSource {
                     .cloned()
                     .map(|batch| (Ok(batch), (idx + 1, batches)))
             },
-        )))
+        ))
     }
 }
 
@@ -212,7 +214,7 @@ async fn test_parallel_downloader_live_simulation() -> anyhow::Result<()> {
 async fn test_parallel_downloader_stop_signal_during_live_wait() -> anyhow::Result<()> {
     let batch1 = vec![TestSegment::new(1, 0, "test0.ts".to_string())];
     let batch2 = vec![TestSegment::new(1, 1, "test1.ts".to_string())];
-    let source = DelayedBatchSource::new(vec![batch1, batch2], Duration::from_secs(60));
+    let source = DelayedBatchSource::new(vec![batch1, batch2], SIMULATED_LIVE_DELAY);
     let cache = Arc::new(MemoryCacheSource::new());
     let (tx, rx) = oneshot::channel();
 
