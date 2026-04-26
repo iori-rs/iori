@@ -1,10 +1,8 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
-    BOX_SBGP, BOX_SENC, BOX_SGPD, SampleEncryptionEntry, SeigEntry, TrackEncryptionInfo,
-    parse_mp4_boxes, parse_sai_entries, parse_saio, parse_saiz, parse_sbgp_seig, parse_senc,
-    parse_sgpd_seig,
+    BOX_SBGP, BOX_SENC, BOX_SGPD, RawMp4Box, SampleEncryptionEntry, SbgpEntry, SeigEntry,
+    TrackEncryptionInfo, parse_saio, parse_saiz,
 };
-use crate::jobs::get_track_map;
 use crate::types::{DecryptJob, ParsedCenc, SchemeType};
 use shiguredo_mp4::boxes::{MoofBox, MoovBox, UnknownBox};
 use shiguredo_mp4::{BoxType, Decode};
@@ -17,9 +15,6 @@ fn find_unknown_box(boxes: &[UnknownBox], box_type: [u8; 4]) -> Option<&UnknownB
 }
 
 /// Build per-sample encryption entries from sbgp/sgpd seig boxes.
-///
-/// Used when `senc.sample_count == 0`: the constant IV per sample is stored in the
-/// SGPD seig group entry that each sample is mapped to via SBGP.
 fn build_sample_group_entries(
     traf_unknown: &[UnknownBox],
     moof_unknown: &[UnknownBox],
@@ -30,14 +25,14 @@ fn build_sample_group_entries(
         .iter()
         .chain(moof_unknown.iter())
         .filter(|b| b.box_type == BoxType::Normal(BOX_SBGP))
-        .find_map(|b| parse_sbgp_seig(&b.payload).ok().flatten())
+        .find_map(|b| SbgpEntry::parse_seig(&b.payload).ok().flatten())
         .ok_or(CencError::MissingSenc)?;
 
     let sgpd = traf_unknown
         .iter()
         .chain(moof_unknown.iter())
         .filter(|b| b.box_type == BoxType::Normal(BOX_SGPD))
-        .find_map(|b| parse_sgpd_seig(&b.payload).ok().flatten())
+        .find_map(|b| SeigEntry::parse_seig(&b.payload).ok().flatten())
         .ok_or(CencError::MissingSenc)?;
 
     let mut entries = Vec::with_capacity(sample_count);
@@ -47,17 +42,12 @@ fn build_sample_group_entries(
         let count = (sbgp_entry.sample_count as usize).min(remaining);
         for _ in 0..count {
             let iv = if sbgp_entry.group_description_index == 0 {
-                // Not mapped to any group — use track-level constant IV.
                 track_info.constant_iv.ok_or_else(|| {
                     CencError::InvalidSenc(
                         "sbgp group_description_index=0 but no track-level constant IV".to_string(),
                     )
                 })?
             } else {
-                // ISO 14496-12 §8.9.2: group_description_index >= 0x10001 means a
-                // fragment-local SGPD reference; the 1-based entry index is in the
-                // lower 16 bits.  Values 1–0x10000 are moov-level (also 1-based).
-                // Both cases result in a 0-based index into the SGPD we already found.
                 let raw = sbgp_entry.group_description_index;
                 let one_based = if raw >= 0x10001 { raw & 0xFFFF } else { raw } as usize;
                 let idx = one_based.checked_sub(1).ok_or_else(|| {
@@ -69,7 +59,6 @@ fn build_sample_group_entries(
                     CencError::InvalidSenc("invalid sbgp group_description_index".to_string())
                 })?;
                 if !seig.is_protected {
-                    // Sample group marks this run as clear — skip it entirely.
                     continue;
                 }
                 seig.constant_iv.ok_or_else(|| {
@@ -101,7 +90,7 @@ fn sample_group_overrides(
         .iter()
         .chain(moof_unknown.iter())
         .filter(|b| b.box_type == BoxType::Normal(BOX_SBGP))
-        .find_map(|b| parse_sbgp_seig(&b.payload).ok().flatten())
+        .find_map(|b| SbgpEntry::parse_seig(&b.payload).ok().flatten())
     else {
         return Ok(vec![None; sample_count]);
     };
@@ -110,7 +99,7 @@ fn sample_group_overrides(
         .iter()
         .chain(moof_unknown.iter())
         .filter(|b| b.box_type == BoxType::Normal(BOX_SGPD))
-        .find_map(|b| parse_sgpd_seig(&b.payload).ok().flatten())
+        .find_map(|b| SeigEntry::parse_seig(&b.payload).ok().flatten())
         .ok_or(CencError::MissingSenc)?;
 
     let mut overrides = Vec::with_capacity(sample_count);
@@ -142,13 +131,13 @@ fn sample_group_overrides(
 }
 
 pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<ParsedCenc> {
-    let track_map = get_track_map(moov)?;
+    let track_map = super::get_track_map(moov)?;
     let mut track_lookup: HashMap<u32, Vec<Option<TrackEncryptionInfo>>> = HashMap::new();
     for (track_id, infos) in track_map {
         track_lookup.insert(track_id, infos);
     }
 
-    let top_boxes = parse_mp4_boxes(input, 0)?;
+    let top_boxes = RawMp4Box::parse_all(input, 0)?;
     let mut jobs = Vec::new();
 
     for raw_moof in top_boxes.iter().filter(|b| b.box_type == *b"moof") {
@@ -209,16 +198,14 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
             let senc_box = find_unknown_box(&traf.unknown_boxes, BOX_SENC)
                 .or_else(|| find_unknown_box(&moof.unknown_boxes, BOX_SENC));
             let entries = 'entries: {
-                // Prefer senc when it has sample entries.
                 if let Some(senc) = senc_box {
-                    let parsed = parse_senc(&senc.payload, info.iv_size, info.constant_iv)?;
+                    let parsed =
+                        SampleEncryptionEntry::parse_senc(&senc.payload, info.iv_size, info.constant_iv)?;
                     if !parsed.is_empty() {
                         break 'entries parsed;
                     }
-                    // senc.sample_count == 0: fall through to sample group encryption.
                 }
 
-                // Try saiz/saio auxiliary info.
                 let saiz = find_unknown_box(&traf.unknown_boxes, *b"saiz")
                     .or_else(|| find_unknown_box(&moof.unknown_boxes, *b"saiz"));
                 let saio = find_unknown_box(&traf.unknown_boxes, *b"saio")
@@ -239,7 +226,7 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                     if aux_offset >= input.len() {
                         return Err(CencError::OutOfBounds);
                     }
-                    break 'entries parse_sai_entries(
+                    break 'entries SampleEncryptionEntry::parse_sai(
                         &input[aux_offset..],
                         &sizes,
                         info.iv_size,
@@ -247,7 +234,6 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                     )?;
                 }
 
-                // Fall back to cbcs sample group encryption (sbgp/sgpd seig).
                 build_sample_group_entries(
                     &traf.unknown_boxes,
                     &moof.unknown_boxes,

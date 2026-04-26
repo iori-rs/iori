@@ -27,7 +27,7 @@ fn decrypt_bbb_fixtures_with_zero_key() {
     ];
 
     for (name, encrypted) in fixtures {
-        let parsed = iori_cenc::parse_decrypt_jobs(encrypted).unwrap();
+        let parsed = iori_cenc::ParsedCenc::parse(encrypted).unwrap();
         let kids: HashSet<[u8; 16]> = parsed.jobs.iter().map(|job| job.kid).collect();
         let keys = kids
             .into_iter()

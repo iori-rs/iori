@@ -1,55 +1,52 @@
 use crate::cleanup::normalize_decrypted_fmp4;
 use crate::errors::{CencError, Result};
-use crate::types::{CbcPattern, DecryptJob, KeyMap, SchemeType, Subsample};
+use crate::types::{CbcPattern, DecryptJob, KeyMap, ParsedCenc, Subsample};
 use aes::Aes128;
 use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit, generic_array::GenericArray};
 
 const AES_BLOCK_SIZE: usize = 16;
 
-pub fn decrypt_in_place(
-    data: &mut [u8],
-    jobs: &[DecryptJob],
-    keys: &KeyMap,
-    base_offset: u64,
-) -> Result<()> {
-    for job in jobs {
-        let key = keys
-            .get(&job.kid)
-            .ok_or_else(|| CencError::MissingKey(hex::encode(job.kid)))?;
-        let job_start = job
-            .offset
-            .checked_sub(base_offset)
-            .ok_or(CencError::OutOfBounds)?;
-        let job_end = job_start + job.size as u64;
-        if job_end > data.len() as u64 {
-            return Err(CencError::OutOfBounds);
+impl ParsedCenc {
+    /// Decrypt all samples in `data` according to the parsed encryption metadata.
+    pub fn decrypt_in_place(&self, data: &mut [u8], keys: &KeyMap, base_offset: u64) -> Result<()> {
+        for job in &self.jobs {
+            let key = keys
+                .get(&job.kid)
+                .ok_or_else(|| CencError::MissingKey(hex::encode(job.kid)))?;
+            let job_start = job
+                .offset
+                .checked_sub(base_offset)
+                .ok_or(CencError::OutOfBounds)?;
+            let job_end = job_start + job.size as u64;
+            if job_end > data.len() as u64 {
+                return Err(CencError::OutOfBounds);
+            }
+            let start = job_start as usize;
+            let end = job_end as usize;
+            let sample = &mut data[start..end];
+            job.decrypt_sample(sample, key)?;
         }
-        let start = job_start as usize;
-        let end = job_end as usize;
-        let sample = &mut data[start..end];
-        decrypt_sample(sample, job, key)?;
+        normalize_decrypted_fmp4(data)?;
+        Ok(())
     }
-    normalize_decrypted_fmp4(data)?;
-    Ok(())
 }
 
-pub(crate) fn decrypt_sample(sample: &mut [u8], job: &DecryptJob, key: &[u8; 16]) -> Result<()> {
-    let subsamples = if job.subsamples.is_empty() {
-        vec![Subsample {
-            clear_bytes: 0,
-            encrypted_bytes: sample.len() as u32,
-        }]
-    } else {
-        job.subsamples.clone()
-    };
-    validate_subsamples(sample.len(), &subsamples)?;
+impl DecryptJob {
+    pub(crate) fn decrypt_sample(&self, sample: &mut [u8], key: &[u8; 16]) -> Result<()> {
+        let subsamples = if self.subsamples.is_empty() {
+            vec![Subsample {
+                clear_bytes: 0,
+                encrypted_bytes: sample.len() as u32,
+            }]
+        } else {
+            self.subsamples.clone()
+        };
+        validate_subsamples(sample.len(), &subsamples)?;
 
-    match job.scheme {
-        SchemeType::Cenc | SchemeType::Cens => {
-            decrypt_ctr(sample, key, job.iv, job.pattern, &subsamples)
-        }
-        SchemeType::Cbc1 | SchemeType::Cbcs => {
-            decrypt_cbc(sample, key, job.iv, job.pattern, &subsamples)
+        if self.scheme.is_ctr() {
+            decrypt_ctr(sample, key, self.iv, self.pattern, &subsamples)
+        } else {
+            decrypt_cbc(sample, key, self.iv, self.pattern, &subsamples)
         }
     }
 }
@@ -144,15 +141,14 @@ fn apply_ctr_pattern(
     mut block_index: u64,
 ) -> u64 {
     let cipher = Aes128::new(GenericArray::from_slice(key));
-    let (crypt_blocks, skip_blocks) = (pattern.crypt_byte_block, pattern.skip_byte_block);
-    let cycle = crypt_blocks.saturating_add(skip_blocks);
+    let cycle = pattern.cycle_length();
     let mut offset = 0usize;
     while offset < data.len() {
         let should_crypt = if cycle == 0 {
             true
         } else {
             let pos = (block_index % cycle as u64) as u8;
-            pos < crypt_blocks
+            pos < pattern.crypt_byte_block
         };
         let counter_block = build_ctr_block(iv, block_index);
         block_index += 1;

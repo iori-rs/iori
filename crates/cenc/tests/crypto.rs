@@ -4,7 +4,7 @@ use common::read_mdat_payload;
 use aes::Aes128;
 use aes::cipher::{BlockEncrypt, KeyInit, generic_array::GenericArray};
 use iori_cenc::{
-    CbcPattern, CencError, DecryptJob, KeyMap, SchemeType, Subsample, decrypt_in_place,
+    CbcPattern, CencError, DecryptJob, KeyMap, ParsedCenc, SchemeType, Subsample,
     decrypt_mp4, decrypt_mp4_with_initial_segment,
 };
 use std::collections::HashMap;
@@ -34,9 +34,13 @@ const KEY: [u8; 16] = [
 ];
 
 fn key_map() -> KeyMap {
-    let mut map = HashMap::new();
+    let mut map = KeyMap::new();
     map.insert(KID, KEY);
     map
+}
+
+fn decrypt_jobs(jobs: Vec<DecryptJob>) -> ParsedCenc {
+    ParsedCenc { jobs }
 }
 
 #[test]
@@ -53,8 +57,8 @@ fn decrypt_cenc_roundtrip() {
     };
 
     let mut encrypted = plain.clone();
-    decrypt_in_place(&mut encrypted, std::slice::from_ref(&job), &key_map(), 0).unwrap();
-    decrypt_in_place(&mut encrypted, &[job], &key_map(), 0).unwrap();
+    decrypt_jobs(vec![job.clone()]).decrypt_in_place(&mut encrypted, &key_map(), 0).unwrap();
+    decrypt_jobs(vec![job]).decrypt_in_place(&mut encrypted, &key_map(), 0).unwrap();
 
     assert_eq!(plain, encrypted);
 }
@@ -76,8 +80,8 @@ fn decrypt_cens_pattern_roundtrip() {
     };
 
     let mut encrypted = plain.clone();
-    decrypt_in_place(&mut encrypted, std::slice::from_ref(&job), &key_map(), 0).unwrap();
-    decrypt_in_place(&mut encrypted, &[job], &key_map(), 0).unwrap();
+    decrypt_jobs(vec![job.clone()]).decrypt_in_place(&mut encrypted, &key_map(), 0).unwrap();
+    decrypt_jobs(vec![job]).decrypt_in_place(&mut encrypted, &key_map(), 0).unwrap();
 
     assert_eq!(plain, encrypted);
 }
@@ -97,7 +101,7 @@ fn decrypt_cbc1_roundtrip() {
 
     let mut encrypted = plain.clone();
     encrypt_cbc(&mut encrypted, job.pattern, job.iv);
-    decrypt_in_place(&mut encrypted, &[job], &key_map(), 0).unwrap();
+    decrypt_jobs(vec![job]).decrypt_in_place(&mut encrypted, &key_map(), 0).unwrap();
 
     assert_eq!(plain, encrypted);
 }
@@ -134,7 +138,7 @@ fn decrypt_cbcs_pattern_with_subsamples() {
 
     let mut encrypted = plain.clone();
     encrypt_cbc_with_subsamples(&mut encrypted, job.pattern, job.iv, &subsamples);
-    decrypt_in_place(&mut encrypted, &[job], &key_map(), 0).unwrap();
+    decrypt_jobs(vec![job]).decrypt_in_place(&mut encrypted, &key_map(), 0).unwrap();
 
     assert_eq!(plain, encrypted);
 }
@@ -155,7 +159,7 @@ fn decrypt_rejects_subsamples_that_do_not_cover_sample() {
         kid: KID,
     };
 
-    assert!(decrypt_in_place(&mut encrypted, &[job], &key_map(), 0).is_err());
+    assert!(decrypt_jobs(vec![job]).decrypt_in_place(&mut encrypted, &key_map(), 0).is_err());
 }
 
 #[test]
@@ -187,7 +191,7 @@ fn decrypt_cenc_keeps_ctr_keystream_position_across_subsamples() {
 
     let mut encrypted = plain.clone();
     encrypt_ctr_continuous_with_subsamples(&mut encrypted, job.iv, &subsamples);
-    decrypt_in_place(&mut encrypted, &[job], &key_map(), 0).unwrap();
+    decrypt_jobs(vec![job]).decrypt_in_place(&mut encrypted, &key_map(), 0).unwrap();
 
     assert_eq!(plain, encrypted);
 }
