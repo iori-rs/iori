@@ -1,4 +1,4 @@
-mod boxes;
+pub(crate) mod boxes;
 mod fmp4;
 mod non_fmp4;
 

@@ -61,10 +61,4 @@ impl From<crate::CencError> for V3Error {
     }
 }
 
-impl From<winnow::error::ErrMode<winnow::error::ContextError>> for V3Error {
-    fn from(_: winnow::error::ErrMode<winnow::error::ContextError>) -> Self {
-        V3Error::InvalidBoxStructure("Parse error".to_string())
-    }
-}
-
 pub type Result<T> = std::result::Result<T, V3Error>;

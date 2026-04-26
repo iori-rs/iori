@@ -11,4 +11,3 @@ shiguredo_mp4 = "2026.3.0"
 aes.workspace = true
 hex = "0.4.3"
 thiserror.workspace = true
-winnow = "0.7.14"

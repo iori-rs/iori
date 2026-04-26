@@ -2131,7 +2131,6 @@ dependencies = [
  "hex",
  "shiguredo_mp4",
  "thiserror 2.0.11",
- "winnow",
 ]
 
 [[package]]

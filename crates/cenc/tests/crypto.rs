@@ -4,12 +4,11 @@ use common::read_mdat_payload;
 use aes::Aes128;
 use aes::cipher::{BlockEncrypt, KeyInit, generic_array::GenericArray};
 use iori_cenc::{
-    CbcPattern, CencError, DecryptJob, KeyMap, SchemeType, Subsample, decrypt, decrypt_in_place,
+    CbcPattern, CencError, DecryptJob, KeyMap, SchemeType, Subsample, decrypt_in_place,
     decrypt_mp4, decrypt_mp4_with_initial_segment,
 };
 use std::collections::HashMap;
 use std::fs;
-use std::io::Cursor;
 use std::path::PathBuf;
 
 fn find_box_start(data: &[u8], target: &[u8; 4]) -> Option<usize> {
@@ -350,29 +349,4 @@ fn decrypt_fmp4_media_segment_with_initial_segment_reference() {
         read_mdat_payload(plain_media).unwrap(),
         read_mdat_payload(&decrypted).unwrap()
     );
-}
-
-#[test]
-fn decrypt_stream_fmp4_fixture_mdat_matches_plain() {
-    let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("fixtures")
-        .join("fmp4");
-    let plain = fs::read(base.join("plain.mp4")).unwrap();
-    let encrypted = fs::read(base.join("cenc.mp4")).unwrap();
-    let plain_mdat = read_mdat_payload(&plain).unwrap();
-
-    let keys = KeyMap::from([(
-        KID,
-        [
-            0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab,
-            0xcd, 0xef,
-        ],
-    )]);
-    let mut decrypted = Vec::new();
-
-    decrypt(Cursor::new(encrypted), &mut decrypted, keys).unwrap();
-
-    let decrypted_mdat = read_mdat_payload(&decrypted).unwrap();
-    assert_eq!(plain_mdat, decrypted_mdat);
 }

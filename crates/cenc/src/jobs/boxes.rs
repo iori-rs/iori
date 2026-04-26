@@ -16,13 +16,13 @@ pub(crate) const BOX_ENCA: [u8; 4] = *b"enca";
 const VISUAL_SAMPLE_ENTRY_SIZE: usize = 78;
 const AUDIO_SAMPLE_ENTRY_SIZE: usize = 28;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct SampleEncryptionEntry {
     pub(crate) iv: [u8; 16],
     pub(crate) subsamples: Vec<Subsample>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct TrackEncryptionInfo {
     pub(crate) scheme: SchemeType,
     pub(crate) kid: [u8; 16],

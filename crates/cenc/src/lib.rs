@@ -6,14 +6,8 @@ mod errors;
 mod jobs;
 mod types;
 
-mod api;
-mod context;
-mod decrypt;
 pub mod error;
-mod orchestrator;
-mod parse;
 
-pub use crate::api::decrypt;
 pub use crate::cleanup::normalize_decrypted_fmp4;
 pub use crate::crypto::decrypt_in_place;
 pub use crate::error::V3Error;
