@@ -120,9 +120,7 @@ fn normalize_stsd(data: &mut [u8], stsd: RawBox) -> Result<()> {
             b"encv" => VISUAL_SAMPLE_ENTRY_SIZE,
             b"enca" => AUDIO_SAMPLE_ENTRY_SIZE,
             // CMAF cbcs: original codec type used directly with sinf appended
-            b"avc1" | b"hvc1" | b"hev1" | b"vp08" | b"vp09" | b"av01" => {
-                VISUAL_SAMPLE_ENTRY_SIZE
-            }
+            b"avc1" | b"hvc1" | b"hev1" | b"vp08" | b"vp09" | b"av01" => VISUAL_SAMPLE_ENTRY_SIZE,
             b"mp4a" | b"opus" | b"flac" => AUDIO_SAMPLE_ENTRY_SIZE,
             _ => {
                 offset += entry_size;

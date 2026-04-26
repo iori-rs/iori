@@ -76,26 +76,6 @@ pub fn be_u24(input: &mut Partial<&[u8]>) -> Result<u32, ErrMode<ContextError>> 
     Ok(u32::from_be_bytes([0, bytes[0], bytes[1], bytes[2]]))
 }
 
-/// Parse fixed-size byte array
-pub fn array<const N: usize>(input: &mut Partial<&[u8]>) -> Result<[u8; N], ErrMode<ContextError>> {
-    take(N)
-        .parse_next(input)?
-        .try_into()
-        .map_err(|_| ErrMode::Cut(ContextError::new()))
-}
-
-/// Read box payload by skipping header and reading remaining bytes
-pub fn box_payload<'a>(
-    input: &mut &'a [u8],
-    header: &BoxHeader,
-) -> Result<&'a [u8], ErrMode<ContextError>> {
-    let payload_size = (header.box_size.get() as usize)
-        .checked_sub(header.external_size())
-        .ok_or_else(|| ErrMode::Cut(ContextError::new()))?;
-
-    take(payload_size).parse_next(input)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -161,14 +141,5 @@ mod tests {
         let value = be_u24(&mut input).unwrap();
 
         assert_eq!(value, 0x123456);
-    }
-
-    #[test]
-    fn test_array() {
-        let data = [0x01, 0x02, 0x03, 0x04];
-        let mut input = Partial::new(&data[..]);
-        let arr: [u8; 4] = array(&mut input).unwrap();
-
-        assert_eq!(arr, [0x01, 0x02, 0x03, 0x04]);
     }
 }

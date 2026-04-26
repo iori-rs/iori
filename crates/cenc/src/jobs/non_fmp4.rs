@@ -1,5 +1,5 @@
 use crate::errors::{CencError, Result};
-use crate::jobs::boxes::{build_entry_encryption_info, is_seig_grouping_box, parse_senc, BOX_SENC};
+use crate::jobs::boxes::{BOX_SENC, build_entry_encryption_info, is_seig_grouping_box, parse_senc};
 use crate::types::{DecryptJob, ParsedCenc, SchemeType};
 use shiguredo_mp4::BoxType;
 use shiguredo_mp4::aux::SampleTableAccessor;

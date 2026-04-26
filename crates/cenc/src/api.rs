@@ -1,8 +1,8 @@
 //! Public API for V3 streaming CENC decryption
 
-use crate::types::KeyMap;
 use crate::error::Result;
 use crate::orchestrator;
+use crate::types::KeyMap;
 use std::io::{Read, Write};
 
 /// Decrypt fMP4 CENC-encrypted stream in a single pass

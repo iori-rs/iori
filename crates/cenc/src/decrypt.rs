@@ -2,7 +2,7 @@
 
 use crate::error::{Result, V3Error};
 use crate::parse::{FragmentMetadata, TrackMetadata};
-use crate::types::{DecryptJob, KeyMap, Subsample};
+use crate::types::{DecryptJob, KeyMap};
 use std::io::{Read, Write};
 
 /// Decrypt mdat box content sample-by-sample in streaming fashion
@@ -21,6 +21,7 @@ pub fn decrypt_mdat<R: Read, W: Write>(
     fragment: &FragmentMetadata,
     track: &TrackMetadata,
     keys: &KeyMap,
+    first_sample_offset: usize,
 ) -> Result<()> {
     // Validate key exists
     let key = keys.get(&track.encryption_info.kid).ok_or_else(|| {
@@ -36,11 +37,18 @@ pub fn decrypt_mdat<R: Read, W: Write>(
         )));
     }
 
-    let mut total_processed = 0usize;
+    if first_sample_offset > mdat_size {
+        return Err(V3Error::InvalidBoxStructure(format!(
+            "First sample offset {} exceeds mdat size {}",
+            first_sample_offset, mdat_size
+        )));
+    }
+
+    copy_passthrough(input, output, first_sample_offset)?;
+    let mut total_processed = first_sample_offset;
 
     // Process each sample
     for (i, &sample_size) in fragment.sample_sizes.iter().enumerate() {
-        // Check bounds
         if total_processed + sample_size as usize > mdat_size {
             return Err(V3Error::InvalidBoxStructure(format!(
                 "Sample {} size {} exceeds mdat bounds",
@@ -77,19 +85,23 @@ pub fn decrypt_mdat<R: Read, W: Write>(
 
     // If there's remaining data in mdat (shouldn't happen with valid files),
     // just copy it through
-    if total_processed < mdat_size {
-        let remaining = mdat_size - total_processed;
-        let mut buffer = vec![0u8; remaining.min(65536)];
+    copy_passthrough(input, output, mdat_size - total_processed)?;
 
-        let mut copied = 0;
-        while copied < remaining {
-            let to_read = (remaining - copied).min(buffer.len());
-            input.read_exact(&mut buffer[..to_read])?;
-            output.write_all(&buffer[..to_read])?;
-            copied += to_read;
-        }
+    Ok(())
+}
+
+fn copy_passthrough<R: Read, W: Write>(input: &mut R, output: &mut W, size: usize) -> Result<()> {
+    if size == 0 {
+        return Ok(());
     }
-
+    let mut remaining = size;
+    let mut buffer = vec![0u8; remaining.min(65536)];
+    while remaining > 0 {
+        let to_read = remaining.min(buffer.len());
+        input.read_exact(&mut buffer[..to_read])?;
+        output.write_all(&buffer[..to_read])?;
+        remaining -= to_read;
+    }
     Ok(())
 }
 
@@ -98,182 +110,14 @@ pub fn decrypt_mdat<R: Read, W: Write>(
 /// This is a wrapper around the crypto module's decrypt logic
 /// Modified from crate::crypto::decrypt_sample to be standalone
 fn decrypt_sample_internal(sample: &mut [u8], job: &DecryptJob, key: &[u8; 16]) -> Result<()> {
-    // Handle empty subsamples - treat entire sample as encrypted
-    let subsamples = if job.subsamples.is_empty() {
-        vec![Subsample {
-            clear_bytes: 0,
-            encrypted_bytes: sample.len() as u32,
-        }]
-    } else {
-        job.subsamples.clone()
-    };
-
-    // Call the appropriate decryption function based on scheme
-    match job.scheme {
-        crate::types::SchemeType::Cenc | crate::types::SchemeType::Cens => {
-            decrypt_ctr(sample, key, job.iv, job.pattern, &subsamples)
-        }
-        crate::types::SchemeType::Cbc1 | crate::types::SchemeType::Cbcs => {
-            decrypt_cbc(sample, key, job.iv, job.pattern, &subsamples)
-        }
-    }
-}
-
-/// CTR mode decryption (for CENC/CENS)
-fn decrypt_ctr(
-    sample: &mut [u8],
-    key: &[u8; 16],
-    iv: [u8; 16],
-    pattern: Option<crate::types::CbcPattern>,
-    subsamples: &[Subsample],
-) -> Result<()> {
-    use aes::Aes128;
-    use aes::cipher::{BlockEncrypt, KeyInit};
-
-    const AES_BLOCK_SIZE: usize = 16;
-
-    let cipher = Aes128::new(aes::cipher::generic_array::GenericArray::from_slice(key));
-
-    let (crypt_blocks, skip_blocks) = pattern
-        .map(|p| (p.crypt_byte_block, p.skip_byte_block))
-        .unwrap_or((0, 0));
-    let cycle = crypt_blocks.saturating_add(skip_blocks);
-
-    let mut offset = 0usize;
-    let mut encrypted_block_index = 0u64;
-
-    for subsample in subsamples {
-        // Skip clear bytes
-        offset += subsample.clear_bytes as usize;
-
-        let encrypted_len = subsample.encrypted_bytes as usize;
-        let end = offset + encrypted_len;
-
-        if end > sample.len() {
-            return Err(V3Error::CryptoError(crate::CencError::OutOfBounds));
-        }
-
-        let segment = &mut sample[offset..end];
-
-        // Process encrypted segment block by block
-        let mut seg_offset = 0usize;
-        while seg_offset < segment.len() {
-            let should_crypt = if cycle == 0 {
-                true
-            } else {
-                let pos = (encrypted_block_index % cycle as u64) as u8;
-                pos < crypt_blocks
-            };
-
-            // Build counter block
-            let mut counter_block = iv;
-            let counter = u64::from_be_bytes(counter_block[8..].try_into().unwrap());
-            let next = counter.wrapping_add(encrypted_block_index);
-            counter_block[8..].copy_from_slice(&next.to_be_bytes());
-
-            encrypted_block_index += 1;
-
-            if should_crypt {
-                let mut keystream =
-                    aes::cipher::generic_array::GenericArray::clone_from_slice(&counter_block);
-                cipher.encrypt_block(&mut keystream);
-
-                let block_len = usize::min(AES_BLOCK_SIZE, segment.len() - seg_offset);
-                for i in 0..block_len {
-                    segment[seg_offset + i] ^= keystream[i];
-                }
-            }
-
-            seg_offset += AES_BLOCK_SIZE;
-        }
-
-        offset = end;
-    }
-
-    Ok(())
-}
-
-/// CBC mode decryption (for CBC1/CBCS)
-fn decrypt_cbc(
-    sample: &mut [u8],
-    key: &[u8; 16],
-    iv: [u8; 16],
-    pattern: Option<crate::types::CbcPattern>,
-    subsamples: &[Subsample],
-) -> Result<()> {
-    use aes::Aes128;
-    use aes::cipher::{BlockDecrypt, KeyInit};
-
-    const AES_BLOCK_SIZE: usize = 16;
-
-    let cipher = Aes128::new(aes::cipher::generic_array::GenericArray::from_slice(key));
-
-    let (crypt_blocks, skip_blocks) = pattern
-        .map(|p| (p.crypt_byte_block, p.skip_byte_block))
-        .unwrap_or((0, 0));
-    let cycle = crypt_blocks.saturating_add(skip_blocks);
-
-    let mut offset = 0usize;
-    let mut previous = iv;
-    let mut encrypted_block_index = 0u64;
-
-    for subsample in subsamples {
-        // Skip clear bytes
-        offset += subsample.clear_bytes as usize;
-
-        let encrypted_len = subsample.encrypted_bytes as usize;
-        let remainder = encrypted_len % AES_BLOCK_SIZE;
-        let decrypt_len = encrypted_len - remainder;
-        let end = offset + encrypted_len;
-
-        if end > sample.len() {
-            return Err(V3Error::CryptoError(crate::CencError::OutOfBounds));
-        }
-
-        if decrypt_len > 0 {
-            let segment = &mut sample[offset..offset + decrypt_len];
-
-            // Process complete blocks
-            for chunk in segment.chunks_mut(AES_BLOCK_SIZE) {
-                let should_crypt = if cycle == 0 {
-                    true
-                } else {
-                    let pos = (encrypted_block_index % cycle as u64) as u8;
-                    pos < crypt_blocks
-                };
-
-                encrypted_block_index += 1;
-
-                if !should_crypt {
-                    continue;
-                }
-
-                let mut ciphertext = [0u8; AES_BLOCK_SIZE];
-                ciphertext.copy_from_slice(chunk);
-
-                let mut block =
-                    aes::cipher::generic_array::GenericArray::clone_from_slice(&ciphertext);
-                cipher.decrypt_block(&mut block);
-
-                for i in 0..AES_BLOCK_SIZE {
-                    chunk[i] = block[i] ^ previous[i];
-                }
-
-                previous.copy_from_slice(&ciphertext);
-            }
-        }
-
-        offset = end;
-    }
-
-    Ok(())
+    crate::crypto::decrypt_sample(sample, job, key).map_err(V3Error::from)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parse::{SampleEncryptionEntry, TrackEncryptionInfo};
-    use crate::types::{CbcPattern, SchemeType};
+    use crate::parse::boxes::{SampleEncryptionEntry, TrackEncryptionInfo};
+    use crate::types::SchemeType;
     use std::io::Cursor;
 
     #[test]
@@ -333,8 +177,45 @@ mod tests {
         let mut input = Cursor::new(vec![0u8; 300]);
         let mut output = Vec::new();
 
-        let result = decrypt_mdat(&mut input, &mut output, 300, &fragment, &track, &keys);
+        let result = decrypt_mdat(&mut input, &mut output, 300, &fragment, &track, &keys, 0);
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_decrypt_mdat_preserves_prefix_before_first_sample() {
+        let mut keys = std::collections::HashMap::new();
+        keys.insert([0u8; 16], [1u8; 16]);
+
+        let fragment = FragmentMetadata {
+            track_id: 1,
+            sample_encryption: vec![SampleEncryptionEntry {
+                iv: [2u8; 16],
+                subsamples: vec![],
+            }],
+            sample_sizes: vec![16],
+            data_offset: 0,
+        };
+
+        let track = TrackMetadata {
+            track_id: 1,
+            encryption_info: TrackEncryptionInfo {
+                is_protected: 1,
+                iv_size: 16,
+                kid: [0u8; 16],
+                scheme: SchemeType::Cenc,
+                pattern: None,
+                constant_iv: None,
+            },
+        };
+
+        let prefix = vec![0xaau8; 4];
+        let mut input = Cursor::new([prefix.as_slice(), &[0x42u8; 16]].concat());
+        let mut output = Vec::new();
+
+        decrypt_mdat(&mut input, &mut output, 20, &fragment, &track, &keys, 4).unwrap();
+
+        assert_eq!(&output[..4], prefix.as_slice());
+        assert_ne!(&output[4..], &[0x42u8; 16]);
     }
 }

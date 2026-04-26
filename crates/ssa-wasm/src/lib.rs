@@ -1,4 +1,4 @@
-use iori_cenc::decrypt_mp4;
+use iori_cenc::{decrypt_mp4, decrypt_mp4_with_initial_segment};
 use js_sys::Uint8Array;
 use std::collections::HashMap;
 use std::io::Cursor;
@@ -25,6 +25,15 @@ fn parse_keyid_key(keyid_key: &str) -> Result<(String, String), JsValue> {
     validate_hex_32("keyid", kid)?;
     validate_hex_32("key", key)?;
     Ok((kid.to_string(), key.to_string()))
+}
+
+fn parse_keyid_keys(keyid_keys: Vec<String>) -> Result<HashMap<String, String>, JsValue> {
+    let mut keys = HashMap::new();
+    for keyid_key in keyid_keys {
+        let (kid, key) = parse_keyid_key(&keyid_key)?;
+        keys.insert(kid, key);
+    }
+    Ok(keys)
 }
 
 #[wasm_bindgen(js_name = decryptSegment)]
@@ -66,16 +75,39 @@ pub fn decrypt_segment(
 pub fn decrypt_segment_cenc(
     input: Uint8Array,
     keyid_keys: Vec<String>,
+    initial_segment: Option<Uint8Array>,
 ) -> Result<Uint8Array, JsValue> {
-    let mut keys = HashMap::new();
-    for keyid_key in keyid_keys {
-        let (kid, key) = parse_keyid_key(&keyid_key)?;
-        keys.insert(kid, key);
+    let keys = parse_keyid_keys(keyid_keys)?;
+
+    let input = input.to_vec();
+    let initial_segment = initial_segment.filter(|segment| segment.length() > 0);
+    let output = if let Some(initial_segment) = initial_segment {
+        let initial_segment = initial_segment.to_vec();
+        decrypt_mp4_with_initial_segment(input, &initial_segment, &keys)
+    } else {
+        decrypt_mp4(input, &keys)
+    }
+    .map_err(|err| invalid_arg(&format!("iori-cenc error: {err}")))?;
+
+    Ok(Uint8Array::from(output.as_slice()))
+}
+
+#[wasm_bindgen(js_name = decryptSegmentCencWithInit)]
+pub fn decrypt_segment_cenc_with_init(
+    input: Uint8Array,
+    initial_segment: Uint8Array,
+    keyid_keys: Vec<String>,
+) -> Result<Uint8Array, JsValue> {
+    let keys = parse_keyid_keys(keyid_keys)?;
+    let initial_segment = initial_segment.to_vec();
+    if initial_segment.is_empty() {
+        return Err(invalid_arg(
+            "initialSegment must contain a DASH/fMP4 initialization segment with a moov box",
+        ));
     }
 
-    let buffer = input.to_vec();
-    let output = decrypt_mp4(buffer, &keys)
-        .map_err(|err| invalid_arg(&format!("iori-cenc error: {err:?}")))?;
+    let output = decrypt_mp4_with_initial_segment(input.to_vec(), &initial_segment, &keys)
+        .map_err(|err| invalid_arg(&format!("iori-cenc error: {err}")))?;
 
     Ok(Uint8Array::from(output.as_slice()))
 }

@@ -3,35 +3,31 @@ mod fmp4;
 mod non_fmp4;
 
 use crate::errors::{CencError, Result};
-use crate::jobs::boxes::{build_entry_encryption_info, TrackEncryptionInfo};
+use crate::jobs::boxes::{TrackEncryptionInfo, build_entry_encryption_info, parse_mp4_boxes};
 use crate::types::{KeyMap, ParsedCenc};
-use shiguredo_mp4::{Decode, Mp4File};
-use shiguredo_mp4::boxes::{MoovBox, RootBox};
+use shiguredo_mp4::Decode;
+use shiguredo_mp4::boxes::MoovBox;
 use std::collections::HashMap;
 
 use crate::jobs::fmp4::parse_decrypt_jobs_fmp4;
 use crate::jobs::non_fmp4::parse_decrypt_jobs_non_fmp4;
 
 pub fn parse_decrypt_jobs(input: &[u8]) -> Result<ParsedCenc> {
-    let (mp4, _) = Mp4File::<RootBox>::decode(input)?;
-    let has_moof = mp4.boxes.iter().any(|box_item| matches!(box_item, RootBox::Moof(_)));
-    let has_mdat = mp4.boxes.iter().any(|box_item| matches!(box_item, RootBox::Mdat(_)));
-
-    let moov = mp4
-        .boxes
+    let top_boxes = parse_mp4_boxes(input, 0)?;
+    let has_moof = top_boxes
         .iter()
-        .find_map(|box_item| {
-            if let RootBox::Moov(moov) = box_item {
-                Some(moov)
-            } else {
-                None
-            }
-        })
-        .ok_or(CencError::MissingMoov)?;
+        .any(|box_item| box_item.box_type == *b"moof");
+    let has_mdat = top_boxes
+        .iter()
+        .any(|box_item| box_item.box_type == *b"mdat");
+    let moov = parse_moov_box(input, &top_boxes)?;
 
     if has_moof {
-        return parse_decrypt_jobs_fmp4(input, moov);
+        let moov = moov.ok_or(CencError::MissingInitialSegment)?;
+        return parse_decrypt_jobs_fmp4(input, &moov);
     }
+
+    let moov = moov.ok_or(CencError::MissingMoov)?;
 
     // Init segment: moov only, no mdat and no moof.
     // Nothing to decrypt; normalize_decrypted_fmp4 (called by decrypt_in_place) will
@@ -40,10 +36,42 @@ pub fn parse_decrypt_jobs(input: &[u8]) -> Result<ParsedCenc> {
         return Ok(ParsedCenc { jobs: vec![] });
     }
 
-    parse_decrypt_jobs_non_fmp4(moov)
+    parse_decrypt_jobs_non_fmp4(&moov)
 }
 
-pub(crate) fn get_track_map(moov: &MoovBox) -> Result<Vec<(u32, Vec<Option<TrackEncryptionInfo>>)>> {
+pub fn parse_decrypt_jobs_with_initial_segment(
+    input: &[u8],
+    initial_segment: &[u8],
+) -> Result<ParsedCenc> {
+    let init_boxes = parse_mp4_boxes(initial_segment, 0)?;
+    let moov = parse_moov_box(initial_segment, &init_boxes)?
+        .ok_or(CencError::InitialSegmentMissingMoov)?;
+    let track_map = get_track_map(&moov)?;
+    if !track_map.iter().any(|(_, infos)| {
+        infos
+            .iter()
+            .any(|info| info.as_ref().is_some_and(|info| info.is_protected))
+    }) {
+        return Err(CencError::InitialSegmentMissingEncryptionInfo);
+    }
+
+    parse_decrypt_jobs_fmp4(input, &moov)
+}
+
+fn parse_moov_box(
+    input: &[u8],
+    boxes: &[crate::jobs::boxes::RawMp4Box],
+) -> Result<Option<MoovBox>> {
+    let Some(raw_moov) = boxes.iter().find(|box_item| box_item.box_type == *b"moov") else {
+        return Ok(None);
+    };
+    let (moov, _) = MoovBox::decode(&input[raw_moov.start..raw_moov.start + raw_moov.size])?;
+    Ok(Some(moov))
+}
+
+pub(crate) fn get_track_map(
+    moov: &MoovBox,
+) -> Result<Vec<(u32, Vec<Option<TrackEncryptionInfo>>)>> {
     let mut track_map = Vec::new();
     for trak in &moov.trak_boxes {
         let track_id = trak.tkhd_box.track_id;
@@ -68,8 +96,7 @@ pub(crate) fn parse_key_map(keys: &HashMap<String, String>) -> Result<KeyMap> {
 
 fn parse_hex_16(hex_str: &str) -> Result<[u8; 16]> {
     let cleaned = hex_str.replace('-', "");
-    let bytes =
-        hex::decode(&cleaned).map_err(|_| CencError::InvalidKeyHex(hex_str.to_string()))?;
+    let bytes = hex::decode(&cleaned).map_err(|_| CencError::InvalidKeyHex(hex_str.to_string()))?;
     if bytes.len() != 16 {
         return Err(CencError::InvalidKeyLength(bytes.len()));
     }

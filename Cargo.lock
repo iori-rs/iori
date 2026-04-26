@@ -3846,8 +3846,9 @@ dependencies = [
 
 [[package]]
 name = "shiguredo_mp4"
-version = "2026.2.0-canary.0"
-source = "git+https://github.com/shiguredo/mp4-rs?branch=feature%2Ffmp4#c61dc2cc0e7d18789d90948519d443c35e4e29bf"
+version = "2026.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b135058874815f8f13edae644ceedb659f7238fe4a9e2b1bdceecc72dc659b35"
 
 [[package]]
 name = "shiori"

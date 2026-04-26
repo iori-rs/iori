@@ -33,7 +33,7 @@ pub fn decrypt_in_place(
     Ok(())
 }
 
-fn decrypt_sample(sample: &mut [u8], job: &DecryptJob, key: &[u8; 16]) -> Result<()> {
+pub(crate) fn decrypt_sample(sample: &mut [u8], job: &DecryptJob, key: &[u8; 16]) -> Result<()> {
     let subsamples = if job.subsamples.is_empty() {
         vec![Subsample {
             clear_bytes: 0,
@@ -42,6 +42,7 @@ fn decrypt_sample(sample: &mut [u8], job: &DecryptJob, key: &[u8; 16]) -> Result
     } else {
         job.subsamples.clone()
     };
+    validate_subsamples(sample.len(), &subsamples)?;
 
     match job.scheme {
         SchemeType::Cenc | SchemeType::Cens => {
@@ -53,6 +54,25 @@ fn decrypt_sample(sample: &mut [u8], job: &DecryptJob, key: &[u8; 16]) -> Result
     }
 }
 
+fn validate_subsamples(sample_len: usize, subsamples: &[Subsample]) -> Result<()> {
+    let mut offset = 0usize;
+    for subsample in subsamples {
+        offset = offset
+            .checked_add(subsample.clear_bytes as usize)
+            .ok_or(CencError::OutOfBounds)?;
+        offset = offset
+            .checked_add(subsample.encrypted_bytes as usize)
+            .ok_or(CencError::OutOfBounds)?;
+        if offset > sample_len {
+            return Err(CencError::OutOfBounds);
+        }
+    }
+    if offset != sample_len {
+        return Err(CencError::OutOfBounds);
+    }
+    Ok(())
+}
+
 fn decrypt_ctr(
     sample: &mut [u8],
     key: &[u8; 16],
@@ -62,6 +82,8 @@ fn decrypt_ctr(
 ) -> Result<()> {
     let mut offset = 0usize;
     let mut encrypted_block_index = 0u64;
+    let mut encrypted_byte_offset = 0u64;
+    let patterned = pattern.is_some();
     for subsample in subsamples {
         offset += subsample.clear_bytes as usize;
         let encrypted_len = subsample.encrypted_bytes as usize;
@@ -70,7 +92,12 @@ fn decrypt_ctr(
             return Err(CencError::OutOfBounds);
         }
         let segment = &mut sample[offset..end];
-        encrypted_block_index = apply_ctr_pattern(segment, key, iv, pattern, encrypted_block_index);
+        if let Some(pattern) = pattern {
+            let block_index = if patterned { 0 } else { encrypted_block_index };
+            encrypted_block_index = apply_ctr_pattern(segment, key, iv, pattern, block_index);
+        } else {
+            encrypted_byte_offset = apply_ctr_continuous(segment, key, iv, encrypted_byte_offset);
+        }
         offset = end;
     }
     Ok(())
@@ -86,6 +113,7 @@ fn decrypt_cbc(
     let mut offset = 0usize;
     let mut previous = iv;
     let mut encrypted_block_index = 0u64;
+    let patterned = pattern.is_some();
     let cipher = Aes128::new(GenericArray::from_slice(key));
     for subsample in subsamples {
         offset += subsample.clear_bytes as usize;
@@ -98,8 +126,8 @@ fn decrypt_cbc(
         }
         if decrypt_len > 0 {
             let segment = &mut sample[offset..offset + decrypt_len];
-            let result =
-                apply_cbc_pattern(segment, &cipher, previous, pattern, encrypted_block_index);
+            let block_index = if patterned { 0 } else { encrypted_block_index };
+            let result = apply_cbc_pattern(segment, &cipher, previous, pattern, block_index);
             previous = result.previous;
             encrypted_block_index = result.block_index;
         }
@@ -112,13 +140,11 @@ fn apply_ctr_pattern(
     data: &mut [u8],
     key: &[u8; 16],
     iv: [u8; 16],
-    pattern: Option<CbcPattern>,
+    pattern: CbcPattern,
     mut block_index: u64,
 ) -> u64 {
     let cipher = Aes128::new(GenericArray::from_slice(key));
-    let (crypt_blocks, skip_blocks) = pattern
-        .map(|p| (p.crypt_byte_block, p.skip_byte_block))
-        .unwrap_or((0, 0));
+    let (crypt_blocks, skip_blocks) = (pattern.crypt_byte_block, pattern.skip_byte_block);
     let cycle = crypt_blocks.saturating_add(skip_blocks);
     let mut offset = 0usize;
     while offset < data.len() {
@@ -141,6 +167,30 @@ fn apply_ctr_pattern(
         offset += AES_BLOCK_SIZE;
     }
     block_index
+}
+
+fn apply_ctr_continuous(
+    data: &mut [u8],
+    key: &[u8; 16],
+    iv: [u8; 16],
+    mut byte_offset: u64,
+) -> u64 {
+    let cipher = Aes128::new(GenericArray::from_slice(key));
+    let mut offset = 0usize;
+    while offset < data.len() {
+        let block_index = byte_offset / AES_BLOCK_SIZE as u64;
+        let keystream_offset = (byte_offset % AES_BLOCK_SIZE as u64) as usize;
+        let counter_block = build_ctr_block(iv, block_index);
+        let mut keystream = GenericArray::clone_from_slice(&counter_block);
+        cipher.encrypt_block(&mut keystream);
+        let block_len = usize::min(AES_BLOCK_SIZE - keystream_offset, data.len() - offset);
+        for i in 0..block_len {
+            data[offset + i] ^= keystream[keystream_offset + i];
+        }
+        offset += block_len;
+        byte_offset += block_len as u64;
+    }
+    byte_offset
 }
 
 fn apply_cbc_pattern(

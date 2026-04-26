@@ -2,7 +2,10 @@
 
 use super::boxes::*;
 use super::combinators::*;
+use crate::jobs;
 use shiguredo_mp4::BoxType;
+use shiguredo_mp4::Decode;
+use shiguredo_mp4::boxes::MoovBox;
 use winnow::binary::be_u32;
 use winnow::error::{ContextError, ErrMode};
 use winnow::stream::Partial;
@@ -122,121 +125,34 @@ fn parse_tfhd(input: &mut Partial<&[u8]>, flags: u32) -> ModalResult<u32> {
     Ok(track_id)
 }
 
-/// Find a specific box within input, return its payload
-fn find_box<'a>(
-    input: &mut Partial<&'a [u8]>,
-    target_type: &[u8; 4],
-) -> ModalResult<Option<&'a [u8]>> {
-    let target_type = BoxType::Normal(*target_type);
-    let start = *input;
-
-    while !input.is_empty() {
-        let header = box_header(input)?;
-
-        if header.box_type == target_type {
-            let payload_size = header.box_size.get() as usize - header.external_size();
-            let payload: &[u8] = take(payload_size).parse_next(input)?;
-            return Ok(Some(payload));
-        } else {
-            // Skip this box
-            let payload_size = header.box_size.get() as usize - header.external_size();
-            take(payload_size).void().parse_next(input)?;
-        }
-    }
-
-    *input = start;
-    Ok(None)
-}
-
-/// Navigate nested boxes to find target
-fn navigate_to<'a>(input: &'a [u8], path: &[&[u8; 4]]) -> ModalResult<Option<&'a [u8]>> {
-    let mut current = input;
-    for &box_type in path {
-        let mut partial_input = Partial::new(current);
-        match find_box(&mut partial_input, box_type)? {
-            Some(payload) => current = payload,
-            None => return Ok(None),
-        }
-    }
-    Ok(Some(current))
-}
-
 /// Parse moov box and extract all track encryption info
 ///
 /// Box hierarchy: moov → trak → mdia → minf → stbl → sinf → schi → tenc
 /// Also need: moov → trak → mdia → minf → stbl → sinf → schm (for scheme type)
 pub fn parse_moov(input: &[u8]) -> ModalResult<Vec<TrackMetadata>> {
+    let size = u32::try_from(input.len() + 8).map_err(|_| ErrMode::Cut(ContextError::new()))?;
+    let mut moov_bytes = Vec::with_capacity(input.len() + 8);
+    moov_bytes.extend_from_slice(&size.to_be_bytes());
+    moov_bytes.extend_from_slice(b"moov");
+    moov_bytes.extend_from_slice(input);
+
+    let (moov, _) = MoovBox::decode(&moov_bytes).map_err(|_| ErrMode::Cut(ContextError::new()))?;
+    let track_map = jobs::get_track_map(&moov).map_err(|_| ErrMode::Cut(ContextError::new()))?;
+
     let mut tracks = Vec::new();
-    let mut remaining = Partial::new(input);
-
-    // Iterate through all trak boxes in moov
-    while !remaining.is_empty() {
-        let header = match box_header(&mut remaining) {
-            Ok(h) => h,
-            Err(_) => break,
-        };
-
-        if header.box_type == BoxType::Normal(*b"trak") {
-            let payload_size = header.box_size.get() as usize - header.external_size();
-            let trak_payload = take(payload_size).parse_next(&mut remaining)?;
-
-            // Extract track ID from tkhd
-            let track_id = if let Some(tkhd_payload) = navigate_to(trak_payload, &[b"tkhd"])? {
-                let mut tkhd_input = Partial::new(tkhd_payload);
-                let tkhd_header = full_box_header(&mut tkhd_input)?;
-
-                // Skip creation_time, modification_time
-                let skip_bytes = if tkhd_header.version == 1 {
-                    16usize
-                } else {
-                    8usize
-                };
-                take(skip_bytes).void().parse_next(&mut tkhd_input)?;
-
-                be_u32.parse_next(&mut tkhd_input)?
-            } else {
-                continue;
-            };
-
-            // Navigate to schi (container for tenc)
-            let schi_payload =
-                match navigate_to(trak_payload, &[b"mdia", b"minf", b"stbl", b"sinf", b"schi"])? {
-                    Some(p) => p,
-                    None => continue, // Not encrypted
-                };
-
-            // Get scheme type from schm box (sibling of schi)
-            let scheme = if let Some(sinf_payload) =
-                navigate_to(trak_payload, &[b"mdia", b"minf", b"stbl", b"sinf"])?
-            {
-                let mut sinf_input = Partial::new(sinf_payload);
-                if let Some(schm_payload) = find_box(&mut sinf_input, b"schm")? {
-                    let mut schm_input = Partial::new(schm_payload);
-                    let _schm_header = full_box_header(&mut schm_input)?;
-                    parse_schm(&mut schm_input)?
-                } else {
-                    continue;
-                }
-            } else {
-                continue;
-            };
-
-            // Parse tenc box
-            let mut schi_input = Partial::new(schi_payload);
-            if let Some(tenc_payload) = find_box(&mut schi_input, b"tenc")? {
-                let mut tenc_input = Partial::new(tenc_payload);
-                let tenc_header = full_box_header(&mut tenc_input)?;
-                let encryption_info = parse_tenc(&mut tenc_input, tenc_header.version, scheme)?;
-
-                tracks.push(TrackMetadata {
-                    track_id,
-                    encryption_info,
-                });
-            }
-        } else {
-            // Skip non-trak boxes
-            let payload_size = header.box_size.get() as usize - header.external_size();
-            take(payload_size).void().parse_next(&mut remaining)?;
+    for (track_id, infos) in track_map {
+        if let Some(info) = infos.into_iter().flatten().find(|info| info.is_protected) {
+            tracks.push(TrackMetadata {
+                track_id,
+                encryption_info: TrackEncryptionInfo {
+                    is_protected: u8::from(info.is_protected),
+                    iv_size: info.iv_size,
+                    kid: info.kid,
+                    scheme: info.scheme,
+                    pattern: info.pattern,
+                    constant_iv: info.constant_iv,
+                },
+            });
         }
     }
 
@@ -273,7 +189,8 @@ pub fn parse_moof(input: &[u8], track_metadata: &TrackMetadata) -> ModalResult<F
                     Err(_) => break,
                 };
 
-                let payload_size = inner_header.box_size.get() as usize - inner_header.external_size();
+                let payload_size =
+                    inner_header.box_size.get() as usize - inner_header.external_size();
                 let payload: &[u8] = take(payload_size).parse_next(&mut traf_input)?;
 
                 if inner_header.box_type == BoxType::Normal(*b"tfhd") {
@@ -301,10 +218,10 @@ pub fn parse_moof(input: &[u8], track_metadata: &TrackMetadata) -> ModalResult<F
             }
 
             // Validate we got all required data
-            if track_id != 0 && senc_entries.is_some() {
+            if track_id != 0 && let Some(sample_encryption) = senc_entries {
                 fragment = Some(FragmentMetadata {
                     track_id,
-                    sample_encryption: senc_entries.unwrap(),
+                    sample_encryption,
                     sample_sizes: trun_data.sample_sizes,
                     data_offset: trun_data.data_offset.unwrap_or(0) as u64,
                 });
@@ -323,21 +240,6 @@ pub fn parse_moof(input: &[u8], track_metadata: &TrackMetadata) -> ModalResult<F
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_find_box() {
-        let data = [
-            // Box 1: ftyp (8 bytes header + 4 bytes payload)
-            0x00, 0x00, 0x00, 0x0c, b'f', b't', b'y', b'p', 0x01, 0x02, 0x03, 0x04,
-            // Box 2: mdat (8 bytes header + 4 bytes payload)
-            0x00, 0x00, 0x00, 0x0c, b'm', b'd', b'a', b't', 0x05, 0x06, 0x07, 0x08,
-        ];
-
-        let mut input = Partial::new(&data[..]);
-        let mdat_payload = find_box(&mut input, b"mdat").unwrap().unwrap();
-
-        assert_eq!(mdat_payload, &[0x05, 0x06, 0x07, 0x08]);
-    }
 
     #[test]
     fn test_parse_tfhd() {

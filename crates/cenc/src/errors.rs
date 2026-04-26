@@ -9,6 +9,16 @@ pub enum CencError {
     SampleTableError(#[from] SampleTableAccessorError),
     #[error("missing moov box")]
     MissingMoov,
+    #[error(
+        "standalone fMP4 media segment has no moov box; pass an initial segment containing moov"
+    )]
+    MissingInitialSegment,
+    #[error("initial segment does not contain a moov box")]
+    InitialSegmentMissingMoov,
+    #[error(
+        "initial segment does not contain CENC track encryption metadata; pass the original encrypted init segment"
+    )]
+    InitialSegmentMissingEncryptionInfo,
     #[error("missing sample encryption box (senc)")]
     MissingSenc,
     #[error("unsupported scheme type: {0}")]

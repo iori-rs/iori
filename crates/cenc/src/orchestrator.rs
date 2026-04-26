@@ -1,9 +1,9 @@
 //! Main streaming orchestrator for V3 CENC decryption
 
-use crate::types::KeyMap;
 use crate::context::DecryptionContext;
 use crate::error::{Result, V3Error};
 use crate::parse::box_header;
+use crate::types::KeyMap;
 use crate::{decrypt, parse};
 use shiguredo_mp4::BoxType;
 use std::io::{Read, Write};
@@ -14,6 +14,7 @@ struct BoxHeader {
     box_type: [u8; 4],
     size: u64,
     header_size: usize,
+    start_offset: u64,
 }
 
 /// Decrypt fMP4 stream in a single pass
@@ -77,7 +78,15 @@ pub fn decrypt_stream<R: Read, W: Write>(mut input: R, mut output: W, keys: KeyM
                 let track_metadata = context.track_metadata(track_id)?;
 
                 // Parse fragment metadata
-                let fragment = parse::parse_moof(&payload, track_metadata)?;
+                let mut fragment = parse::parse_moof(&payload, track_metadata)?;
+                if fragment.data_offset != 0 {
+                    fragment.data_offset = fragment
+                        .data_offset
+                        .checked_add(header.start_offset)
+                        .ok_or_else(|| {
+                            V3Error::InvalidBoxStructure("trun data_offset overflow".to_string())
+                        })?;
+                }
                 context.set_current_fragment(fragment);
 
                 // Strip encryption metadata boxes (senc/saiz/saio) from moof
@@ -86,6 +95,7 @@ pub fn decrypt_stream<R: Read, W: Write>(mut input: R, mut output: W, keys: KeyM
                     box_type: header.box_type,
                     size: header.header_size as u64 + clean_payload.len() as u64,
                     header_size: header.header_size,
+                    start_offset: header.start_offset,
                 };
 
                 // Write cleaned moof box to output
@@ -97,6 +107,24 @@ pub fn decrypt_stream<R: Read, W: Write>(mut input: R, mut output: W, keys: KeyM
                 // Media data - decrypt sample-by-sample while streaming
                 let fragment = context.current_fragment()?;
                 let track_metadata = context.track_metadata(fragment.track_id)?;
+                let mdat_payload_start = header.start_offset + header.header_size as u64;
+                let first_sample_offset = if fragment.data_offset == 0 {
+                    0usize
+                } else {
+                    let offset = fragment
+                        .data_offset
+                        .checked_sub(mdat_payload_start)
+                        .ok_or_else(|| {
+                            V3Error::InvalidBoxStructure(
+                                "first sample is before mdat payload".to_string(),
+                            )
+                        })?;
+                    usize::try_from(offset).map_err(|_| {
+                        V3Error::InvalidBoxStructure(
+                            "first sample offset does not fit usize".to_string(),
+                        )
+                    })?
+                };
 
                 // Write mdat header to output
                 write_box_header(&mut output, &header)?;
@@ -109,7 +137,9 @@ pub fn decrypt_stream<R: Read, W: Write>(mut input: R, mut output: W, keys: KeyM
                     fragment,
                     track_metadata,
                     context.keys(),
+                    first_sample_offset,
                 )?;
+                reader.advance(payload_size as u64);
 
                 // Clear current fragment after processing
                 context.clear_current_fragment();
@@ -120,6 +150,7 @@ pub fn decrypt_stream<R: Read, W: Write>(mut input: R, mut output: W, keys: KeyM
                 // Unknown box - pass through unchanged
                 write_box_header(&mut output, &header)?;
                 copy_exact(&mut reader.inner, &mut output, payload_size)?;
+                reader.advance(payload_size as u64);
             }
         }
     }
@@ -133,14 +164,16 @@ fn strip_traf_encryption_boxes(traf_payload: &[u8]) -> Vec<u8> {
     let mut offset = 0;
 
     while offset + 8 <= traf_payload.len() {
-        let size = u32::from_be_bytes(traf_payload[offset..offset + 4].try_into().unwrap()) as usize;
+        let size =
+            u32::from_be_bytes(traf_payload[offset..offset + 4].try_into().unwrap()) as usize;
         let box_type: [u8; 4] = traf_payload[offset + 4..offset + 8].try_into().unwrap();
 
         let (actual_size, _header_size) = if size == 1 {
             if offset + 16 > traf_payload.len() {
                 break;
             }
-            let ext = u64::from_be_bytes(traf_payload[offset + 8..offset + 16].try_into().unwrap()) as usize;
+            let ext = u64::from_be_bytes(traf_payload[offset + 8..offset + 16].try_into().unwrap())
+                as usize;
             (ext, 16)
         } else if size == 0 {
             (traf_payload.len() - offset, 8)
@@ -169,14 +202,16 @@ fn strip_moof_encryption_boxes(moof_payload: &[u8]) -> Vec<u8> {
     let mut offset = 0;
 
     while offset + 8 <= moof_payload.len() {
-        let size = u32::from_be_bytes(moof_payload[offset..offset + 4].try_into().unwrap()) as usize;
+        let size =
+            u32::from_be_bytes(moof_payload[offset..offset + 4].try_into().unwrap()) as usize;
         let box_type: [u8; 4] = moof_payload[offset + 4..offset + 8].try_into().unwrap();
 
         let (actual_size, header_size) = if size == 1 {
             if offset + 16 > moof_payload.len() {
                 break;
             }
-            let ext = u64::from_be_bytes(moof_payload[offset + 8..offset + 16].try_into().unwrap()) as usize;
+            let ext = u64::from_be_bytes(moof_payload[offset + 8..offset + 16].try_into().unwrap())
+                as usize;
             (ext, 16usize)
         } else if size == 0 {
             (moof_payload.len() - offset, 8usize)
@@ -234,19 +269,24 @@ fn extract_track_id_from_moof(moof_payload: &[u8]) -> Result<u32> {
             let mut traf_input = Partial::new(traf_payload);
             while !traf_input.is_empty() {
                 let tfhd_header = box_header(&mut traf_input)?;
-                let tfhd_payload_size = tfhd_header.box_size.get() as usize - tfhd_header.external_size();
+                let tfhd_payload_size =
+                    tfhd_header.box_size.get() as usize - tfhd_header.external_size();
 
                 if tfhd_header.box_type == BoxType::Normal(*b"tfhd") {
-                    let tfhd_payload: &[u8] =
-                        winnow::token::take::<_, _, winnow::error::ErrMode<winnow::error::ContextError>>(
-                            tfhd_payload_size,
-                        )
-                        .parse_next(&mut traf_input)?;
+                    let tfhd_payload: &[u8] = winnow::token::take::<
+                        _,
+                        _,
+                        winnow::error::ErrMode<winnow::error::ContextError>,
+                    >(tfhd_payload_size)
+                    .parse_next(&mut traf_input)?;
 
                     // Parse tfhd to get track_id
                     let mut tfhd_input = Partial::new(tfhd_payload);
                     let _full_header = parse::full_box_header(&mut tfhd_input)?;
-                    let track_id = winnow::binary::be_u32::<Partial<&[u8]>, winnow::error::ErrMode<winnow::error::ContextError>>
+                    let track_id = winnow::binary::be_u32::<
+                        Partial<&[u8]>,
+                        winnow::error::ErrMode<winnow::error::ContextError>,
+                    >
                         .parse_next(&mut tfhd_input)?;
 
                     return Ok(track_id);
@@ -273,18 +313,24 @@ fn extract_track_id_from_moof(moof_payload: &[u8]) -> Result<u32> {
 /// Streaming reader helper
 struct StreamingReader<'a, R: Read> {
     inner: &'a mut R,
+    position: u64,
 }
 
 impl<'a, R: Read> StreamingReader<'a, R> {
     fn new(reader: &'a mut R) -> Self {
-        Self { inner: reader }
+        Self {
+            inner: reader,
+            position: 0,
+        }
     }
 
     /// Read box header from stream
     fn read_box_header(&mut self) -> Result<BoxHeader> {
+        let start_offset = self.position;
         // Read initial 8 bytes
         let mut header_buf = [0u8; 16];
         self.inner.read_exact(&mut header_buf[..8])?;
+        self.position += 8;
 
         let size = u32::from_be_bytes([header_buf[0], header_buf[1], header_buf[2], header_buf[3]]);
         let box_type: [u8; 4] = header_buf[4..8].try_into().unwrap();
@@ -292,6 +338,7 @@ impl<'a, R: Read> StreamingReader<'a, R> {
         let (actual_size, header_size) = if size == 1 {
             // Extended size - read 8 more bytes
             self.inner.read_exact(&mut header_buf[8..16])?;
+            self.position += 8;
             let ext_size = u64::from_be_bytes(header_buf[8..16].try_into().unwrap());
             (ext_size, 16)
         } else if size == 0 {
@@ -307,6 +354,7 @@ impl<'a, R: Read> StreamingReader<'a, R> {
             box_type,
             size: actual_size,
             header_size,
+            start_offset,
         })
     }
 
@@ -314,7 +362,12 @@ impl<'a, R: Read> StreamingReader<'a, R> {
     fn read_exact(&mut self, size: usize) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; size];
         self.inner.read_exact(&mut buf)?;
+        self.advance(size as u64);
         Ok(buf)
+    }
+
+    fn advance(&mut self, size: u64) {
+        self.position = self.position.saturating_add(size);
     }
 }
 
@@ -362,6 +415,7 @@ mod tests {
             box_type: *b"mdat",
             size: 1024,
             header_size: 8,
+            start_offset: 0,
         };
 
         write_box_header(&mut output, &header).unwrap();
@@ -382,6 +436,7 @@ mod tests {
             box_type: *b"mdat",
             size: 100000,
             header_size: 16,
+            start_offset: 0,
         };
 
         write_box_header(&mut output, &header).unwrap();

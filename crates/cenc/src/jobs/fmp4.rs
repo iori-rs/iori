@@ -1,7 +1,8 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
-    BOX_SBGP, BOX_SENC, BOX_SGPD, SampleEncryptionEntry, TrackEncryptionInfo, parse_mp4_boxes,
-    parse_sai_entries, parse_saio, parse_saiz, parse_sbgp_seig, parse_senc, parse_sgpd_seig,
+    BOX_SBGP, BOX_SENC, BOX_SGPD, SampleEncryptionEntry, SeigEntry, TrackEncryptionInfo,
+    parse_mp4_boxes, parse_sai_entries, parse_saio, parse_saiz, parse_sbgp_seig, parse_senc,
+    parse_sgpd_seig,
 };
 use crate::jobs::get_track_map;
 use crate::types::{DecryptJob, ParsedCenc, SchemeType};
@@ -91,6 +92,55 @@ fn build_sample_group_entries(
     Ok(entries)
 }
 
+fn sample_group_overrides(
+    traf_unknown: &[UnknownBox],
+    moof_unknown: &[UnknownBox],
+    sample_count: usize,
+) -> Result<Vec<Option<SeigEntry>>> {
+    let Some(sbgp) = traf_unknown
+        .iter()
+        .chain(moof_unknown.iter())
+        .filter(|b| b.box_type == BoxType::Normal(BOX_SBGP))
+        .find_map(|b| parse_sbgp_seig(&b.payload).ok().flatten())
+    else {
+        return Ok(vec![None; sample_count]);
+    };
+
+    let sgpd = traf_unknown
+        .iter()
+        .chain(moof_unknown.iter())
+        .filter(|b| b.box_type == BoxType::Normal(BOX_SGPD))
+        .find_map(|b| parse_sgpd_seig(&b.payload).ok().flatten())
+        .ok_or(CencError::MissingSenc)?;
+
+    let mut overrides = Vec::with_capacity(sample_count);
+    let mut remaining = sample_count;
+    for sbgp_entry in &sbgp {
+        let count = (sbgp_entry.sample_count as usize).min(remaining);
+        let override_entry = if sbgp_entry.group_description_index == 0 {
+            None
+        } else {
+            let raw = sbgp_entry.group_description_index;
+            let one_based = if raw >= 0x10001 { raw & 0xFFFF } else { raw } as usize;
+            let idx = one_based.checked_sub(1).ok_or_else(|| {
+                CencError::InvalidSenc(
+                    "sbgp group_description_index fragment-local underflow".to_string(),
+                )
+            })?;
+            Some(*sgpd.get(idx).ok_or_else(|| {
+                CencError::InvalidSenc("invalid sbgp group_description_index".to_string())
+            })?)
+        };
+        overrides.extend(std::iter::repeat_n(override_entry, count));
+        remaining -= count;
+        if remaining == 0 {
+            break;
+        }
+    }
+    overrides.resize(sample_count, None);
+    Ok(overrides)
+}
+
 pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<ParsedCenc> {
     let track_map = get_track_map(moov)?;
     let mut track_lookup: HashMap<u32, Vec<Option<TrackEncryptionInfo>>> = HashMap::new();
@@ -150,6 +200,12 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                 continue;
             }
 
+            let group_overrides = sample_group_overrides(
+                &traf.unknown_boxes,
+                &moof.unknown_boxes,
+                sample_sizes.len(),
+            )?;
+
             let senc_box = find_unknown_box(&traf.unknown_boxes, BOX_SENC)
                 .or_else(|| find_unknown_box(&moof.unknown_boxes, BOX_SENC));
             let entries = 'entries: {
@@ -207,23 +263,33 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                 });
             }
 
-            let pattern = match info.scheme {
-                SchemeType::Cens | SchemeType::Cbcs => info.pattern,
-                SchemeType::Cenc | SchemeType::Cbc1 => None,
-            };
-            for ((offset, size), entry) in sample_offsets
+            for (((offset, size), entry), group_override) in sample_offsets
                 .into_iter()
                 .zip(sample_sizes.into_iter())
                 .zip(entries.into_iter())
+                .zip(group_overrides.into_iter())
             {
+                if matches!(group_override, Some(group) if !group.is_protected) {
+                    continue;
+                }
+                let pattern = match info.scheme {
+                    SchemeType::Cens | SchemeType::Cbcs => group_override
+                        .and_then(|group| group.pattern)
+                        .or(info.pattern),
+                    SchemeType::Cenc | SchemeType::Cbc1 => None,
+                };
+                let kid = group_override.map(|group| group.kid).unwrap_or(info.kid);
+                let iv = group_override
+                    .and_then(|group| group.constant_iv)
+                    .unwrap_or(entry.iv);
                 jobs.push(DecryptJob {
                     offset,
                     size,
-                    iv: entry.iv,
+                    iv,
                     subsamples: entry.subsamples,
                     scheme: info.scheme,
                     pattern,
-                    kid: info.kid,
+                    kid,
                 });
             }
         }

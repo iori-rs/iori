@@ -7,7 +7,7 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
-shiguredo_mp4 = { git = "https://github.com/shiguredo/mp4-rs", branch = "feature/fmp4" }
+shiguredo_mp4 = "2026.3.0"
 aes.workspace = true
 hex = "0.4.3"
 thiserror.workspace = true

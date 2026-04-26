@@ -1,8 +1,8 @@
 //! Decryption context for accumulating metadata during streaming
 
-use crate::types::KeyMap;
 use crate::error::{Result, V3Error};
 use crate::parse::{FragmentMetadata, TrackMetadata};
+use crate::types::KeyMap;
 use std::collections::HashMap;
 
 /// Accumulates encryption metadata as we stream through the fMP4 file
@@ -42,9 +42,9 @@ impl DecryptionContext {
 
     /// Get current fragment metadata
     pub fn current_fragment(&self) -> Result<&FragmentMetadata> {
-        self.current_fragment
-            .as_ref()
-            .ok_or_else(|| V3Error::MissingMetadata("No current fragment (moof before mdat)".to_string()))
+        self.current_fragment.as_ref().ok_or_else(|| {
+            V3Error::MissingMetadata("No current fragment (moof before mdat)".to_string())
+        })
     }
 
     /// Get track metadata by track ID
@@ -81,8 +81,8 @@ impl DecryptionContext {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{CbcPattern, SchemeType};
-    use crate::parse::{SampleEncryptionEntry, TrackEncryptionInfo};
+    use crate::parse::boxes::TrackEncryptionInfo;
+    use crate::types::SchemeType;
 
     #[test]
     fn test_context_set_and_get_tracks() {
@@ -157,8 +157,6 @@ mod tests {
 
     #[test]
     fn test_context_validate_keys_missing() {
-        let ctx = DecryptionContext::new(HashMap::new());
-
         let track = TrackMetadata {
             track_id: 1,
             encryption_info: TrackEncryptionInfo {

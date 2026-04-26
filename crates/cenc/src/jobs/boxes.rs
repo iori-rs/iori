@@ -542,6 +542,7 @@ pub(crate) struct SbgpEntry {
 /// `is_protected == 1 && per_sample_iv_size == 0`.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct SeigEntry {
+    pub(crate) pattern: Option<CbcPattern>,
     pub(crate) is_protected: bool,
     pub(crate) per_sample_iv_size: u8,
     pub(crate) kid: [u8; 16],
@@ -609,7 +610,11 @@ pub(crate) fn parse_sgpd_seig(payload: &[u8]) -> Result<Option<Vec<SeigEntry>>> 
         //   if is_protected && per_sample_iv_size == 0:
         //     byte 20: constant_iv_size
         //     bytes 21+: constant_iv
-        let _crypt_skip = read_u8(payload, &mut offset)?;
+        let crypt_skip = read_u8(payload, &mut offset)?;
+        let pattern = Some(CbcPattern {
+            crypt_byte_block: crypt_skip >> 4,
+            skip_byte_block: crypt_skip & 0x0f,
+        });
         let _reserved = read_u8(payload, &mut offset)?;
         let is_protected = read_u8(payload, &mut offset)? != 0;
         let per_sample_iv_size = read_u8(payload, &mut offset)?;
@@ -635,7 +640,13 @@ pub(crate) fn parse_sgpd_seig(payload: &[u8]) -> Result<Option<Vec<SeigEntry>>> 
         } else {
             None
         };
-        entries.push(SeigEntry { is_protected, per_sample_iv_size, kid, constant_iv });
+        entries.push(SeigEntry {
+            pattern,
+            is_protected,
+            per_sample_iv_size,
+            kid,
+            constant_iv,
+        });
     }
     Ok(Some(entries))
 }
@@ -655,15 +666,14 @@ mod tests {
     ///   constant_iv_size=16, constant_iv = 1F2DCCFCC9E936F57E63A723DD470A7D
     const SGPD_SEIG_BOX: &[u8] = &[
         0x00, 0x00, 0x00, 0x3D, 0x73, 0x67, 0x70, 0x64, // box header: size=61, type="sgpd"
-        0x01, 0x00, 0x00, 0x00,                         // version=1, flags=0
-        0x73, 0x65, 0x69, 0x67,                         // grouping_type="seig"
-        0x00, 0x00, 0x00, 0x25,                         // default_length=37
-        0x00, 0x00, 0x00, 0x01,                         // entry_count=1
+        0x01, 0x00, 0x00, 0x00, // version=1, flags=0
+        0x73, 0x65, 0x69, 0x67, // grouping_type="seig"
+        0x00, 0x00, 0x00, 0x25, // default_length=37
+        0x00, 0x00, 0x00, 0x01, // entry_count=1
         // entry (37 bytes):
-        0x00, 0x00, 0x01, 0x00,                         // crypt_skip, reserved, is_protected=1, per_sample_iv_size=0
+        0x00, 0x00, 0x01, 0x00, // crypt_skip, reserved, is_protected=1, per_sample_iv_size=0
         0x70, 0xB9, 0x90, 0xCE, 0xB0, 0x91, 0x31, 0x38, // KID (16 bytes)
-        0xB2, 0x95, 0x9F, 0x53, 0x28, 0x01, 0x49, 0x98,
-        0x10,                                           // constant_iv_size=16
+        0xB2, 0x95, 0x9F, 0x53, 0x28, 0x01, 0x49, 0x98, 0x10, // constant_iv_size=16
         0x1F, 0x2D, 0xCC, 0xFC, 0xC9, 0xE9, 0x36, 0xF5, // constant_iv (16 bytes)
         0x7E, 0x63, 0xA7, 0x23, 0xDD, 0x47, 0x0A, 0x7D,
     ];
@@ -680,15 +690,15 @@ mod tests {
         assert_eq!(
             e.kid,
             [
-                0x70, 0xB9, 0x90, 0xCE, 0xB0, 0x91, 0x31, 0x38,
-                0xB2, 0x95, 0x9F, 0x53, 0x28, 0x01, 0x49, 0x98,
+                0x70, 0xB9, 0x90, 0xCE, 0xB0, 0x91, 0x31, 0x38, 0xB2, 0x95, 0x9F, 0x53, 0x28, 0x01,
+                0x49, 0x98,
             ]
         );
         assert_eq!(
             e.constant_iv,
             Some([
-                0x1F, 0x2D, 0xCC, 0xFC, 0xC9, 0xE9, 0x36, 0xF5,
-                0x7E, 0x63, 0xA7, 0x23, 0xDD, 0x47, 0x0A, 0x7D,
+                0x1F, 0x2D, 0xCC, 0xFC, 0xC9, 0xE9, 0x36, 0xF5, 0x7E, 0x63, 0xA7, 0x23, 0xDD, 0x47,
+                0x0A, 0x7D,
             ])
         );
     }
