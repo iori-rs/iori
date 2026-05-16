@@ -44,30 +44,15 @@ impl<'a> ByteReader<'a> {
     }
 
     pub(crate) fn read_u16(&mut self) -> Result<u16> {
-        if self.remaining() < 2 {
-            return Err(CencError::InvalidSenc("u16 truncated".into()));
-        }
-        let v = u16::from_be_bytes([self.data[self.pos], self.data[self.pos + 1]]);
-        self.pos += 2;
-        Ok(v)
+        Ok(u16::from_be_bytes(self.read_array()?))
     }
 
     pub(crate) fn read_u32(&mut self) -> Result<u32> {
-        if self.remaining() < 4 {
-            return Err(CencError::InvalidSenc("u32 truncated".into()));
-        }
-        let v = u32::from_be_bytes(self.data[self.pos..self.pos + 4].try_into().unwrap());
-        self.pos += 4;
-        Ok(v)
+        Ok(u32::from_be_bytes(self.read_array()?))
     }
 
     pub(crate) fn read_u64(&mut self) -> Result<u64> {
-        if self.remaining() < 8 {
-            return Err(CencError::InvalidSenc("u64 truncated".into()));
-        }
-        let v = u64::from_be_bytes(self.data[self.pos..self.pos + 8].try_into().unwrap());
-        self.pos += 8;
-        Ok(v)
+        Ok(u64::from_be_bytes(self.read_array()?))
     }
 
     pub(crate) fn read_exact(&mut self, len: usize) -> Result<&'a [u8]> {
@@ -77,6 +62,13 @@ impl<'a> ByteReader<'a> {
         let slice = &self.data[self.pos..self.pos + len];
         self.pos += len;
         Ok(slice)
+    }
+
+    fn read_array<const N: usize>(&mut self) -> Result<[u8; N]> {
+        let bytes = self.read_exact(N)?;
+        bytes
+            .try_into()
+            .map_err(|_| CencError::InvalidSenc("unexpected end of data".into()))
     }
 }
 
@@ -196,13 +188,53 @@ pub(crate) struct SampleEncryptionEntry {
     pub(crate) subsamples: Vec<Subsample>,
 }
 
-impl SampleEncryptionEntry {
+/// Parsed `senc` SampleEncryptionBox payload.
+///
+/// The box contains one entry per encrypted sample. It may also carry
+/// track-encryption override parameters when flag `0x000001` is set.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SampleEncryptionBox {
+    pub(crate) entries: Vec<SampleEncryptionEntry>,
+    pub(crate) override_parameters: Option<TrackEncryptionOverride>,
+}
+
+/// Track-encryption override parameters carried by `senc` flag `0x000001`.
+///
+/// The override metadata is serialized before `sample_count`. `algorithm_id`
+/// is retained for layout fidelity; this crate selects cipher mode from the
+/// sample entry's scheme type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TrackEncryptionOverride {
+    pub(crate) algorithm_id: [u8; 3],
+    pub(crate) iv_size: u8,
+    pub(crate) kid: [u8; 16],
+}
+
+impl SampleEncryptionBox {
+    pub(crate) fn override_kid(&self) -> Option<[u8; 16]> {
+        self.override_parameters.map(|parameters| parameters.kid)
+    }
+}
+
+impl SampleEncryptionBox {
     /// Parse a `senc` box payload into per-sample encryption entries.
+    ///
+    /// SampleEncryptionBox flags used by CENC, paraphrased:
+    /// - `0x000001`: the box carries `AlgorithmID`, `IV_size`, and `KID`
+    ///   values that override the track-level defaults for these samples.
+    /// - `0x000002`: each sample entry carries a subsample table.
+    ///
+    /// Other flags alter the payload layout and are not accepted here.
+    ///
+    /// Each sample contributes an IV unless the track metadata selected a
+    /// constant IV. When the subsample flag is absent, the sample is
+    /// represented by an empty subsample vector and later treated as one fully
+    /// protected range.
     pub(crate) fn parse_senc(
         payload: &[u8],
         iv_size: u8,
         constant_iv: Option<[u8; 16]>,
-    ) -> Result<Vec<Self>> {
+    ) -> Result<SampleEncryptionBox> {
         if payload.len() < 8 {
             return Err(CencError::InvalidSenc("senc too short".to_string()));
         }
@@ -212,31 +244,62 @@ impl SampleEncryptionEntry {
                 "unsupported senc version {version}"
             )));
         }
-        let flags =
-            ((payload[1] as u32) << 16) | ((payload[2] as u32) << 8) | payload[3] as u32;
+        let flags = ((payload[1] as u32) << 16) | ((payload[2] as u32) << 8) | payload[3] as u32;
+        let has_override = (flags & 0x000001) != 0;
         let has_subsamples = (flags & 0x000002) != 0;
-        if flags & !0x000002 != 0 {
+        if flags & !0x000003 != 0 {
             return Err(CencError::InvalidSenc(format!(
                 "unsupported senc flags: {flags:#x}"
             )));
         }
 
         let mut reader = ByteReader::new(&payload[4..]);
+        let override_parameters = if has_override {
+            let algorithm_id: [u8; 3] = reader.read_exact(3)?.try_into().map_err(|_| {
+                CencError::InvalidSenc("track encryption override truncated".to_string())
+            })?;
+            let override_iv_size = reader.read_u8()?;
+            validate_iv_size(override_iv_size, "senc override")?;
+            let kid_bytes = reader.read_exact(16)?;
+            let mut kid = [0u8; 16];
+            kid.copy_from_slice(kid_bytes);
+            Some(TrackEncryptionOverride {
+                algorithm_id,
+                iv_size: override_iv_size,
+                kid,
+            })
+        } else {
+            None
+        };
+        let iv_size = override_parameters
+            .map(|parameters| parameters.iv_size)
+            .unwrap_or(iv_size);
         let sample_count = reader.read_u32()?;
         let mut entries = Vec::with_capacity(sample_count as usize);
         for _ in 0..sample_count {
-            let iv = Self::read_iv(&mut reader, iv_size, constant_iv)?;
+            let iv = SampleEncryptionEntry::read_iv(&mut reader, iv_size, constant_iv)?;
             let subsamples = if has_subsamples {
-                Self::read_subsamples(&mut reader)?
+                SampleEncryptionEntry::read_subsamples(&mut reader)?
             } else {
                 Vec::new()
             };
-            entries.push(Self { iv, subsamples });
+            entries.push(SampleEncryptionEntry { iv, subsamples });
         }
-        Ok(entries)
+        Ok(SampleEncryptionBox {
+            entries,
+            override_parameters,
+        })
     }
+}
 
+impl SampleEncryptionEntry {
     /// Parse auxiliary sample info entries (from saiz/saio data).
+    ///
+    /// Auxiliary sample information stores the same per-sample IV and optional
+    /// subsample table as `senc`, but the byte count for each entry comes from
+    /// `saiz` and the table payload is located through `saio`. The parser
+    /// therefore constrains each read to one `saiz` entry and rejects leftover
+    /// bytes in that entry.
     pub(crate) fn parse_sai(
         data: &[u8],
         sizes: &[u8],
@@ -275,18 +338,24 @@ impl SampleEncryptionEntry {
         Ok(entries)
     }
 
-    fn read_iv(reader: &mut ByteReader, iv_size: u8, constant_iv: Option<[u8; 16]>) -> Result<[u8; 16]> {
+    /// Read a sample IV according to the effective per-sample IV size.
+    ///
+    /// A zero per-sample IV size means samples do not carry IV bytes;
+    /// decryption must use the constant IV from `tenc` or `seig` metadata.
+    /// An 8-byte IV is the high half of the AES-CTR/CBC IV; the low half is
+    /// zero-filled before the block counter is added.
+    fn read_iv(
+        reader: &mut ByteReader,
+        iv_size: u8,
+        constant_iv: Option<[u8; 16]>,
+    ) -> Result<[u8; 16]> {
         if iv_size == 0 {
             return constant_iv.ok_or_else(|| {
                 CencError::InvalidSenc("missing constant iv for iv_size=0".to_string())
             });
         }
+        validate_iv_size(iv_size, "sample")?;
         let iv_len = iv_size as usize;
-        if iv_len > 16 {
-            return Err(CencError::InvalidSenc(format!(
-                "unsupported iv size {iv_len}"
-            )));
-        }
         let iv_bytes = reader.read_exact(iv_len)?;
         let mut iv_buf = [0u8; 16];
         iv_buf[..iv_len].copy_from_slice(iv_bytes);
@@ -325,14 +394,21 @@ pub(crate) struct TrackEncryptionInfo {
 
 impl TrackEncryptionInfo {
     /// Build encryption info for each sample entry in an stsd box.
-    pub(crate) fn from_sample_entries(
-        entries: &[SampleEntry],
-    ) -> Result<Vec<Option<Self>>> {
+    pub(crate) fn from_sample_entries(entries: &[SampleEntry]) -> Result<Vec<Option<Self>>> {
         entries.iter().map(Self::parse_sample_entry).collect()
     }
 
+    /// Parse CENC protection metadata from one sample entry.
+    ///
+    /// Protected sample entries either use encrypted wrapper formats
+    /// (`encv`/`enca`) or keep the original codec sample entry with a
+    /// ProtectionSchemeInfoBox (`sinf`) attached. Both carry the same scheme
+    /// and track-encryption metadata.
+    ///
+    /// CMAF commonly uses the original codec type with appended `sinf`,
+    /// especially for `cbcs`. Any known sample entry with `sinf` is therefore
+    /// treated as protected rather than requiring an `encv`/`enca` wrapper.
     fn parse_sample_entry(entry: &SampleEntry) -> Result<Option<Self>> {
-        // Standard CENC path: encv/enca box stored as SampleEntry::Unknown.
         if let SampleEntry::Unknown(unknown) = entry {
             let BoxType::Normal(box_type) = unknown.box_type else {
                 return Ok(None);
@@ -358,7 +434,6 @@ impl TrackEncryptionInfo {
             return Ok(Some(Self::parse_sinf(sinf.payload)?));
         }
 
-        // CMAF cbcs path: known codec type with sinf appended.
         for ub in unknown_boxes_from_sample_entry(entry) {
             if ub.box_type == BoxType::Normal(BOX_SINF) {
                 return Ok(Some(Self::parse_sinf(&ub.payload)?));
@@ -399,6 +474,18 @@ impl TrackEncryptionInfo {
         })
     }
 
+    /// Parse a TrackEncryptionBox (`tenc`) payload.
+    ///
+    /// Version 0 carries no pattern byte; default crypt/skip block counts are
+    /// therefore absent. Version 1 prefixes the protection fields with one
+    /// packed pattern byte: high nibble = `crypt_byte_block`, low nibble =
+    /// `skip_byte_block`. The pattern is used only by pattern schemes
+    /// (`cens` and `cbcs`).
+    ///
+    /// Protected tracks either carry 8- or 16-byte IVs per sample, or a zero
+    /// IV size meaning that a constant IV follows `default_KID`. Constant IVs
+    /// are copied into a 16-byte working IV and used for every sample unless
+    /// sample-group metadata overrides them.
     fn parse_tenc(payload: &[u8]) -> Result<Self> {
         if payload.len() < 24 {
             return Err(CencError::InvalidTenc("tenc too short".to_string()));
@@ -406,6 +493,9 @@ impl TrackEncryptionInfo {
         let version = payload[0];
         let mut offset = 4;
         if payload.len().saturating_sub(offset) == 20 {
+            // Some producers omit the reserved byte before isProtected in a
+            // version-0 tenc payload. Accept that legacy layout only when the
+            // remaining length uniquely matches the shortened form.
             offset += 1;
         }
         let (pattern, is_protected, iv_size) = if version == 0 {
@@ -464,6 +554,11 @@ impl TrackEncryptionInfo {
             }
             let size = payload[offset] as usize;
             offset += 1;
+            if size > 16 {
+                return Err(CencError::InvalidTenc(format!(
+                    "unsupported constant iv size {size}"
+                )));
+            }
             if payload.len() < offset + size {
                 return Err(CencError::InvalidTenc("constant iv truncated".to_string()));
             }
@@ -501,10 +596,12 @@ fn unknown_boxes_from_sample_entry(entry: &SampleEntry) -> &[UnknownBox] {
     }
 }
 
-// ---------------------------------------------------------------------------
-// saiz / saio helpers (payload-level parsing, used only from fmp4)
-// ---------------------------------------------------------------------------
-
+/// Parse a SampleAuxiliaryInformationSizesBox (`saiz`) payload.
+///
+/// When flag `0x000001` is set, `aux_info_type` and
+/// `aux_info_type_parameter` are present before the size table. A non-zero
+/// `default_sample_info_size` applies to every sample; otherwise the box
+/// carries one explicit size byte per sample.
 pub(crate) fn parse_saiz(payload: &[u8]) -> Result<Vec<u8>> {
     let mut reader = ByteReader::new(payload);
     let header = FullBoxHeader::parse(&mut reader)?;
@@ -524,6 +621,11 @@ pub(crate) fn parse_saiz(payload: &[u8]) -> Result<Vec<u8>> {
     Ok(sizes)
 }
 
+/// Parse a SampleAuxiliaryInformationOffsetsBox (`saio`) payload.
+///
+/// When flag `0x000001` is set, `aux_info_type` and
+/// `aux_info_type_parameter` precede the offset table. Version 0 uses 32-bit
+/// offsets; version 1 uses 64-bit offsets.
 pub(crate) fn parse_saio(payload: &[u8]) -> Result<Vec<u64>> {
     let mut reader = ByteReader::new(payload);
     let header = FullBoxHeader::parse(&mut reader)?;
@@ -569,7 +671,25 @@ pub(crate) struct SbgpEntry {
 }
 
 impl SbgpEntry {
-    /// Parse an SBGP box payload. Returns `None` when `grouping_type != "seig"`.
+    /// Convert this entry's group description index into a zero-based SGPD index.
+    ///
+    /// Sample-to-group entries are 1-based indexes into SGPD. Some fragmented
+    /// files use the high bits to signal fragment-local description indexes;
+    /// the low 16 bits still carry the 1-based SGPD entry number.
+    pub(crate) fn description_index(&self) -> Result<usize> {
+        let raw = self.group_description_index;
+        let one_based = if raw >= 0x10001 { raw & 0xFFFF } else { raw } as usize;
+        one_based.checked_sub(1).ok_or_else(|| {
+            CencError::InvalidSenc(
+                "sbgp group_description_index fragment-local underflow".to_string(),
+            )
+        })
+    }
+
+    /// Parse an SBGP box payload.
+    ///
+    /// Returns `None` when `grouping_type != "seig"`. Version 1 inserts
+    /// `grouping_type_parameter` between `grouping_type` and `entry_count`.
     pub(crate) fn parse_seig(payload: &[u8]) -> Result<Option<Vec<Self>>> {
         let mut reader = ByteReader::new(payload);
         let header = FullBoxHeader::parse(&mut reader)?;
@@ -611,7 +731,17 @@ pub(crate) struct SeigEntry {
 }
 
 impl SeigEntry {
-    /// Parse an SGPD box payload for seig entries. Returns `None` when `grouping_type != "seig"`.
+    /// Parse an SGPD box payload for seig entries.
+    ///
+    /// Returns `None` when `grouping_type != "seig"`. SGPD version 1 may use a
+    /// common entry length; when that value is zero, each description starts
+    /// with its own length field. Later SGPD versions insert
+    /// `default_sample_description_index` before `entry_count`.
+    ///
+    /// A `seig` description can override default pattern, protection state, IV
+    /// size, KID, and constant IV for the samples mapped to it by `sbgp`. The
+    /// packed pattern byte uses the same high/low nibble layout as `tenc`
+    /// version 1.
     pub(crate) fn parse_seig(payload: &[u8]) -> Result<Option<Vec<Self>>> {
         let mut reader = ByteReader::new(payload);
         let header = FullBoxHeader::parse(&mut reader)?;
@@ -644,11 +774,21 @@ impl SeigEntry {
             let _reserved = reader.read_u8()?;
             let is_protected = reader.read_u8()? != 0;
             let per_sample_iv_size = reader.read_u8()?;
+            if is_protected && !matches!(per_sample_iv_size, 0 | 8 | 16) {
+                return Err(CencError::InvalidSenc(format!(
+                    "unsupported seig per_sample_iv_size {per_sample_iv_size}"
+                )));
+            }
             let kid_bytes = reader.read_exact(16)?;
             let mut kid = [0u8; 16];
             kid.copy_from_slice(kid_bytes);
             let constant_iv = if is_protected && per_sample_iv_size == 0 {
                 let constant_iv_size = reader.read_u8()? as usize;
+                if constant_iv_size > 16 {
+                    return Err(CencError::InvalidSenc(format!(
+                        "unsupported seig constant iv size {constant_iv_size}"
+                    )));
+                }
                 let iv_bytes = reader.read_exact(constant_iv_size)?;
                 let mut iv = [0u8; 16];
                 iv[..constant_iv_size].copy_from_slice(iv_bytes);
@@ -668,51 +808,641 @@ impl SeigEntry {
     }
 }
 
+impl TrackEncryptionInfo {
+    pub(crate) fn effective_kid(
+        &self,
+        group: Option<SeigEntry>,
+        senc_override_kid: Option<[u8; 16]>,
+    ) -> [u8; 16] {
+        group
+            .map(|entry| entry.kid)
+            .or(senc_override_kid)
+            .unwrap_or(self.kid)
+    }
+
+    pub(crate) fn effective_iv(&self, group: Option<SeigEntry>, sample_iv: [u8; 16]) -> [u8; 16] {
+        group
+            .and_then(|entry| entry.constant_iv)
+            .unwrap_or(sample_iv)
+    }
+
+    pub(crate) fn effective_pattern(&self, group: Option<SeigEntry>) -> Option<CbcPattern> {
+        self.scheme
+            .effective_pattern(group.and_then(|entry| entry.pattern).or(self.pattern))
+    }
+}
+
+fn validate_iv_size(iv_size: u8, context: &str) -> Result<()> {
+    if matches!(iv_size, 8 | 16) {
+        return Ok(());
+    }
+    Err(CencError::InvalidSenc(format!(
+        "unsupported {context} iv size {iv_size}"
+    )))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use shiguredo_mp4::Encode;
 
-    const SGPD_SEIG_BOX: &[u8] = &[
-        0x00, 0x00, 0x00, 0x3D, 0x73, 0x67, 0x70, 0x64,
-        0x01, 0x00, 0x00, 0x00,
-        0x73, 0x65, 0x69, 0x67,
-        0x00, 0x00, 0x00, 0x25,
-        0x00, 0x00, 0x00, 0x01,
-        0x00, 0x00, 0x01, 0x00,
-        0x70, 0xB9, 0x90, 0xCE, 0xB0, 0x91, 0x31, 0x38,
-        0xB2, 0x95, 0x9F, 0x53, 0x28, 0x01, 0x49, 0x98, 0x10,
-        0x1F, 0x2D, 0xCC, 0xFC, 0xC9, 0xE9, 0x36, 0xF5,
-        0x7E, 0x63, 0xA7, 0x23, 0xDD, 0x47, 0x0A, 0x7D,
+    const SAMPLE_KID: [u8; 16] = [
+        0x70, 0xB9, 0x90, 0xCE, 0xB0, 0x91, 0x31, 0x38, 0xB2, 0x95, 0x9F, 0x53, 0x28, 0x01, 0x49,
+        0x98,
     ];
+    const SAMPLE_CONSTANT_IV: [u8; 16] = [
+        0x1F, 0x2D, 0xCC, 0xFC, 0xC9, 0xE9, 0x36, 0xF5, 0x7E, 0x63, 0xA7, 0x23, 0xDD, 0x47, 0x0A,
+        0x7D,
+    ];
+
+    struct Mp4Syntax(Vec<u8>);
+
+    impl Mp4Syntax {
+        fn new() -> Self {
+            Self(Vec::new())
+        }
+
+        fn full_box_header(&mut self, version: u8, flags: u32) {
+            self.u8(version);
+            self.u24(flags);
+        }
+
+        fn u8(&mut self, value: u8) {
+            self.0.extend_from_slice(&value.encode_to_vec().unwrap());
+        }
+
+        fn u16(&mut self, value: u16) {
+            self.0.extend_from_slice(&value.encode_to_vec().unwrap());
+        }
+
+        fn u24(&mut self, value: u32) {
+            self.0.extend_from_slice(&value.to_be_bytes()[1..]);
+        }
+
+        fn u32(&mut self, value: u32) {
+            self.0.extend_from_slice(&value.encode_to_vec().unwrap());
+        }
+
+        fn u64(&mut self, value: u64) {
+            self.0.extend_from_slice(&value.encode_to_vec().unwrap());
+        }
+
+        fn bytes(&mut self, value: &[u8]) {
+            self.0.extend_from_slice(&value.encode_to_vec().unwrap());
+        }
+
+        fn into_payload(self) -> Vec<u8> {
+            self.0
+        }
+    }
+
+    struct SencBoxSyntax {
+        flags: u32,
+        override_parameters: Option<TrackEncryptionOverride>,
+        samples: Vec<SencSampleSyntax>,
+    }
+
+    struct SencSampleSyntax {
+        iv: Vec<u8>,
+        subsamples: Vec<Subsample>,
+    }
+
+    impl SencBoxSyntax {
+        fn payload(&self) -> Vec<u8> {
+            let mut mp4 = Mp4Syntax::new();
+            mp4.full_box_header(0, self.flags);
+            if let Some(parameters) = self.override_parameters {
+                mp4.bytes(&parameters.algorithm_id);
+                mp4.u8(parameters.iv_size);
+                mp4.bytes(&parameters.kid);
+            }
+            mp4.u32(self.samples.len() as u32);
+            for sample in &self.samples {
+                mp4.bytes(&sample.iv);
+                if self.flags & 0x000002 != 0 {
+                    mp4.u16(sample.subsamples.len() as u16);
+                    for subsample in &sample.subsamples {
+                        mp4.u16(subsample.clear_bytes);
+                        mp4.u32(subsample.encrypted_bytes);
+                    }
+                }
+            }
+            mp4.into_payload()
+        }
+    }
+
+    struct SaiEntrySyntax {
+        iv: Vec<u8>,
+        subsamples: Option<Vec<Subsample>>,
+        trailing_bytes: Vec<u8>,
+    }
+
+    impl SaiEntrySyntax {
+        fn payload(&self) -> Vec<u8> {
+            let mut mp4 = Mp4Syntax::new();
+            mp4.bytes(&self.iv);
+            if let Some(subsamples) = &self.subsamples {
+                mp4.u16(subsamples.len() as u16);
+                for subsample in subsamples {
+                    mp4.u16(subsample.clear_bytes);
+                    mp4.u32(subsample.encrypted_bytes);
+                }
+            }
+            mp4.bytes(&self.trailing_bytes);
+            mp4.into_payload()
+        }
+    }
+
+    struct SaizBoxSyntax {
+        aux_info: Option<([u8; 4], u32)>,
+        default_sample_info_size: u8,
+        sample_count: u32,
+        explicit_sample_info_sizes: Vec<u8>,
+    }
+
+    impl SaizBoxSyntax {
+        fn payload(&self) -> Vec<u8> {
+            let mut mp4 = Mp4Syntax::new();
+            mp4.full_box_header(0, u32::from(self.aux_info.is_some()));
+            if let Some((aux_info_type, aux_info_type_parameter)) = self.aux_info {
+                mp4.bytes(&aux_info_type);
+                mp4.u32(aux_info_type_parameter);
+            }
+            mp4.u8(self.default_sample_info_size);
+            mp4.u32(self.sample_count);
+            if self.default_sample_info_size == 0 {
+                mp4.bytes(&self.explicit_sample_info_sizes);
+            }
+            mp4.into_payload()
+        }
+    }
+
+    struct SaioBoxSyntax {
+        version: u8,
+        aux_info: Option<([u8; 4], u32)>,
+        offsets: Vec<u64>,
+    }
+
+    impl SaioBoxSyntax {
+        fn payload(&self) -> Vec<u8> {
+            let mut mp4 = Mp4Syntax::new();
+            mp4.full_box_header(self.version, u32::from(self.aux_info.is_some()));
+            if let Some((aux_info_type, aux_info_type_parameter)) = self.aux_info {
+                mp4.bytes(&aux_info_type);
+                mp4.u32(aux_info_type_parameter);
+            }
+            mp4.u32(self.offsets.len() as u32);
+            for offset in &self.offsets {
+                if self.version == 0 {
+                    mp4.u32(*offset as u32);
+                } else {
+                    mp4.u64(*offset);
+                }
+            }
+            mp4.into_payload()
+        }
+    }
+
+    struct SbgpBoxSyntax {
+        version: u8,
+        grouping_type: [u8; 4],
+        grouping_type_parameter: Option<u32>,
+        entries: Vec<SbgpEntry>,
+    }
+
+    impl SbgpBoxSyntax {
+        fn payload(&self) -> Vec<u8> {
+            let mut mp4 = Mp4Syntax::new();
+            mp4.full_box_header(self.version, 0);
+            mp4.bytes(&self.grouping_type);
+            if let Some(parameter) = self.grouping_type_parameter {
+                mp4.u32(parameter);
+            }
+            mp4.u32(self.entries.len() as u32);
+            for entry in &self.entries {
+                mp4.u32(entry.sample_count);
+                mp4.u32(entry.group_description_index);
+            }
+            mp4.into_payload()
+        }
+    }
+
+    struct SgpdBoxSyntax {
+        version: u8,
+        grouping_type: [u8; 4],
+        default_length: Option<u32>,
+        default_sample_description_index: Option<u32>,
+        entries: Vec<SgpdSeigEntrySyntax>,
+    }
+
+    struct SgpdSeigEntrySyntax {
+        length_including_length_field: Option<u32>,
+        pattern: CbcPattern,
+        is_protected: bool,
+        per_sample_iv_size: u8,
+        kid: [u8; 16],
+        constant_iv: Option<Vec<u8>>,
+    }
+
+    impl SgpdBoxSyntax {
+        fn payload(&self) -> Vec<u8> {
+            let mut mp4 = Mp4Syntax::new();
+            mp4.full_box_header(self.version, 0);
+            mp4.bytes(&self.grouping_type);
+            if let Some(default_length) = self.default_length {
+                mp4.u32(default_length);
+            }
+            if let Some(index) = self.default_sample_description_index {
+                mp4.u32(index);
+            }
+            mp4.u32(self.entries.len() as u32);
+            for entry in &self.entries {
+                if let Some(length) = entry.length_including_length_field {
+                    mp4.u32(length);
+                }
+                mp4.u8((entry.pattern.crypt_byte_block << 4) | entry.pattern.skip_byte_block);
+                mp4.u8(0); // reserved
+                mp4.u8(u8::from(entry.is_protected));
+                mp4.u8(entry.per_sample_iv_size);
+                mp4.bytes(&entry.kid);
+                if let Some(constant_iv) = &entry.constant_iv {
+                    mp4.u8(constant_iv.len() as u8);
+                    mp4.bytes(constant_iv);
+                }
+            }
+            mp4.into_payload()
+        }
+    }
+
+    struct TencBoxSyntax {
+        version: u8,
+        pattern: Option<CbcPattern>,
+        is_protected: bool,
+        iv_size: u8,
+        kid: [u8; 16],
+        constant_iv: Option<Vec<u8>>,
+    }
+
+    impl TencBoxSyntax {
+        fn payload(&self) -> Vec<u8> {
+            let mut mp4 = Mp4Syntax::new();
+            mp4.full_box_header(self.version, 0);
+            if let Some(pattern) = self.pattern {
+                mp4.u8((pattern.crypt_byte_block << 4) | pattern.skip_byte_block);
+            } else {
+                mp4.u8(0); // reserved
+            }
+            mp4.u8(u8::from(self.is_protected));
+            mp4.u8(self.iv_size);
+            mp4.bytes(&self.kid);
+            if let Some(constant_iv) = &self.constant_iv {
+                mp4.u8(constant_iv.len() as u8);
+                mp4.bytes(constant_iv);
+            }
+            mp4.into_payload()
+        }
+    }
+
+    fn sgpd_version_1_constant_iv_payload() -> Vec<u8> {
+        SgpdBoxSyntax {
+            version: 1,
+            grouping_type: *b"seig",
+            default_length: Some(37),
+            default_sample_description_index: None,
+            entries: vec![SgpdSeigEntrySyntax {
+                length_including_length_field: None,
+                pattern: CbcPattern {
+                    crypt_byte_block: 0,
+                    skip_byte_block: 0,
+                },
+                is_protected: true,
+                per_sample_iv_size: 0,
+                kid: SAMPLE_KID,
+                constant_iv: Some(SAMPLE_CONSTANT_IV.to_vec()),
+            }],
+        }
+        .payload()
+    }
 
     #[test]
     fn test_parse_sgpd_seig() {
-        let payload = &SGPD_SEIG_BOX[8..];
-        let entries = SeigEntry::parse_seig(payload).unwrap().unwrap();
+        let payload = sgpd_version_1_constant_iv_payload();
+        let entries = SeigEntry::parse_seig(&payload).unwrap().unwrap();
         assert_eq!(entries.len(), 1);
         let e = &entries[0];
         assert!(e.is_protected);
         assert_eq!(e.per_sample_iv_size, 0);
-        assert_eq!(
-            e.kid,
-            [
-                0x70, 0xB9, 0x90, 0xCE, 0xB0, 0x91, 0x31, 0x38, 0xB2, 0x95, 0x9F, 0x53, 0x28,
-                0x01, 0x49, 0x98,
-            ]
-        );
-        assert_eq!(
-            e.constant_iv,
-            Some([
-                0x1F, 0x2D, 0xCC, 0xFC, 0xC9, 0xE9, 0x36, 0xF5, 0x7E, 0x63, 0xA7, 0x23, 0xDD,
-                0x47, 0x0A, 0x7D,
-            ])
-        );
+        assert_eq!(e.kid, SAMPLE_KID);
+        assert_eq!(e.constant_iv, Some(SAMPLE_CONSTANT_IV));
     }
 
     #[test]
     fn test_parse_sgpd_seig_wrong_grouping_type() {
-        let mut payload = SGPD_SEIG_BOX[8..].to_vec();
-        payload[4..8].copy_from_slice(b"maif");
+        let payload = SgpdBoxSyntax {
+            version: 1,
+            grouping_type: *b"maif",
+            default_length: Some(37),
+            default_sample_description_index: None,
+            entries: vec![SgpdSeigEntrySyntax {
+                length_including_length_field: None,
+                pattern: CbcPattern {
+                    crypt_byte_block: 0,
+                    skip_byte_block: 0,
+                },
+                is_protected: true,
+                per_sample_iv_size: 0,
+                kid: SAMPLE_KID,
+                constant_iv: Some(SAMPLE_CONSTANT_IV.to_vec()),
+            }],
+        }
+        .payload();
+
         assert!(SeigEntry::parse_seig(&payload).unwrap().is_none());
+    }
+
+    #[test]
+    fn parse_senc_supports_track_encryption_override() {
+        let payload = SencBoxSyntax {
+            flags: 0x000001,
+            override_parameters: Some(TrackEncryptionOverride {
+                algorithm_id: [0, 0, 1],
+                iv_size: 8,
+                kid: SAMPLE_KID,
+            }),
+            samples: vec![SencSampleSyntax {
+                iv: vec![0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88],
+                subsamples: Vec::new(),
+            }],
+        }
+        .payload();
+
+        let parsed = SampleEncryptionBox::parse_senc(&payload, 16, None).unwrap();
+
+        assert_eq!(parsed.override_kid(), Some(SAMPLE_KID));
+        assert_eq!(parsed.entries.len(), 1);
+        assert_eq!(
+            parsed.entries[0].iv,
+            [
+                0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0, 0, 0, 0, 0, 0, 0, 0
+            ]
+        );
+    }
+
+    /// `senc` entries use the effective IV size selected by track metadata or
+    /// by the optional override header.
+    ///
+    /// When that IV size is zero, the sample entry does not carry IV bytes.
+    /// The decryptor must use the constant IV supplied by the effective track
+    /// encryption metadata and then immediately continue with the optional
+    /// subsample table when flag `0x000002` is set.
+    #[test]
+    fn parse_senc_uses_constant_iv_when_effective_iv_size_is_zero() {
+        let constant_iv = [
+            0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad,
+            0xae, 0xaf,
+        ];
+        let payload = SencBoxSyntax {
+            flags: 0x000002,
+            override_parameters: None,
+            samples: vec![SencSampleSyntax {
+                iv: Vec::new(),
+                subsamples: vec![Subsample {
+                    clear_bytes: 3,
+                    encrypted_bytes: 29,
+                }],
+            }],
+        }
+        .payload();
+
+        let parsed = SampleEncryptionBox::parse_senc(&payload, 0, Some(constant_iv)).unwrap();
+
+        assert_eq!(parsed.entries.len(), 1);
+        assert_eq!(parsed.entries[0].iv, constant_iv);
+        assert_eq!(
+            parsed.entries[0].subsamples,
+            vec![Subsample {
+                clear_bytes: 3,
+                encrypted_bytes: 29,
+            }]
+        );
+    }
+
+    /// Only the two CENC-defined `senc` flags are accepted here.
+    ///
+    /// Other flag bits change the serialized layout or semantics. Accepting
+    /// them would let the parser read later fields at the wrong byte offsets,
+    /// so unsupported bits must be rejected before sample entries are read.
+    #[test]
+    fn parse_senc_rejects_unknown_flags() {
+        let payload = SencBoxSyntax {
+            flags: 0x000004,
+            override_parameters: None,
+            samples: Vec::new(),
+        }
+        .payload();
+
+        assert!(matches!(
+            SampleEncryptionBox::parse_senc(&payload, 16, None),
+            Err(CencError::InvalidSenc(_))
+        ));
+    }
+
+    /// SAI entries referenced by `saiz`/`saio` are length-delimited per sample.
+    ///
+    /// The entry size includes exactly one IV plus an optional subsample table.
+    /// If a size leaves unread bytes after parsing that entry, the metadata is
+    /// malformed because the next sample would start at an ambiguous offset.
+    #[test]
+    fn parse_sai_rejects_leftover_bytes_inside_entry_size() {
+        let entry = SaiEntrySyntax {
+            iv: vec![0x11; 16],
+            subsamples: Some(Vec::new()),
+            trailing_bytes: vec![0xff],
+        }
+        .payload();
+
+        assert!(matches!(
+            SampleEncryptionEntry::parse_sai(&entry, &[entry.len() as u8], 16, None),
+            Err(CencError::InvalidSenc(_))
+        ));
+    }
+
+    /// `saiz` may either carry one default auxiliary-info size or an explicit
+    /// size byte for every sample.
+    ///
+    /// When flag `0x000001` is set, `aux_info_type` and
+    /// `aux_info_type_parameter` are present before the size fields and must be
+    /// skipped before reading `default_sample_info_size` and `sample_count`.
+    #[test]
+    fn parse_saiz_handles_aux_info_type_and_default_size() {
+        let payload = SaizBoxSyntax {
+            aux_info: Some((*b"cenc", 0)),
+            default_sample_info_size: 16,
+            sample_count: 3,
+            explicit_sample_info_sizes: Vec::new(),
+        }
+        .payload();
+
+        assert_eq!(parse_saiz(&payload).unwrap(), vec![16, 16, 16]);
+    }
+
+    /// `saiz` explicit sizes are used when the default size is zero.
+    ///
+    /// In that form the box carries exactly `sample_count` one-byte sizes after
+    /// the count field. The parser must not synthesize a default or ignore the
+    /// explicit table.
+    #[test]
+    fn parse_saiz_handles_explicit_size_table() {
+        let payload = SaizBoxSyntax {
+            aux_info: None,
+            default_sample_info_size: 0,
+            sample_count: 4,
+            explicit_sample_info_sizes: vec![8, 16, 0, 24],
+        }
+        .payload();
+
+        assert_eq!(parse_saiz(&payload).unwrap(), vec![8, 16, 0, 24]);
+    }
+
+    /// `saio` version 1 stores 64-bit offsets.
+    ///
+    /// As with `saiz`, flag `0x000001` inserts `aux_info_type` and
+    /// `aux_info_type_parameter` before the offset count. The parser must skip
+    /// those fields and then read each version-1 offset as a 64-bit value.
+    #[test]
+    fn parse_saio_handles_aux_info_type_and_64_bit_offsets() {
+        let payload = SaioBoxSyntax {
+            version: 1,
+            aux_info: Some((*b"cenc", 0)),
+            offsets: vec![0x0000_0001_0000_0002, 0x0000_0003_0000_0004],
+        }
+        .payload();
+
+        assert_eq!(
+            parse_saio(&payload).unwrap(),
+            vec![0x0000_0001_0000_0002, 0x0000_0003_0000_0004]
+        );
+    }
+
+    /// `sbgp` version 1 inserts a grouping type parameter before entry count.
+    ///
+    /// For `seig` mappings, each entry gives a run length and a description
+    /// index. Index zero means track defaults; non-zero values select an SGPD
+    /// entry. Fragment-local indexes may use high bits, but the low 16 bits
+    /// still carry the 1-based SGPD entry number used by this parser.
+    #[test]
+    fn parse_sbgp_version_1_and_fragment_local_description_index() {
+        let payload = SbgpBoxSyntax {
+            version: 1,
+            grouping_type: *b"seig",
+            grouping_type_parameter: Some(7),
+            entries: vec![
+                SbgpEntry {
+                    sample_count: 5,
+                    group_description_index: 0,
+                },
+                SbgpEntry {
+                    sample_count: 3,
+                    group_description_index: 0x0001_0002,
+                },
+            ],
+        }
+        .payload();
+
+        let entries = SbgpEntry::parse_seig(&payload).unwrap().unwrap();
+
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].sample_count, 5);
+        assert_eq!(entries[0].group_description_index, 0);
+        assert_eq!(entries[1].sample_count, 3);
+        assert_eq!(entries[1].description_index().unwrap(), 1);
+    }
+
+    /// SGPD version 2 inserts `default_sample_description_index` before
+    /// `entry_count`.
+    ///
+    /// The CENC `seig` description then carries packed pattern values,
+    /// protection state, per-sample IV size, KID, and, only when the IV size is
+    /// zero for a protected entry, a constant IV. When `per_sample_iv_size` is
+    /// non-zero, no constant IV bytes follow the KID.
+    #[test]
+    fn parse_sgpd_version_2_without_constant_iv_for_per_sample_iv() {
+        let payload = SgpdBoxSyntax {
+            version: 2,
+            grouping_type: *b"seig",
+            default_length: None,
+            default_sample_description_index: Some(1),
+            entries: vec![SgpdSeigEntrySyntax {
+                length_including_length_field: None,
+                pattern: CbcPattern {
+                    crypt_byte_block: 2,
+                    skip_byte_block: 1,
+                },
+                is_protected: true,
+                per_sample_iv_size: 8,
+                kid: [0x44; 16],
+                constant_iv: None,
+            }],
+        }
+        .payload();
+
+        let entries = SeigEntry::parse_seig(&payload).unwrap().unwrap();
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(
+            entries[0].pattern,
+            Some(CbcPattern {
+                crypt_byte_block: 2,
+                skip_byte_block: 1,
+            })
+        );
+        assert!(entries[0].is_protected);
+        assert_eq!(entries[0].per_sample_iv_size, 8);
+        assert_eq!(entries[0].constant_iv, None);
+    }
+
+    #[test]
+    fn parse_tenc_rejects_constant_iv_longer_than_aes_block() {
+        let payload = TencBoxSyntax {
+            version: 0,
+            pattern: None,
+            is_protected: true,
+            iv_size: 0,
+            kid: [0; 16],
+            constant_iv: Some(vec![0; 17]),
+        }
+        .payload();
+
+        assert!(matches!(
+            TrackEncryptionInfo::parse_tenc(&payload),
+            Err(CencError::InvalidTenc(_))
+        ));
+    }
+
+    #[test]
+    fn parse_sgpd_rejects_constant_iv_longer_than_aes_block() {
+        let payload = SgpdBoxSyntax {
+            version: 1,
+            grouping_type: *b"seig",
+            default_length: Some(38),
+            default_sample_description_index: None,
+            entries: vec![SgpdSeigEntrySyntax {
+                length_including_length_field: None,
+                pattern: CbcPattern {
+                    crypt_byte_block: 0,
+                    skip_byte_block: 0,
+                },
+                is_protected: true,
+                per_sample_iv_size: 0,
+                kid: SAMPLE_KID,
+                constant_iv: Some(vec![0; 17]),
+            }],
+        }
+        .payload();
+
+        assert!(matches!(
+            SeigEntry::parse_seig(&payload),
+            Err(CencError::InvalidSenc(_))
+        ));
     }
 }

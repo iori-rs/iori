@@ -4,8 +4,8 @@ use common::read_mdat_payload;
 use aes::Aes128;
 use aes::cipher::{BlockEncrypt, KeyInit, generic_array::GenericArray};
 use iori_cenc::{
-    CbcPattern, CencError, DecryptJob, KeyMap, ParsedCenc, SchemeType, Subsample,
-    decrypt_mp4, decrypt_mp4_with_initial_segment,
+    CbcPattern, CencError, DecryptJob, KeyMap, ParsedCenc, SchemeType, Subsample, decrypt_mp4,
+    decrypt_mp4_with_initial_segment,
 };
 use std::collections::HashMap;
 use std::fs;
@@ -57,8 +57,12 @@ fn decrypt_cenc_roundtrip() {
     };
 
     let mut encrypted = plain.clone();
-    decrypt_jobs(vec![job.clone()]).decrypt_in_place(&mut encrypted, &key_map(), 0).unwrap();
-    decrypt_jobs(vec![job]).decrypt_in_place(&mut encrypted, &key_map(), 0).unwrap();
+    decrypt_jobs(vec![job.clone()])
+        .decrypt_in_place(&mut encrypted, &key_map(), 0)
+        .unwrap();
+    decrypt_jobs(vec![job])
+        .decrypt_in_place(&mut encrypted, &key_map(), 0)
+        .unwrap();
 
     assert_eq!(plain, encrypted);
 }
@@ -80,8 +84,12 @@ fn decrypt_cens_pattern_roundtrip() {
     };
 
     let mut encrypted = plain.clone();
-    decrypt_jobs(vec![job.clone()]).decrypt_in_place(&mut encrypted, &key_map(), 0).unwrap();
-    decrypt_jobs(vec![job]).decrypt_in_place(&mut encrypted, &key_map(), 0).unwrap();
+    decrypt_jobs(vec![job.clone()])
+        .decrypt_in_place(&mut encrypted, &key_map(), 0)
+        .unwrap();
+    decrypt_jobs(vec![job])
+        .decrypt_in_place(&mut encrypted, &key_map(), 0)
+        .unwrap();
 
     assert_eq!(plain, encrypted);
 }
@@ -101,7 +109,9 @@ fn decrypt_cbc1_roundtrip() {
 
     let mut encrypted = plain.clone();
     encrypt_cbc(&mut encrypted, job.pattern, job.iv);
-    decrypt_jobs(vec![job]).decrypt_in_place(&mut encrypted, &key_map(), 0).unwrap();
+    decrypt_jobs(vec![job])
+        .decrypt_in_place(&mut encrypted, &key_map(), 0)
+        .unwrap();
 
     assert_eq!(plain, encrypted);
 }
@@ -138,7 +148,9 @@ fn decrypt_cbcs_pattern_with_subsamples() {
 
     let mut encrypted = plain.clone();
     encrypt_cbc_with_subsamples(&mut encrypted, job.pattern, job.iv, &subsamples);
-    decrypt_jobs(vec![job]).decrypt_in_place(&mut encrypted, &key_map(), 0).unwrap();
+    decrypt_jobs(vec![job])
+        .decrypt_in_place(&mut encrypted, &key_map(), 0)
+        .unwrap();
 
     assert_eq!(plain, encrypted);
 }
@@ -159,7 +171,11 @@ fn decrypt_rejects_subsamples_that_do_not_cover_sample() {
         kid: KID,
     };
 
-    assert!(decrypt_jobs(vec![job]).decrypt_in_place(&mut encrypted, &key_map(), 0).is_err());
+    assert!(
+        decrypt_jobs(vec![job])
+            .decrypt_in_place(&mut encrypted, &key_map(), 0)
+            .is_err()
+    );
 }
 
 #[test]
@@ -191,7 +207,9 @@ fn decrypt_cenc_keeps_ctr_keystream_position_across_subsamples() {
 
     let mut encrypted = plain.clone();
     encrypt_ctr_continuous_with_subsamples(&mut encrypted, job.iv, &subsamples);
-    decrypt_jobs(vec![job]).decrypt_in_place(&mut encrypted, &key_map(), 0).unwrap();
+    decrypt_jobs(vec![job])
+        .decrypt_in_place(&mut encrypted, &key_map(), 0)
+        .unwrap();
 
     assert_eq!(plain, encrypted);
 }
@@ -250,6 +268,7 @@ fn encrypt_cbc_with_subsamples(
         let end = offset + encrypted_len;
         if patterned {
             block_index = 0;
+            previous = iv;
         }
         for chunk in data[offset..end].chunks_mut(16) {
             let should_crypt = if cycle == 0 {
@@ -280,7 +299,6 @@ fn decrypt_fmp4_fixtures_mdat_matches_plain() {
         .join("tests")
         .join("fixtures")
         .join("fmp4");
-    const WRITE_DECRYPTED_FILES: bool = true;
     let plain = fs::read(base.join("plain.mp4")).unwrap();
     let plain_mdat = read_mdat_payload(&plain).unwrap();
 
@@ -290,13 +308,9 @@ fn decrypt_fmp4_fixtures_mdat_matches_plain() {
     )]);
 
     for name in ["cenc.mp4", "cens.mp4", "cbc1.mp4", "cbcs.mp4"] {
-        let encrypted = fs::read(base.join(name)).unwrap();
-        let decrypted = decrypt_mp4(encrypted, &keys).unwrap();
-        if WRITE_DECRYPTED_FILES {
-            let dec_name = name.replace(".mp4", "_dec.mp4");
-            fs::write(base.join(dec_name), &decrypted).unwrap();
-        }
-        let decrypted_mdat = read_mdat_payload(&decrypted).unwrap();
+        let mut data = fs::read(base.join(name)).unwrap();
+        decrypt_mp4(&mut data, &keys).unwrap();
+        let decrypted_mdat = read_mdat_payload(&data).unwrap();
         assert_eq!(plain_mdat, decrypted_mdat, "mdat mismatch for {name}");
     }
 }
@@ -320,7 +334,8 @@ fn decrypt_fmp4_media_segment_with_initial_segment_reference() {
         "0123456789abcdef0123456789abcdef".to_string(),
     )]);
 
-    let decrypted = decrypt_mp4_with_initial_segment(encrypted_media.clone(), init, &keys).unwrap();
+    let mut decrypted = encrypted_media.clone();
+    decrypt_mp4_with_initial_segment(&mut decrypted, init, &keys).unwrap();
 
     assert_eq!(decrypted.len(), encrypted_media.len());
     assert_eq!(&decrypted[4..8], b"moof");
@@ -330,12 +345,12 @@ fn decrypt_fmp4_media_segment_with_initial_segment_reference() {
     );
 
     assert!(matches!(
-        decrypt_mp4(encrypted_media.clone(), &keys),
+        decrypt_mp4(&mut encrypted_media.clone(), &keys),
         Err(CencError::MissingInitialSegment)
     ));
 
     assert!(matches!(
-        decrypt_mp4_with_initial_segment(encrypted_media.clone(), &[], &keys),
+        decrypt_mp4_with_initial_segment(&mut encrypted_media.clone(), &[], &keys),
         Err(CencError::InitialSegmentMissingMoov)
     ));
 
@@ -344,8 +359,8 @@ fn decrypt_fmp4_media_segment_with_initial_segment_reference() {
     styp_prefixed_media.extend_from_slice(&styp);
     styp_prefixed_media.extend_from_slice(&encrypted_media);
 
-    let decrypted =
-        decrypt_mp4_with_initial_segment(styp_prefixed_media.clone(), init, &keys).unwrap();
+    let mut decrypted = styp_prefixed_media.clone();
+    decrypt_mp4_with_initial_segment(&mut decrypted, init, &keys).unwrap();
 
     assert_eq!(decrypted.len(), styp_prefixed_media.len());
     assert_eq!(&decrypted[4..8], b"styp");
@@ -353,4 +368,43 @@ fn decrypt_fmp4_media_segment_with_initial_segment_reference() {
         read_mdat_payload(plain_media).unwrap(),
         read_mdat_payload(&decrypted).unwrap()
     );
+}
+
+#[test]
+fn decrypt_reports_missing_key_by_kid() {
+    let mut encrypted = vec![0u8; 16];
+    let job = DecryptJob {
+        offset: 0,
+        size: encrypted.len() as u32,
+        iv: [0x10; 16],
+        subsamples: Vec::new(),
+        scheme: SchemeType::Cenc,
+        pattern: None,
+        kid: KID,
+    };
+
+    let err = decrypt_jobs(vec![job])
+        .decrypt_in_place(&mut encrypted, &KeyMap::new(), 0)
+        .unwrap_err();
+
+    assert!(matches!(err, CencError::MissingKey(kid) if kid == hex::encode(KID)));
+}
+
+#[test]
+fn decrypt_rejects_jobs_outside_base_offset_window() {
+    let mut encrypted = vec![0u8; 16];
+    let job = DecryptJob {
+        offset: 8,
+        size: encrypted.len() as u32,
+        iv: [0x10; 16],
+        subsamples: Vec::new(),
+        scheme: SchemeType::Cenc,
+        pattern: None,
+        kid: KID,
+    };
+
+    assert!(matches!(
+        decrypt_jobs(vec![job]).decrypt_in_place(&mut encrypted, &key_map(), 16),
+        Err(CencError::OutOfBounds)
+    ));
 }

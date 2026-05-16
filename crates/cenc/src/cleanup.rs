@@ -154,12 +154,12 @@ fn normalize_sample_entry(
     // no-op but is still correct.
     let sinf_children =
         parse_boxes_range(data, sinf.start + sinf.header_size, sinf.start + sinf.size)?;
-    if let Some(frma) = find_box(&sinf_children, *b"frma") {
-        if frma.size >= frma.header_size + 4 {
-            let original_format = read_type(data, frma.start + frma.header_size)?;
-            let entry_type_offset = entry_payload_start - 4;
-            data[entry_type_offset..entry_type_offset + 4].copy_from_slice(&original_format);
-        }
+    if let Some(frma) = find_box(&sinf_children, *b"frma")
+        && frma.size >= frma.header_size + 4
+    {
+        let original_format = read_type(data, frma.start + frma.header_size)?;
+        let entry_type_offset = entry_payload_start - 4;
+        data[entry_type_offset..entry_type_offset + 4].copy_from_slice(&original_format);
     }
 
     // Zero out sinf in-place: replace box type with 'free' and zero the payload.

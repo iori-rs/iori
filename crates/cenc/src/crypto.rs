@@ -1,6 +1,6 @@
 use crate::cleanup::normalize_decrypted_fmp4;
 use crate::errors::{CencError, Result};
-use crate::types::{CbcPattern, DecryptJob, KeyMap, ParsedCenc, Subsample};
+use crate::types::{CbcPattern, CipherMode, DecryptJob, KeyMap, ParsedCenc, Subsample};
 use aes::Aes128;
 use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit, generic_array::GenericArray};
 
@@ -32,6 +32,14 @@ impl ParsedCenc {
 }
 
 impl DecryptJob {
+    /// Decrypt one sample according to its scheme, IV, KID, optional pattern,
+    /// and optional subsample table.
+    ///
+    /// CENC rule, paraphrased: when a sample has no subsample table, the
+    /// entire sample is treated as one protected range. When a subsample table
+    /// is present, each entry partitions the sample into clear bytes followed
+    /// by protected bytes, and the entries must cover the sample in order
+    /// without gaps or overrun.
     pub(crate) fn decrypt_sample(&self, sample: &mut [u8], key: &[u8; 16]) -> Result<()> {
         let subsamples = if self.subsamples.is_empty() {
             vec![Subsample {
@@ -43,10 +51,9 @@ impl DecryptJob {
         };
         validate_subsamples(sample.len(), &subsamples)?;
 
-        if self.scheme.is_ctr() {
-            decrypt_ctr(sample, key, self.iv, self.pattern, &subsamples)
-        } else {
-            decrypt_cbc(sample, key, self.iv, self.pattern, &subsamples)
+        match self.scheme.cipher_mode() {
+            CipherMode::AesCtr => decrypt_ctr(sample, key, self.iv, self.pattern, &subsamples),
+            CipherMode::AesCbc => decrypt_cbc(sample, key, self.iv, self.pattern, &subsamples),
         }
     }
 }
@@ -70,6 +77,15 @@ fn validate_subsamples(sample_len: usize, subsamples: &[Subsample]) -> Result<()
     Ok(())
 }
 
+/// Decrypt AES-CTR sample data.
+///
+/// For `cenc`, AES-CTR is a byte stream over the concatenated protected bytes
+/// in the sample. Clear ranges do not consume keystream, so the byte offset
+/// advances only through encrypted bytes.
+///
+/// For `cens`, the crypt/skip pattern is applied independently to each
+/// protected subsample range. The counter starts from the sample IV for that
+/// range; skipped blocks still consume counter positions.
 fn decrypt_ctr(
     sample: &mut [u8],
     key: &[u8; 16],
@@ -78,9 +94,7 @@ fn decrypt_ctr(
     subsamples: &[Subsample],
 ) -> Result<()> {
     let mut offset = 0usize;
-    let mut encrypted_block_index = 0u64;
     let mut encrypted_byte_offset = 0u64;
-    let patterned = pattern.is_some();
     for subsample in subsamples {
         offset += subsample.clear_bytes as usize;
         let encrypted_len = subsample.encrypted_bytes as usize;
@@ -90,8 +104,7 @@ fn decrypt_ctr(
         }
         let segment = &mut sample[offset..end];
         if let Some(pattern) = pattern {
-            let block_index = if patterned { 0 } else { encrypted_block_index };
-            encrypted_block_index = apply_ctr_pattern(segment, key, iv, pattern, block_index);
+            apply_ctr_pattern(segment, key, iv, pattern, 0);
         } else {
             encrypted_byte_offset = apply_ctr_continuous(segment, key, iv, encrypted_byte_offset);
         }
@@ -100,6 +113,14 @@ fn decrypt_ctr(
     Ok(())
 }
 
+/// Decrypt AES-CBC sample data.
+///
+/// CBC-based CENC never decrypts a partial AES block. If a protected byte range
+/// is not block-aligned, only complete leading blocks are decrypted and
+/// trailing bytes remain unchanged in the sample.
+///
+/// For `cbcs`, pattern encryption is applied per subsample. Each protected
+/// range starts a fresh CBC chain with the sample IV.
 fn decrypt_cbc(
     sample: &mut [u8],
     key: &[u8; 16],
@@ -122,6 +143,9 @@ fn decrypt_cbc(
             return Err(CencError::OutOfBounds);
         }
         if decrypt_len > 0 {
+            if patterned {
+                previous = iv;
+            }
             let segment = &mut sample[offset..offset + decrypt_len];
             let block_index = if patterned { 0 } else { encrypted_block_index };
             let result = apply_cbc_pattern(segment, &cipher, previous, pattern, block_index);
@@ -133,6 +157,11 @@ fn decrypt_cbc(
     Ok(())
 }
 
+/// Apply CTR crypt/skip pattern encryption to one protected byte range.
+///
+/// Pattern values count 16-byte blocks: crypt N blocks, then skip M blocks,
+/// repeating. A zero-length cycle is treated as unpatterned encryption so old
+/// or degenerate metadata still decrypts all blocks.
 fn apply_ctr_pattern(
     data: &mut [u8],
     key: &[u8; 16],
@@ -189,6 +218,11 @@ fn apply_ctr_continuous(
     byte_offset
 }
 
+/// Apply CBC crypt/skip pattern encryption to complete AES blocks.
+///
+/// CBC pattern encryption uses the same crypt/skip block cadence as CTR
+/// pattern mode. Skipped blocks remain in the output unchanged and do not
+/// update the CBC chaining value.
 fn apply_cbc_pattern(
     data: &mut [u8],
     cipher: &Aes128,

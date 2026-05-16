@@ -1,12 +1,17 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
-    BOX_SENC, SampleEncryptionEntry, TrackEncryptionInfo, is_seig_grouping_box,
+    BOX_SENC, SampleEncryptionBox, TrackEncryptionInfo, is_seig_grouping_box,
 };
-use crate::types::{DecryptJob, ParsedCenc, SchemeType};
+use crate::types::{DecryptJob, ParsedCenc};
 use shiguredo_mp4::BoxType;
 use shiguredo_mp4::aux::SampleTableAccessor;
 use shiguredo_mp4::boxes::MoovBox;
 
+/// Parse CENC decrypt jobs from a non-fragmented MP4 `moov`.
+///
+/// Non-fragmented files keep sample layout in the regular sample tables. The
+/// `stbl`-level `senc` box contributes IV/subsample data in sample order, so
+/// its entry count must match the sample table count.
 pub(crate) fn parse_decrypt_jobs_non_fmp4(moov: &MoovBox) -> Result<ParsedCenc> {
     let mut jobs = Vec::new();
     for trak in &moov.trak_boxes {
@@ -34,8 +39,10 @@ pub(crate) fn parse_decrypt_jobs_non_fmp4(moov: &MoovBox) -> Result<ParsedCenc> 
             .iter()
             .filter_map(|info| info.as_ref().and_then(|info| info.constant_iv))
             .next();
-        let senc_entries =
-            SampleEncryptionEntry::parse_senc(&senc.payload, track_iv_size, track_constant_iv)?;
+        let senc_info =
+            SampleEncryptionBox::parse_senc(&senc.payload, track_iv_size, track_constant_iv)?;
+        let senc_override_kid = senc_info.override_kid();
+        let senc_entries = senc_info.entries;
 
         let expected = sample_table.sample_count();
         if senc_entries.len() as u32 != expected {
@@ -56,18 +63,14 @@ pub(crate) fn parse_decrypt_jobs_non_fmp4(moov: &MoovBox) -> Result<ParsedCenc> 
             }
 
             let senc_entry = &senc_entries[index];
-            let pattern = match info.scheme {
-                SchemeType::Cens | SchemeType::Cbcs => info.pattern,
-                SchemeType::Cenc | SchemeType::Cbc1 => None,
-            };
             jobs.push(DecryptJob {
                 offset: sample.data_offset(),
                 size: sample.data_size(),
                 iv: senc_entry.iv,
                 subsamples: senc_entry.subsamples.clone(),
                 scheme: info.scheme,
-                pattern,
-                kid: info.kid,
+                pattern: info.effective_pattern(None),
+                kid: info.effective_kid(None, senc_override_kid),
             });
         }
     }

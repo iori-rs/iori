@@ -79,17 +79,17 @@ pub fn decrypt_segment_cenc(
 ) -> Result<Uint8Array, JsValue> {
     let keys = parse_keyid_keys(keyid_keys)?;
 
-    let input = input.to_vec();
+    let mut input = input.to_vec();
     let initial_segment = initial_segment.filter(|segment| segment.length() > 0);
-    let output = if let Some(initial_segment) = initial_segment {
+    if let Some(initial_segment) = initial_segment {
         let initial_segment = initial_segment.to_vec();
-        decrypt_mp4_with_initial_segment(input, &initial_segment, &keys)
+        decrypt_mp4_with_initial_segment(&mut input, &initial_segment, &keys)
     } else {
-        decrypt_mp4(input, &keys)
+        decrypt_mp4(&mut input, &keys)
     }
     .map_err(|err| invalid_arg(&format!("iori-cenc error: {err}")))?;
 
-    Ok(Uint8Array::from(output.as_slice()))
+    Ok(Uint8Array::from(input.as_slice()))
 }
 
 #[wasm_bindgen(js_name = decryptSegmentCencWithInit)]
@@ -106,8 +106,10 @@ pub fn decrypt_segment_cenc_with_init(
         ));
     }
 
-    let output = decrypt_mp4_with_initial_segment(input.to_vec(), &initial_segment, &keys)
+    let mut data = input.to_vec();
+
+    decrypt_mp4_with_initial_segment(&mut data, &initial_segment, &keys)
         .map_err(|err| invalid_arg(&format!("iori-cenc error: {err}")))?;
 
-    Ok(Uint8Array::from(output.as_slice()))
+    Ok(Uint8Array::from(data.as_slice()))
 }
