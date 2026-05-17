@@ -92,18 +92,19 @@ fn cenc_ctr_subsamples_share_one_encrypted_byte_stream() {
 
 /// For the `cens` scheme, AES-CTR uses pattern encryption.
 ///
-/// The pattern counts 16-byte blocks inside one protected subsample range:
-/// crypt `crypt_byte_block` blocks, then leave `skip_byte_block` blocks
-/// unchanged, and repeat. The pattern and counter position are evaluated for
-/// each protected range independently, so a new subsample starts again at block
-/// zero using the sample IV.
+/// The pattern counts 16-byte blocks across the protected byte stream of the
+/// sample: crypt `crypt_byte_block` blocks, then leave `skip_byte_block`
+/// blocks unchanged, and repeat. Subsample clear bytes are outside the stream.
+/// Skipped pattern blocks advance the pattern position, but they do not
+/// consume AES-CTR keystream blocks.
 ///
-/// This test encrypts two protected ranges with the same 1:1 pattern. If the
-/// implementation carries the pattern block index from the first subsample
-/// into the second, the second range is decrypted with the wrong block cadence.
+/// This test encrypts two protected ranges with a 1:1 pattern. The first range
+/// ends after an encrypted block, so the second range must start at a skipped
+/// pattern block while the next encrypted block still uses the next contiguous
+/// CTR keystream block.
 #[test]
-fn cens_ctr_pattern_restarts_for_each_subsample() {
-    let plain = sample_bytes(146);
+fn cens_ctr_pattern_continues_across_subsamples_without_keystream_for_skips() {
+    let plain = sample_bytes(114);
     let pattern = CbcPattern {
         crypt_byte_block: 1,
         skip_byte_block: 1,
@@ -111,10 +112,10 @@ fn cens_ctr_pattern_restarts_for_each_subsample() {
     let subsamples = vec![
         Subsample {
             clear_bytes: 3,
-            encrypted_bytes: 64,
+            encrypted_bytes: 16,
         },
         Subsample {
-            clear_bytes: 15,
+            clear_bytes: 17,
             encrypted_bytes: 64,
         },
     ];
@@ -126,7 +127,7 @@ fn cens_ctr_pattern_restarts_for_each_subsample() {
     );
     let mut encrypted = plain.clone();
 
-    encrypt_ctr_pattern_per_subsample(&mut encrypted, job.iv, pattern, &subsamples);
+    encrypt_ctr_pattern_continuous(&mut encrypted, job.iv, pattern, &subsamples);
 
     parsed(job)
         .decrypt_in_place(&mut encrypted, &key_map(), 0)
@@ -384,11 +385,10 @@ fn encrypt_ctr_continuous(data: &mut [u8], iv: [u8; 16], subsamples: &[Subsample
 
 /// Reference encryptor for AES-CTR pattern encryption.
 ///
-/// Each subsample's protected range gets its own pattern block index starting
-/// at zero. Skipped pattern blocks still advance the counter block index,
-/// because the pattern is defined over block positions in the protected range,
-/// not over only the blocks that are encrypted.
-fn encrypt_ctr_pattern_per_subsample(
+/// The pattern block index continues across protected ranges in one sample.
+/// Skip blocks leave bytes unchanged and do not consume CTR keystream, matching
+/// the pattern stream-cipher behavior used by CENS.
+fn encrypt_ctr_pattern_continuous(
     data: &mut [u8],
     iv: [u8; 16],
     pattern: CbcPattern,
@@ -397,22 +397,25 @@ fn encrypt_ctr_pattern_per_subsample(
     let cipher = Aes128::new(GenericArray::from_slice(&KEY));
     let cycle = pattern.cycle_length();
     let mut offset = 0usize;
+    let mut pattern_block_index = 0u64;
+    let mut crypt_block_index = 0u64;
     for subsample in subsamples {
         offset += subsample.clear_bytes as usize;
-        let mut block_index = 0u64;
         let encrypted_end = offset + subsample.encrypted_bytes as usize;
         while offset < encrypted_end {
-            let should_crypt =
-                cycle == 0 || ((block_index % cycle as u64) as u8) < pattern.crypt_byte_block;
+            let should_crypt = cycle == 0
+                || ((pattern_block_index % cycle as u64) as u8) < pattern.crypt_byte_block;
             let block_len = usize::min(16, encrypted_end - offset);
+            pattern_block_index += 1;
             if should_crypt {
-                let mut keystream = GenericArray::clone_from_slice(&ctr_block(iv, block_index));
+                let mut keystream =
+                    GenericArray::clone_from_slice(&ctr_block(iv, crypt_block_index));
+                crypt_block_index += 1;
                 cipher.encrypt_block(&mut keystream);
                 for i in 0..block_len {
                     data[offset + i] ^= keystream[i];
                 }
             }
-            block_index += 1;
             offset += block_len;
         }
     }

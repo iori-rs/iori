@@ -81,9 +81,11 @@ fn validate_subsamples(sample_len: usize, subsamples: &[Subsample]) -> Result<()
 /// in the sample. Clear ranges do not consume keystream, so the byte offset
 /// advances only through encrypted bytes.
 ///
-/// For `cens`, the crypt/skip pattern is applied independently to each
-/// protected subsample range. The counter starts from the sample IV for that
-/// range; skipped blocks still consume counter positions.
+/// For `cens`, the crypt/skip pattern is one stream for the whole sample.
+/// Clear subsample bytes are outside that stream. Skip blocks advance the
+/// pattern position and remain unchanged, but they do not consume AES-CTR
+/// keystream blocks because no cipher operation is performed for skipped
+/// bytes.
 fn decrypt_ctr(
     sample: &mut [u8],
     key: &[u8; 16],
@@ -93,6 +95,7 @@ fn decrypt_ctr(
 ) -> Result<()> {
     let mut offset = 0usize;
     let mut encrypted_byte_offset = 0u64;
+    let mut pattern_state = CtrPatternState::default();
     for subsample in subsamples {
         offset += subsample.clear_bytes as usize;
         let encrypted_len = subsample.encrypted_bytes as usize;
@@ -102,7 +105,7 @@ fn decrypt_ctr(
         }
         let segment = &mut sample[offset..end];
         if let Some(pattern) = pattern {
-            apply_ctr_pattern(segment, key, iv, pattern, 0);
+            pattern_state = apply_ctr_pattern(segment, key, iv, pattern, pattern_state);
         } else {
             encrypted_byte_offset = apply_ctr_continuous(segment, key, iv, encrypted_byte_offset);
         }
@@ -160,13 +163,19 @@ fn decrypt_cbc(
 /// Pattern values count 16-byte blocks: crypt N blocks, then skip M blocks,
 /// repeating. A zero-length cycle is treated as unpatterned encryption so old
 /// or degenerate metadata still decrypts all blocks.
+#[derive(Debug, Clone, Copy, Default)]
+struct CtrPatternState {
+    pattern_block_index: u64,
+    crypt_block_index: u64,
+}
+
 fn apply_ctr_pattern(
     data: &mut [u8],
     key: &[u8; 16],
     iv: [u8; 16],
     pattern: CbcPattern,
-    mut block_index: u64,
-) -> u64 {
+    mut state: CtrPatternState,
+) -> CtrPatternState {
     let cipher = Aes128::new(GenericArray::from_slice(key));
     let cycle = pattern.cycle_length();
     let mut offset = 0usize;
@@ -174,22 +183,23 @@ fn apply_ctr_pattern(
         let should_crypt = if cycle == 0 {
             true
         } else {
-            let pos = (block_index % cycle as u64) as u8;
+            let pos = (state.pattern_block_index % cycle as u64) as u8;
             pos < pattern.crypt_byte_block
         };
-        let counter_block = build_ctr_block(iv, block_index);
-        block_index += 1;
+        let block_len = usize::min(AES_BLOCK_SIZE, data.len() - offset);
+        state.pattern_block_index += 1;
         if should_crypt {
+            let counter_block = build_ctr_block(iv, state.crypt_block_index);
+            state.crypt_block_index += 1;
             let mut keystream = GenericArray::clone_from_slice(&counter_block);
             cipher.encrypt_block(&mut keystream);
-            let block_len = usize::min(AES_BLOCK_SIZE, data.len() - offset);
             for i in 0..block_len {
                 data[offset + i] ^= keystream[i];
             }
         }
         offset += AES_BLOCK_SIZE;
     }
-    block_index
+    state
 }
 
 fn apply_ctr_continuous(
