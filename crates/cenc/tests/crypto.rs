@@ -1,5 +1,5 @@
 mod common;
-use common::read_mdat_payload;
+use common::{find_top_level_box, read_mdat_payload, top_level_box_layout};
 
 use aes::Aes128;
 use aes::cipher::{BlockEncrypt, KeyInit, generic_array::GenericArray};
@@ -350,6 +350,46 @@ fn decrypt_fmp4_fixtures_mdat_matches_plain() {
         decrypt_mp4(&mut data, &keys).unwrap();
         let decrypted_mdat = read_mdat_payload(&data).unwrap();
         assert_eq!(plain_mdat, decrypted_mdat, "mdat mismatch for {name}");
+    }
+}
+
+#[test]
+fn decrypt_fmp4_preserves_size_and_top_level_layout() {
+    let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("fmp4");
+    let plain = fs::read(base.join("plain.mp4")).unwrap();
+    let plain_mdat = read_mdat_payload(&plain).unwrap();
+    let keys = HashMap::from([(
+        "00112233445566778899aabbccddeeff".to_string(),
+        "0123456789abcdef0123456789abcdef".to_string(),
+    )]);
+
+    for name in ["cenc.mp4"] {
+        let encrypted = fs::read(base.join(name)).unwrap();
+        let encrypted_layout = top_level_box_layout(&encrypted).unwrap();
+        let encrypted_mdat = find_top_level_box(&encrypted, b"mdat").unwrap();
+
+        let mut decrypted = encrypted.clone();
+        decrypt_mp4(&mut decrypted, &keys).unwrap();
+
+        assert_eq!(encrypted.len(), decrypted.len(), "size changed for {name}");
+        assert_eq!(
+            encrypted_layout,
+            top_level_box_layout(&decrypted).unwrap(),
+            "top-level box layout changed for {name}"
+        );
+        assert_eq!(
+            encrypted_mdat,
+            find_top_level_box(&decrypted, b"mdat").unwrap(),
+            "mdat location changed for {name}"
+        );
+        assert_eq!(
+            plain_mdat,
+            read_mdat_payload(&decrypted).unwrap(),
+            "mdat payload mismatch for {name}"
+        );
     }
 }
 
