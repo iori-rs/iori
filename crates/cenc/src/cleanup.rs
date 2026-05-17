@@ -1,10 +1,9 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
     EncryptedAudioSampleEntryBox, EncryptedVideoSampleEntryBox, OriginalFormatBox,
-    ProtectionSchemeInfoBox, PsshBox, RawMp4Box, SaioBox, SaizBox, SampleEncryptionBox, SbgpBox,
-    SgpdSeigBox, find_raw_box,
+    ProtectionSchemeInfoBox, PsshBox, RawMp4Box, SaioBox, SaizBox, SampleDescriptionBoxHeader,
+    SampleEncryptionBox, SbgpBox, SgpdSeigBox, find_raw_box,
 };
-use shiguredo_mp4::Decode;
 use shiguredo_mp4::boxes::{
     Av01Box, Avc1Box, FlacBox, FreeBox, Hev1Box, Hvc1Box, MdiaBox, MinfBox, MoofBox, MoovBox,
     Mp4aBox, OpusBox, StblBox, StsdBox, TrafBox, TrakBox, Vp08Box, Vp09Box,
@@ -96,7 +95,9 @@ fn normalize_stsd(data: &mut [u8], stsd: RawMp4Box) -> Result<()> {
     if stsd_payload_end < stsd_payload_start + 8 {
         return Err(CencError::MetadataCleanup("stsd too short".to_string()));
     }
-    let entry_count = read_u32(data, stsd_payload_start + 4)? as usize;
+    let stsd_header = SampleDescriptionBoxHeader::decode_payload(stsd.payload(data))
+        .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
+    let entry_count = stsd_header.entry_count as usize;
     let entries = RawMp4Box::parse_n_range(
         data,
         stsd_payload_start + 8,
@@ -178,14 +179,4 @@ fn free_box(data: &mut [u8], b: &RawMp4Box) {
 fn parse_boxes_range(data: &[u8], start: usize, end: usize) -> Result<Vec<RawMp4Box>> {
     RawMp4Box::parse_range(data, start, end, 0)
         .map_err(|err| CencError::MetadataCleanup(err.to_string()))
-}
-
-fn read_u32(data: &[u8], offset: usize) -> Result<u32> {
-    decode_at(data, offset, "u32")
-}
-
-fn decode_at<T: Decode>(data: &[u8], offset: usize, name: &str) -> Result<T> {
-    let mut offset = offset;
-    T::decode_at(data, &mut offset)
-        .map_err(|_| CencError::MetadataCleanup(format!("{name} out of bounds")))
 }

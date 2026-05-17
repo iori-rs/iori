@@ -70,6 +70,23 @@ impl EncryptedAudioSampleEntryBox {
     pub(crate) const BASE_SIZE: usize = AUDIO_SAMPLE_ENTRY_SIZE;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SampleDescriptionBoxHeader {
+    #[allow(dead_code)]
+    pub(crate) full_box_header: FullBoxHeader,
+    pub(crate) entry_count: u32,
+}
+
+impl SampleDescriptionBoxHeader {
+    pub(crate) fn decode_payload(payload: &[u8]) -> Result<Self> {
+        let mut reader = ByteReader::new(payload);
+        Ok(Self {
+            full_box_header: reader.read_full_box_header()?,
+            entry_count: reader.read_u32()?,
+        })
+    }
+}
+
 // ---------------------------------------------------------------------------
 // ByteReader — cursor-based binary reader
 // ---------------------------------------------------------------------------
