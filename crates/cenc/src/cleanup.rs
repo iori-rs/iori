@@ -1,12 +1,21 @@
 use crate::errors::{CencError, Result};
-use shiguredo_mp4::{BoxHeader, Decode};
+use crate::jobs::boxes::{BOX_SAIO, BOX_SAIZ, BOX_SBGP, BOX_SENC, BOX_SGPD, BOX_SINF};
+use shiguredo_mp4::boxes::{MoofBox, MoovBox, StsdBox, TrafBox};
+use shiguredo_mp4::{BoxHeader, BoxType, Decode};
+
+const BOX_PSSH: BoxType = BoxType::Normal(*b"pssh");
+const BOX_TRAK: BoxType = BoxType::Normal(*b"trak");
+const BOX_MDIA: BoxType = BoxType::Normal(*b"mdia");
+const BOX_MINF: BoxType = BoxType::Normal(*b"minf");
+const BOX_STBL: BoxType = BoxType::Normal(*b"stbl");
+const BOX_FRMA: BoxType = BoxType::Normal(*b"frma");
 
 const VISUAL_SAMPLE_ENTRY_SIZE: usize = 78;
 const AUDIO_SAMPLE_ENTRY_SIZE: usize = 28;
 
 #[derive(Debug, Clone, Copy)]
 struct RawBox {
-    typ: [u8; 4],
+    typ: BoxType,
     start: usize,
     size: usize,
     header_size: usize,
@@ -18,9 +27,9 @@ pub fn normalize_decrypted_fmp4(data: &mut [u8]) -> Result<()> {
         Err(_) => return Ok(()),
     };
     for b in &top {
-        if b.typ == *b"moov" {
+        if b.typ == MoovBox::TYPE {
             normalize_moov(data, b)?;
-        } else if b.typ == *b"moof" {
+        } else if b.typ == MoofBox::TYPE {
             normalize_moof(data, b)?;
         }
     }
@@ -31,11 +40,11 @@ fn normalize_moov(data: &mut [u8], moov: &RawBox) -> Result<()> {
     let moov_children =
         parse_boxes_range(data, moov.start + moov.header_size, moov.start + moov.size)?;
     for child in &moov_children {
-        if child.typ == *b"pssh" {
+        if child.typ == BOX_PSSH {
             // Zero out pssh from moov: hls.js collects moov-level pssh boxes and
             // uses them to trigger EME key session setup.
             free_box(data, child);
-        } else if child.typ == *b"trak" {
+        } else if child.typ == BOX_TRAK {
             normalize_trak(data, *child)?;
         }
     }
@@ -46,10 +55,10 @@ fn normalize_moof(data: &mut [u8], moof: &RawBox) -> Result<()> {
     let moof_children =
         parse_boxes_range(data, moof.start + moof.header_size, moof.start + moof.size)?;
     for child in &moof_children {
-        if child.typ == *b"pssh" {
+        if child.typ == BOX_PSSH {
             // Zero out pssh: hls.js uses pssh presence to trigger EME key loading.
             free_box(data, child);
-        } else if child.typ == *b"traf" {
+        } else if child.typ == TrafBox::TYPE {
             normalize_traf(data, *child)?;
         }
     }
@@ -60,11 +69,11 @@ fn normalize_traf(data: &mut [u8], traf: RawBox) -> Result<()> {
     let traf_children =
         parse_boxes_range(data, traf.start + traf.header_size, traf.start + traf.size)?;
     for child in &traf_children {
-        if child.typ == *b"senc"
-            || child.typ == *b"saiz"
-            || child.typ == *b"saio"
-            || child.typ == *b"sbgp"
-            || child.typ == *b"sgpd"
+        if child.typ == BOX_SENC
+            || child.typ == BOX_SAIZ
+            || child.typ == BOX_SAIO
+            || child.typ == BOX_SBGP
+            || child.typ == BOX_SGPD
         {
             // Replace box type with 'free' and zero out payload (in-place).
             // senc/saiz/saio carry per-sample encryption info.
@@ -78,22 +87,22 @@ fn normalize_traf(data: &mut [u8], traf: RawBox) -> Result<()> {
 fn normalize_trak(data: &mut [u8], trak: RawBox) -> Result<()> {
     let trak_children =
         parse_boxes_range(data, trak.start + trak.header_size, trak.start + trak.size)?;
-    let Some(mdia) = find_box(&trak_children, *b"mdia") else {
+    let Some(mdia) = find_box(&trak_children, BOX_MDIA) else {
         return Ok(());
     };
     let mdia_children =
         parse_boxes_range(data, mdia.start + mdia.header_size, mdia.start + mdia.size)?;
-    let Some(minf) = find_box(&mdia_children, *b"minf") else {
+    let Some(minf) = find_box(&mdia_children, BOX_MINF) else {
         return Ok(());
     };
     let minf_children =
         parse_boxes_range(data, minf.start + minf.header_size, minf.start + minf.size)?;
-    let Some(stbl) = find_box(&minf_children, *b"stbl") else {
+    let Some(stbl) = find_box(&minf_children, BOX_STBL) else {
         return Ok(());
     };
     let stbl_children =
         parse_boxes_range(data, stbl.start + stbl.header_size, stbl.start + stbl.size)?;
-    let Some(stsd) = find_box(&stbl_children, *b"stsd") else {
+    let Some(stsd) = find_box(&stbl_children, StsdBox::TYPE) else {
         return Ok(());
     };
     normalize_stsd(data, *stsd)
@@ -145,7 +154,7 @@ fn normalize_sample_entry(
 ) -> Result<()> {
     let children_start = entry_payload_start + base_size;
     let children = parse_boxes_range(data, children_start, entry_payload_end)?;
-    let Some(sinf) = find_box(&children, *b"sinf") else {
+    let Some(sinf) = find_box(&children, BOX_SINF) else {
         return Ok(());
     };
 
@@ -154,7 +163,7 @@ fn normalize_sample_entry(
     // no-op but is still correct.
     let sinf_children =
         parse_boxes_range(data, sinf.start + sinf.header_size, sinf.start + sinf.size)?;
-    if let Some(frma) = find_box(&sinf_children, *b"frma")
+    if let Some(frma) = find_box(&sinf_children, BOX_FRMA)
         && frma.size >= frma.header_size + 4
     {
         let original_format = read_type(data, frma.start + frma.header_size)?;
@@ -193,8 +202,8 @@ fn parse_boxes_range(data: &[u8], start: usize, end: usize) -> Result<Vec<RawBox
             return Err(CencError::MetadataCleanup("invalid box size".to_string()));
         }
         let box_type = match header.box_type {
-            shiguredo_mp4::BoxType::Normal(ty) => ty,
-            shiguredo_mp4::BoxType::Uuid(_) => {
+            BoxType::Normal(_) => header.box_type,
+            BoxType::Uuid(_) => {
                 offset += size;
                 continue;
             }
@@ -210,7 +219,7 @@ fn parse_boxes_range(data: &[u8], start: usize, end: usize) -> Result<Vec<RawBox
     Ok(boxes)
 }
 
-fn find_box(boxes: &[RawBox], typ: [u8; 4]) -> Option<&RawBox> {
+fn find_box(boxes: &[RawBox], typ: BoxType) -> Option<&RawBox> {
     boxes.iter().find(|b| b.typ == typ)
 }
 

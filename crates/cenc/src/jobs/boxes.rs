@@ -3,15 +3,17 @@ use crate::types::{CbcPattern, SchemeType, Subsample};
 use shiguredo_mp4::boxes::{SampleEntry, UnknownBox};
 use shiguredo_mp4::{BoxHeader, BoxType, Decode, FullBoxHeader};
 
-pub(crate) const BOX_SINF: [u8; 4] = *b"sinf";
-pub(crate) const BOX_SCHI: [u8; 4] = *b"schi";
-pub(crate) const BOX_SCHM: [u8; 4] = *b"schm";
-pub(crate) const BOX_TENC: [u8; 4] = *b"tenc";
-pub(crate) const BOX_SENC: [u8; 4] = *b"senc";
-pub(crate) const BOX_SBGP: [u8; 4] = *b"sbgp";
-pub(crate) const BOX_SGPD: [u8; 4] = *b"sgpd";
-pub(crate) const BOX_ENCV: [u8; 4] = *b"encv";
-pub(crate) const BOX_ENCA: [u8; 4] = *b"enca";
+pub(crate) const BOX_SINF: BoxType = BoxType::Normal(*b"sinf");
+pub(crate) const BOX_SCHI: BoxType = BoxType::Normal(*b"schi");
+pub(crate) const BOX_SCHM: BoxType = BoxType::Normal(*b"schm");
+pub(crate) const BOX_TENC: BoxType = BoxType::Normal(*b"tenc");
+pub(crate) const BOX_SENC: BoxType = BoxType::Normal(*b"senc");
+pub(crate) const BOX_SBGP: BoxType = BoxType::Normal(*b"sbgp");
+pub(crate) const BOX_SGPD: BoxType = BoxType::Normal(*b"sgpd");
+pub(crate) const BOX_SAIZ: BoxType = BoxType::Normal(*b"saiz");
+pub(crate) const BOX_SAIO: BoxType = BoxType::Normal(*b"saio");
+pub(crate) const BOX_ENCV: BoxType = BoxType::Normal(*b"encv");
+pub(crate) const BOX_ENCA: BoxType = BoxType::Normal(*b"enca");
 
 const CENC_AUX_INFO_TYPES: [[u8; 4]; 4] = [*b"cenc", *b"cbc1", *b"cens", *b"cbcs"];
 
@@ -72,7 +74,7 @@ impl<'a> ByteReader<'a> {
 
 #[derive(Debug)]
 struct ChildBox<'a> {
-    box_type: [u8; 4],
+    box_type: BoxType,
     payload: &'a [u8],
 }
 
@@ -93,7 +95,7 @@ impl ChildBox<'_> {
             let start = offset + header_size;
             let end = offset + box_size;
             let box_type = match header.box_type {
-                BoxType::Normal(ty) => ty,
+                BoxType::Normal(_) => header.box_type,
                 BoxType::Uuid(_) => {
                     offset += box_size;
                     continue;
@@ -115,7 +117,7 @@ impl ChildBox<'_> {
 
 #[derive(Debug, Clone)]
 pub(crate) struct RawMp4Box {
-    pub(crate) box_type: [u8; 4],
+    pub(crate) box_type: BoxType,
     pub(crate) start: usize,
     pub(crate) size: usize,
 }
@@ -135,7 +137,7 @@ impl RawMp4Box {
                 return Err(CencError::InvalidSenc("invalid box size".to_string()));
             }
             let box_type = match header.box_type {
-                BoxType::Normal(ty) => ty,
+                BoxType::Normal(_) => header.box_type,
                 BoxType::Uuid(_) => {
                     offset += size;
                     continue;
@@ -447,13 +449,13 @@ impl TrackEncryptionInfo {
     /// treated as protected rather than requiring an `encv`/`enca` wrapper.
     fn parse_sample_entry(entry: &SampleEntry) -> Result<Option<Self>> {
         if let SampleEntry::Unknown(unknown) = entry {
+            if unknown.box_type != BOX_ENCV && unknown.box_type != BOX_ENCA {
+                return Ok(None);
+            }
             let BoxType::Normal(box_type) = unknown.box_type else {
                 return Ok(None);
             };
-            if box_type != BOX_ENCV && box_type != BOX_ENCA {
-                return Ok(None);
-            }
-            let base_size = if box_type == BOX_ENCV {
+            let base_size = if unknown.box_type == BOX_ENCV {
                 VISUAL_SAMPLE_ENTRY_SIZE
             } else {
                 AUDIO_SAMPLE_ENTRY_SIZE
@@ -472,7 +474,7 @@ impl TrackEncryptionInfo {
         }
 
         for ub in unknown_boxes_from_sample_entry(entry) {
-            if ub.box_type == BoxType::Normal(BOX_SINF) {
+            if ub.box_type == BOX_SINF {
                 return Ok(Some(Self::parse_sinf(&ub.payload)?));
             }
         }

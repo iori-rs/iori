@@ -1,7 +1,7 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
-    BOX_SBGP, BOX_SENC, BOX_SGPD, RawMp4Box, SampleEncryptionBox, SampleEncryptionEntry, SbgpEntry,
-    SeigEntry, TrackEncryptionInfo, parse_saio, parse_saiz,
+    BOX_SAIO, BOX_SAIZ, BOX_SBGP, BOX_SENC, BOX_SGPD, RawMp4Box, SampleEncryptionBox,
+    SampleEncryptionEntry, SbgpEntry, SeigEntry, TrackEncryptionInfo, parse_saio, parse_saiz,
 };
 use crate::types::{CbcPattern, DecryptJob, ParsedCenc};
 use shiguredo_mp4::boxes::{MoofBox, MoovBox, UnknownBox};
@@ -18,18 +18,18 @@ impl<'a> UnknownBoxes<'a> {
         Self { traf, moof }
     }
 
-    fn find(&self, box_type: [u8; 4]) -> Option<&'a UnknownBox> {
+    fn find(&self, box_type: BoxType) -> Option<&'a UnknownBox> {
         self.traf
             .iter()
             .chain(self.moof.iter())
-            .find(|b| b.box_type == BoxType::Normal(box_type))
+            .find(|b| b.box_type == box_type)
     }
 
     fn parse_seig_sbgp(&self) -> Result<Option<Vec<SbgpEntry>>> {
         self.traf
             .iter()
             .chain(self.moof.iter())
-            .filter(|b| b.box_type == BoxType::Normal(BOX_SBGP))
+            .filter(|b| b.box_type == BOX_SBGP)
             .find_map(|b| SbgpEntry::parse_seig(&b.payload).transpose())
             .transpose()
     }
@@ -38,7 +38,7 @@ impl<'a> UnknownBoxes<'a> {
         self.traf
             .iter()
             .chain(self.moof.iter())
-            .filter(|b| b.box_type == BoxType::Normal(BOX_SGPD))
+            .filter(|b| b.box_type == BOX_SGPD)
             .find_map(|b| SeigEntry::parse_seig(&b.payload).transpose())
             .transpose()
     }
@@ -48,7 +48,7 @@ impl<'a> UnknownBoxes<'a> {
             .traf
             .iter()
             .chain(self.moof.iter())
-            .filter(|b| b.box_type == BoxType::Normal(*b"saiz"))
+            .filter(|b| b.box_type == BOX_SAIZ)
         {
             if let Some(sizes) = parse_saiz(&box_item.payload)? {
                 return Ok(Some(sizes));
@@ -62,7 +62,7 @@ impl<'a> UnknownBoxes<'a> {
             .traf
             .iter()
             .chain(self.moof.iter())
-            .filter(|b| b.box_type == BoxType::Normal(*b"saio"))
+            .filter(|b| b.box_type == BOX_SAIO)
         {
             if let Some(offsets) = parse_saio(&box_item.payload)? {
                 return Ok(Some(offsets));
@@ -410,7 +410,7 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
     let top_boxes = RawMp4Box::parse_all(input, 0)?;
     let mut jobs = Vec::new();
 
-    for raw_moof in top_boxes.iter().filter(|b| b.box_type == *b"moof") {
+    for raw_moof in top_boxes.iter().filter(|b| b.box_type == MoofBox::TYPE) {
         let (moof, _) = MoofBox::decode(&input[raw_moof.start..raw_moof.start + raw_moof.size])?;
         let moof_start = raw_moof.start;
         let moof_size = raw_moof.size;

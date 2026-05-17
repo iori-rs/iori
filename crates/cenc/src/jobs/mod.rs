@@ -5,8 +5,9 @@ mod non_fmp4;
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{RawMp4Box, TrackEncryptionInfo};
 use crate::types::ParsedCenc;
+use shiguredo_mp4::BoxType;
 use shiguredo_mp4::Decode;
-use shiguredo_mp4::boxes::MoovBox;
+use shiguredo_mp4::boxes::{MdatBox, MoofBox, MoovBox};
 
 use crate::jobs::fmp4::parse_decrypt_jobs_fmp4;
 use crate::jobs::non_fmp4::parse_decrypt_jobs_non_fmp4;
@@ -22,7 +23,7 @@ impl<'a> Mp4Context<'a> {
         Ok(Self { input, top_boxes })
     }
 
-    fn has_box(&self, box_type: [u8; 4]) -> bool {
+    fn has_box(&self, box_type: BoxType) -> bool {
         self.top_boxes
             .iter()
             .any(|box_item| box_item.box_type == box_type)
@@ -32,7 +33,7 @@ impl<'a> Mp4Context<'a> {
         let Some(raw_moov) = self
             .top_boxes
             .iter()
-            .find(|box_item| box_item.box_type == *b"moov")
+            .find(|box_item| box_item.box_type == MoovBox::TYPE)
         else {
             return Ok(None);
         };
@@ -78,7 +79,7 @@ impl ParsedCenc {
         let context = Mp4Context::parse(input)?;
         let moov = context.moov()?;
 
-        if context.has_box(*b"moof") {
+        if context.has_box(MoofBox::TYPE) {
             let moov = moov.ok_or(CencError::MissingInitialSegment)?;
             return parse_decrypt_jobs_fmp4(input, &moov);
         }
@@ -86,7 +87,7 @@ impl ParsedCenc {
         let moov = moov.ok_or(CencError::MissingMoov)?;
 
         // Init segment: moov only, no mdat and no moof.
-        if !context.has_box(*b"mdat") {
+        if !context.has_box(MdatBox::TYPE) {
             return Ok(ParsedCenc { jobs: vec![] });
         }
 
