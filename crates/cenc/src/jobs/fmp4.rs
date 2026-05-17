@@ -75,6 +75,7 @@ impl<'a> UnknownBoxes<'a> {
 struct FragmentSamples {
     offsets: Vec<u64>,
     sizes: Vec<u32>,
+    trun_sample_counts: Vec<usize>,
 }
 
 impl FragmentSamples {
@@ -86,7 +87,9 @@ impl FragmentSamples {
         let tfhd = &traf.tfhd_box;
         let mut offsets = Vec::new();
         let mut sizes = Vec::new();
+        let mut trun_sample_counts = Vec::new();
         for trun in &traf.trun_boxes {
+            trun_sample_counts.push(trun.samples.len());
             let base_offset = if let Some(data_offset) = trun.data_offset {
                 let offset = data_offset as i64;
                 if offset < 0 {
@@ -109,7 +112,11 @@ impl FragmentSamples {
                 current += size as u64;
             }
         }
-        Ok(Self { offsets, sizes })
+        Ok(Self {
+            offsets,
+            sizes,
+            trun_sample_counts,
+        })
     }
 
     fn is_empty(&self) -> bool {
@@ -118,6 +125,10 @@ impl FragmentSamples {
 
     fn len(&self) -> usize {
         self.sizes.len()
+    }
+
+    fn trun_sample_counts(&self) -> &[usize] {
+        &self.trun_sample_counts
     }
 
     fn into_iter(self) -> impl Iterator<Item = (u64, u32)> {
@@ -278,11 +289,59 @@ impl EffectiveSampleEncryption {
     }
 }
 
+fn parse_auxiliary_sample_entries(
+    input: &[u8],
+    moof_start: usize,
+    offsets: &[u64],
+    sizes: &[u8],
+    trun_sample_counts: &[usize],
+    iv_size: u8,
+    constant_iv: Option<[u8; 16]>,
+) -> Option<Vec<SampleEncryptionEntry>> {
+    if offsets.is_empty() || sizes.len() != trun_sample_counts.iter().sum::<usize>() {
+        return None;
+    }
+
+    if offsets.len() == 1 {
+        let aux_offset = checked_aux_offset(moof_start, offsets[0], input.len())?;
+        return SampleEncryptionEntry::parse_sai(&input[aux_offset..], sizes, iv_size, constant_iv)
+            .ok();
+    }
+
+    let mut entries = Vec::with_capacity(sizes.len());
+    let mut size_offset = 0usize;
+    for (trun_index, sample_count) in trun_sample_counts.iter().copied().enumerate() {
+        if sample_count == 0 {
+            continue;
+        }
+        let aux_offset = checked_aux_offset(moof_start, *offsets.get(trun_index)?, input.len())?;
+        let end = size_offset.checked_add(sample_count)?;
+        let trun_sizes = sizes.get(size_offset..end)?;
+        let mut trun_entries = SampleEncryptionEntry::parse_sai(
+            &input[aux_offset..],
+            trun_sizes,
+            iv_size,
+            constant_iv,
+        )
+        .ok()?;
+        entries.append(&mut trun_entries);
+        size_offset = end;
+    }
+
+    (entries.len() == sizes.len()).then_some(entries)
+}
+
+fn checked_aux_offset(input_base: usize, relative_offset: u64, input_len: usize) -> Option<usize> {
+    let relative_offset = usize::try_from(relative_offset).ok()?;
+    let offset = input_base.checked_add(relative_offset)?;
+    (offset < input_len).then_some(offset)
+}
+
 /// Parse CENC decrypt jobs from fragmented MP4 media.
 ///
-/// Per-fragment encryption data is resolved in spec order: `senc` first when
-/// present and non-empty, then auxiliary info referenced by `saiz`/`saio`, and
-/// finally `seig` sample groups.
+/// Per-fragment encryption data is resolved like Bento4: auxiliary info
+/// referenced by `saiz`/`saio` is tried first, invalid auxiliary layouts fall
+/// back to `senc`, and `seig` sample groups are used when neither table exists.
 pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<ParsedCenc> {
     let track_map = super::get_track_map(moov)?;
     let mut track_lookup: HashMap<u32, Vec<Option<TrackEncryptionInfo>>> = HashMap::new();
@@ -331,20 +390,18 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                 let sizes = unknown_boxes.parse_cenc_saiz()?;
                 let offsets = unknown_boxes.parse_cenc_saio()?;
                 if let (Some(sizes), Some(offsets)) = (sizes, offsets)
-                    && !offsets.is_empty()
-                    && sizes.len() == sample_count
+                    && let Some(entries) = parse_auxiliary_sample_entries(
+                        input,
+                        moof_start,
+                        &offsets,
+                        &sizes,
+                        samples.trun_sample_counts(),
+                        info.iv_size,
+                        info.constant_iv,
+                    )
                 {
-                    let aux_offset = moof_start + offsets[0] as usize;
-                    if aux_offset < input.len()
-                        && let Ok(entries) = SampleEncryptionEntry::parse_sai(
-                            &input[aux_offset..],
-                            &sizes,
-                            info.iv_size,
-                            info.constant_iv,
-                        )
-                    {
-                        break 'entries (entries, None);
-                    }
+                    debug_assert_eq!(entries.len(), sample_count);
+                    break 'entries (entries, None);
                 }
 
                 if let Some(senc) = senc_box {
@@ -391,4 +448,55 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
     }
 
     Ok(ParsedCenc { jobs })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn auxiliary_sample_entries_use_single_saio_offset_as_contiguous_table() {
+        let mut input = vec![0u8; 80];
+        input[20..28].copy_from_slice(&[1, 2, 3, 4, 5, 6, 7, 8]);
+        input[28..36].copy_from_slice(&[9, 10, 11, 12, 13, 14, 15, 16]);
+
+        let entries =
+            parse_auxiliary_sample_entries(&input, 10, &[10], &[8, 8], &[1, 1], 8, None).unwrap();
+
+        assert_eq!(entries.len(), 2);
+        assert_eq!(
+            entries[0].iv,
+            [1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0, 0, 0, 0, 0]
+        );
+        assert_eq!(
+            entries[1].iv,
+            [9, 10, 11, 12, 13, 14, 15, 16, 0, 0, 0, 0, 0, 0, 0, 0]
+        );
+    }
+
+    #[test]
+    fn auxiliary_sample_entries_use_one_saio_offset_per_trun_when_present() {
+        let mut input = vec![0u8; 120];
+        input[20..28].copy_from_slice(&[1, 2, 3, 4, 5, 6, 7, 8]);
+        input[60..68].copy_from_slice(&[9, 10, 11, 12, 13, 14, 15, 16]);
+        input[68..76].copy_from_slice(&[17, 18, 19, 20, 21, 22, 23, 24]);
+
+        let entries =
+            parse_auxiliary_sample_entries(&input, 10, &[10, 50], &[8, 8, 8], &[1, 2], 8, None)
+                .unwrap();
+
+        assert_eq!(entries.len(), 3);
+        assert_eq!(
+            entries[0].iv,
+            [1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0, 0, 0, 0, 0]
+        );
+        assert_eq!(
+            entries[1].iv,
+            [9, 10, 11, 12, 13, 14, 15, 16, 0, 0, 0, 0, 0, 0, 0, 0]
+        );
+        assert_eq!(
+            entries[2].iv,
+            [17, 18, 19, 20, 21, 22, 23, 24, 0, 0, 0, 0, 0, 0, 0, 0]
+        );
+    }
 }
