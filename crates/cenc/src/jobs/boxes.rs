@@ -303,6 +303,10 @@ impl RawMp4Box {
     pub(crate) fn payload<'a>(&self, data: &'a [u8]) -> &'a [u8] {
         &data[self.payload_start()..self.end()]
     }
+
+    pub(crate) fn parse_children(&self, data: &[u8]) -> Result<Vec<Self>> {
+        Self::parse_range(data, self.payload_start(), self.end(), 0)
+    }
 }
 
 pub(crate) fn find_unknown_box<'a>(
