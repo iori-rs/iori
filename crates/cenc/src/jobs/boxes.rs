@@ -3,19 +3,19 @@ use crate::types::{CbcPattern, SchemeType, Subsample};
 use shiguredo_mp4::boxes::{SampleEntry, UnknownBox};
 use shiguredo_mp4::{BoxHeader, BoxType, Decode, FullBoxHeader};
 
-pub(crate) const BOX_PSSH: BoxType = BoxType::Normal(*b"pssh");
-pub(crate) const BOX_SINF: BoxType = BoxType::Normal(*b"sinf");
-pub(crate) const BOX_SCHI: BoxType = BoxType::Normal(*b"schi");
-pub(crate) const BOX_SCHM: BoxType = BoxType::Normal(*b"schm");
-pub(crate) const BOX_TENC: BoxType = BoxType::Normal(*b"tenc");
-pub(crate) const BOX_FRMA: BoxType = BoxType::Normal(*b"frma");
-pub(crate) const BOX_SENC: BoxType = BoxType::Normal(*b"senc");
-pub(crate) const BOX_SBGP: BoxType = BoxType::Normal(*b"sbgp");
-pub(crate) const BOX_SGPD: BoxType = BoxType::Normal(*b"sgpd");
-pub(crate) const BOX_SAIZ: BoxType = BoxType::Normal(*b"saiz");
-pub(crate) const BOX_SAIO: BoxType = BoxType::Normal(*b"saio");
-pub(crate) const BOX_ENCV: BoxType = BoxType::Normal(*b"encv");
-pub(crate) const BOX_ENCA: BoxType = BoxType::Normal(*b"enca");
+const BOX_PSSH: BoxType = BoxType::Normal(*b"pssh");
+const BOX_SINF: BoxType = BoxType::Normal(*b"sinf");
+const BOX_SCHI: BoxType = BoxType::Normal(*b"schi");
+const BOX_SCHM: BoxType = BoxType::Normal(*b"schm");
+const BOX_TENC: BoxType = BoxType::Normal(*b"tenc");
+const BOX_FRMA: BoxType = BoxType::Normal(*b"frma");
+const BOX_SENC: BoxType = BoxType::Normal(*b"senc");
+const BOX_SBGP: BoxType = BoxType::Normal(*b"sbgp");
+const BOX_SGPD: BoxType = BoxType::Normal(*b"sgpd");
+const BOX_SAIZ: BoxType = BoxType::Normal(*b"saiz");
+const BOX_SAIO: BoxType = BoxType::Normal(*b"saio");
+const BOX_ENCV: BoxType = BoxType::Normal(*b"encv");
+const BOX_ENCA: BoxType = BoxType::Normal(*b"enca");
 
 const CENC_AUX_INFO_TYPES: [BoxType; 4] = [
     BoxType::Normal(*b"cenc"),
