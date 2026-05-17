@@ -141,11 +141,9 @@ impl ChildBox<'_> {
         RawMp4Box::parse_range(payload, 0, payload.len(), 0)?
             .into_iter()
             .map(|box_item| {
-                let start = box_item.start + box_item.header_size;
-                let end = box_item.start + box_item.size;
                 Ok(ChildBox {
                     box_type: box_item.box_type,
-                    payload: &payload[start..end],
+                    payload: box_item.payload(payload),
                 })
             })
             .collect()
@@ -203,6 +201,18 @@ impl RawMp4Box {
             offset += size;
         }
         Ok(boxes)
+    }
+
+    pub(crate) fn end(&self) -> usize {
+        self.start + self.size
+    }
+
+    pub(crate) fn payload_start(&self) -> usize {
+        self.start + self.header_size
+    }
+
+    pub(crate) fn payload<'a>(&self, data: &'a [u8]) -> &'a [u8] {
+        &data[self.payload_start()..self.end()]
     }
 }
 

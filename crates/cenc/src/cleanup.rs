@@ -26,8 +26,7 @@ pub fn normalize_decrypted_fmp4(data: &mut [u8]) -> Result<()> {
 }
 
 fn normalize_moov(data: &mut [u8], moov: &RawMp4Box) -> Result<()> {
-    let moov_children =
-        parse_boxes_range(data, moov.start + moov.header_size, moov.start + moov.size)?;
+    let moov_children = parse_boxes_range(data, moov.payload_start(), moov.end())?;
     for child in &moov_children {
         if child.box_type == PsshBox::TYPE {
             // Zero out pssh from moov: hls.js collects moov-level pssh boxes and
@@ -41,8 +40,7 @@ fn normalize_moov(data: &mut [u8], moov: &RawMp4Box) -> Result<()> {
 }
 
 fn normalize_moof(data: &mut [u8], moof: &RawMp4Box) -> Result<()> {
-    let moof_children =
-        parse_boxes_range(data, moof.start + moof.header_size, moof.start + moof.size)?;
+    let moof_children = parse_boxes_range(data, moof.payload_start(), moof.end())?;
     for child in &moof_children {
         if child.box_type == PsshBox::TYPE {
             // Zero out pssh: hls.js uses pssh presence to trigger EME key loading.
@@ -55,8 +53,7 @@ fn normalize_moof(data: &mut [u8], moof: &RawMp4Box) -> Result<()> {
 }
 
 fn normalize_traf(data: &mut [u8], traf: RawMp4Box) -> Result<()> {
-    let traf_children =
-        parse_boxes_range(data, traf.start + traf.header_size, traf.start + traf.size)?;
+    let traf_children = parse_boxes_range(data, traf.payload_start(), traf.end())?;
     for child in &traf_children {
         if child.box_type == SampleEncryptionBox::TYPE
             || child.box_type == SaizBox::TYPE
@@ -74,23 +71,19 @@ fn normalize_traf(data: &mut [u8], traf: RawMp4Box) -> Result<()> {
 }
 
 fn normalize_trak(data: &mut [u8], trak: RawMp4Box) -> Result<()> {
-    let trak_children =
-        parse_boxes_range(data, trak.start + trak.header_size, trak.start + trak.size)?;
+    let trak_children = parse_boxes_range(data, trak.payload_start(), trak.end())?;
     let Some(mdia) = find_raw_box(&trak_children, MdiaBox::TYPE) else {
         return Ok(());
     };
-    let mdia_children =
-        parse_boxes_range(data, mdia.start + mdia.header_size, mdia.start + mdia.size)?;
+    let mdia_children = parse_boxes_range(data, mdia.payload_start(), mdia.end())?;
     let Some(minf) = find_raw_box(&mdia_children, MinfBox::TYPE) else {
         return Ok(());
     };
-    let minf_children =
-        parse_boxes_range(data, minf.start + minf.header_size, minf.start + minf.size)?;
+    let minf_children = parse_boxes_range(data, minf.payload_start(), minf.end())?;
     let Some(stbl) = find_raw_box(&minf_children, StblBox::TYPE) else {
         return Ok(());
     };
-    let stbl_children =
-        parse_boxes_range(data, stbl.start + stbl.header_size, stbl.start + stbl.size)?;
+    let stbl_children = parse_boxes_range(data, stbl.payload_start(), stbl.end())?;
     let Some(stsd) = find_raw_box(&stbl_children, StsdBox::TYPE) else {
         return Ok(());
     };
@@ -98,8 +91,8 @@ fn normalize_trak(data: &mut [u8], trak: RawMp4Box) -> Result<()> {
 }
 
 fn normalize_stsd(data: &mut [u8], stsd: RawMp4Box) -> Result<()> {
-    let stsd_payload_start = stsd.start + stsd.header_size;
-    let stsd_payload_end = stsd.start + stsd.size;
+    let stsd_payload_start = stsd.payload_start();
+    let stsd_payload_end = stsd.end();
     if stsd_payload_end < stsd_payload_start + 8 {
         return Err(CencError::MetadataCleanup("stsd too short".to_string()));
     }
@@ -157,13 +150,12 @@ fn normalize_sample_entry(
     // Rewrite the sample entry's box type to the original codec format from frma.
     // For CMAF cbcs (avc1 with sinf where frma.original_format == avc1) this is a
     // no-op but is still correct.
-    let sinf_children =
-        parse_boxes_range(data, sinf.start + sinf.header_size, sinf.start + sinf.size)?;
+    let sinf_children = parse_boxes_range(data, sinf.payload_start(), sinf.end())?;
     if let Some(frma) = find_raw_box(&sinf_children, OriginalFormatBox::TYPE)
         && frma.size >= frma.header_size + 4
     {
-        let payload = &data[frma.start + frma.header_size..frma.start + frma.size];
-        let original_format = OriginalFormatBox::decode_payload(payload)?.original_format;
+        let original_format =
+            OriginalFormatBox::decode_payload(frma.payload(data))?.original_format;
         let entry_type_offset = entry_payload_start - 4;
         data[entry_type_offset..entry_type_offset + 4].copy_from_slice(original_format.as_bytes());
     }
@@ -179,9 +171,7 @@ fn normalize_sample_entry(
 /// This keeps the file size unchanged while signaling to parsers that the bytes are free space.
 fn free_box(data: &mut [u8], b: &RawMp4Box) {
     data[b.start + 4..b.start + 8].copy_from_slice(FreeBox::TYPE.as_bytes());
-    let payload_start = b.start + b.header_size;
-    let payload_end = b.start + b.size;
-    data[payload_start..payload_end].fill(0);
+    data[b.payload_start()..b.end()].fill(0);
 }
 
 fn parse_boxes_range(data: &[u8], start: usize, end: usize) -> Result<Vec<RawMp4Box>> {

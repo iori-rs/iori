@@ -383,7 +383,7 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
     let mut jobs = Vec::new();
 
     for raw_moof in top_boxes.iter().filter(|b| b.box_type == MoofBox::TYPE) {
-        let (moof, _) = MoofBox::decode(&input[raw_moof.start..raw_moof.start + raw_moof.size])?;
+        let (moof, _) = MoofBox::decode(&input[raw_moof.start..raw_moof.end()])?;
         let moof_start = raw_moof.start;
         let moof_size = raw_moof.size;
 

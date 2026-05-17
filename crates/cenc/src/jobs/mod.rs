@@ -26,8 +26,7 @@ impl<'a> Mp4Context<'a> {
         let Some(raw_moov) = find_raw_box(&self.top_boxes, MoovBox::TYPE) else {
             return Ok(None);
         };
-        let (moov, _) =
-            MoovBox::decode(&self.input[raw_moov.start..raw_moov.start + raw_moov.size])?;
+        let (moov, _) = MoovBox::decode(&self.input[raw_moov.start..raw_moov.end()])?;
         Ok(Some(moov))
     }
 }
