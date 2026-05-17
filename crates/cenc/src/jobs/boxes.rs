@@ -83,6 +83,17 @@ pub(crate) fn encrypted_sample_entry_base_size(box_type: BoxType) -> Option<usiz
         .or_else(|| EncryptedAudioSampleEntryBox::base_size_for(box_type))
 }
 
+pub(crate) fn is_fragment_encryption_metadata_box(box_type: BoxType) -> bool {
+    matches!(
+        box_type,
+        SampleEncryptionBox::TYPE
+            | SaizBox::TYPE
+            | SaioBox::TYPE
+            | SbgpBox::TYPE
+            | SgpdSeigBox::TYPE
+    )
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SampleDescriptionBoxHeader {
     #[allow(dead_code)]

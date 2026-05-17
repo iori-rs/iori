@@ -1,8 +1,8 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
     EncryptedAudioSampleEntryBox, EncryptedVideoSampleEntryBox, OriginalFormatBox,
-    ProtectionSchemeInfoBox, PsshBox, RawMp4Box, SaioBox, SaizBox, SampleDescriptionBoxHeader,
-    SampleEncryptionBox, SbgpBox, SgpdSeigBox, encrypted_sample_entry_base_size, find_raw_box,
+    ProtectionSchemeInfoBox, PsshBox, RawMp4Box, SampleDescriptionBoxHeader,
+    encrypted_sample_entry_base_size, find_raw_box, is_fragment_encryption_metadata_box,
 };
 use shiguredo_mp4::BoxType;
 use shiguredo_mp4::boxes::{
@@ -55,12 +55,7 @@ fn normalize_moof(data: &mut [u8], moof: &RawMp4Box) -> Result<()> {
 fn normalize_traf(data: &mut [u8], traf: RawMp4Box) -> Result<()> {
     let traf_children = parse_boxes_range(data, traf.payload_start(), traf.end())?;
     for child in &traf_children {
-        if child.box_type == SampleEncryptionBox::TYPE
-            || child.box_type == SaizBox::TYPE
-            || child.box_type == SaioBox::TYPE
-            || child.box_type == SbgpBox::TYPE
-            || child.box_type == SgpdSeigBox::TYPE
-        {
+        if is_fragment_encryption_metadata_box(child.box_type) {
             // Replace box type with 'free' and zero out payload (in-place).
             // senc/saiz/saio carry per-sample encryption info.
             // sbgp/sgpd seig signal sample-group encryption to media players.
