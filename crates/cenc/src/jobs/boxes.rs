@@ -442,6 +442,136 @@ impl SampleEncryptionEntry {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SchemeTypeBox {
+    pub(crate) full_box_header: FullBoxHeader,
+    pub(crate) scheme_type: SchemeType,
+    #[allow(dead_code)]
+    pub(crate) scheme_version: u32,
+}
+
+impl SchemeTypeBox {
+    pub(crate) const TYPE: BoxType = BOX_SCHM;
+
+    pub(crate) fn decode_payload(payload: &[u8]) -> Result<Self> {
+        let mut reader = ByteReader::new(payload);
+        let full_box_header = reader.read_full_box_header()?;
+        let scheme_type_bytes = reader
+            .read_type()
+            .map_err(|_| CencError::InvalidTenc("schm too short".to_string()))?;
+        let scheme_version = reader
+            .read_u32()
+            .map_err(|_| CencError::InvalidTenc("schm too short".to_string()))?;
+        let scheme_type = SchemeType::from_bytes(scheme_type_bytes).ok_or_else(|| {
+            CencError::UnsupportedScheme(String::from_utf8_lossy(&scheme_type_bytes).to_string())
+        })?;
+        Ok(Self {
+            full_box_header,
+            scheme_type,
+            scheme_version,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct TrackEncryptionBox {
+    pub(crate) full_box_header: FullBoxHeader,
+    pub(crate) default_crypt_byte_block: Option<CbcPattern>,
+    pub(crate) default_is_protected: bool,
+    pub(crate) default_per_sample_iv_size: u8,
+    pub(crate) default_kid: [u8; 16],
+    pub(crate) default_constant_iv: Option<[u8; 16]>,
+}
+
+impl TrackEncryptionBox {
+    pub(crate) const TYPE: BoxType = BOX_TENC;
+
+    pub(crate) fn decode_payload(payload: &[u8]) -> Result<Self> {
+        if payload.len() < 24 {
+            return Err(CencError::InvalidTenc("tenc too short".to_string()));
+        }
+        let mut reader = ByteReader::new(payload);
+        let full_box_header = reader.read_full_box_header()?;
+        let version = full_box_header.version;
+
+        if payload.len().saturating_sub(reader.pos) == 20 {
+            // Some producers omit the reserved byte before isProtected in a
+            // version-0 tenc payload. Accept that legacy layout only when the
+            // remaining length uniquely matches the shortened form.
+            let _ = reader.read_u8()?;
+        }
+
+        let (pattern, is_protected, iv_size) = if version == 0 {
+            let _reserved = reader.read_u8()?;
+            let is_protected = reader.read_u8()? != 0;
+            let iv_size = reader.read_u8()?;
+            (None, is_protected, iv_size)
+        } else if version == 1 {
+            let pattern_offset = reader.pos;
+            if reader.remaining() >= 4 {
+                let candidate_iv_size = reader.data[pattern_offset + 2];
+                if !matches!(candidate_iv_size, 0 | 8 | 16)
+                    && matches!(reader.data[pattern_offset + 3], 0 | 8 | 16)
+                {
+                    let _ = reader.read_u8()?;
+                }
+            }
+            let byte = reader.read_u8()?;
+            let pattern = CbcPattern {
+                crypt_byte_block: byte >> 4,
+                skip_byte_block: byte & 0x0f,
+            };
+            let is_protected = reader.read_u8()? != 0;
+            let iv_size = reader.read_u8()?;
+            (Some(pattern), is_protected, iv_size)
+        } else {
+            return Err(CencError::InvalidTenc(format!(
+                "unsupported tenc version {version}"
+            )));
+        };
+        if is_protected && !matches!(iv_size, 0 | 8 | 16) {
+            return Err(CencError::InvalidTenc(format!(
+                "unsupported iv_size {iv_size}"
+            )));
+        }
+
+        let kid_bytes = reader
+            .read_exact(16)
+            .map_err(|_| CencError::InvalidTenc("missing default_kid".to_string()))?;
+        let mut kid = [0u8; 16];
+        kid.copy_from_slice(kid_bytes);
+
+        let constant_iv = if is_protected && iv_size == 0 {
+            let size = reader
+                .read_u8()
+                .map_err(|_| CencError::InvalidTenc("missing constant iv size".to_string()))?
+                as usize;
+            if size > 16 {
+                return Err(CencError::InvalidTenc(format!(
+                    "unsupported constant iv size {size}"
+                )));
+            }
+            let iv_bytes = reader
+                .read_exact(size)
+                .map_err(|_| CencError::InvalidTenc("constant iv truncated".to_string()))?;
+            let mut iv = [0u8; 16];
+            iv[..size].copy_from_slice(iv_bytes);
+            Some(iv)
+        } else {
+            None
+        };
+
+        Ok(Self {
+            full_box_header,
+            default_crypt_byte_block: pattern,
+            default_is_protected: is_protected,
+            default_per_sample_iv_size: iv_size,
+            default_kid: kid,
+            default_constant_iv: constant_iv,
+        })
+    }
+}
+
 // ---------------------------------------------------------------------------
 // TrackEncryptionInfo
 // ---------------------------------------------------------------------------
@@ -511,9 +641,9 @@ impl TrackEncryptionInfo {
         let sinf_children = ChildBox::parse_children(sinf_payload)?;
         let schm = sinf_children
             .iter()
-            .find(|child| child.box_type == BOX_SCHM)
+            .find(|child| child.box_type == SchemeTypeBox::TYPE)
             .ok_or(CencError::MissingSchm)?;
-        let scheme = Self::parse_schm(schm.payload)?;
+        let scheme = SchemeTypeBox::decode_payload(schm.payload)?.scheme_type;
         if scheme == SchemeType::Sve1 {
             return Err(CencError::UnsupportedContentSensitiveScheme(
                 "sve1".to_string(),
@@ -526,22 +656,18 @@ impl TrackEncryptionInfo {
         let schi_children = ChildBox::parse_children(schi.payload)?;
         let tenc = schi_children
             .iter()
-            .find(|child| child.box_type == BOX_TENC)
+            .find(|child| child.box_type == TrackEncryptionBox::TYPE)
             .ok_or(CencError::MissingTenc)?;
-        Self::validate_scheme_tenc_version(scheme, tenc.payload.first().copied().unwrap_or(0))?;
-        let mut info = Self::parse_tenc(tenc.payload)?;
+        let tenc = TrackEncryptionBox::decode_payload(tenc.payload)?;
+        Self::validate_scheme_tenc_version(scheme, tenc.full_box_header.version)?;
+        let mut info = Self::from_tenc_box(tenc);
         info.scheme = scheme;
         Ok(info)
     }
 
+    #[cfg(test)]
     fn parse_schm(payload: &[u8]) -> Result<SchemeType> {
-        if payload.len() < 12 {
-            return Err(CencError::InvalidTenc("schm too short".to_string()));
-        }
-        let scheme_type = [payload[4], payload[5], payload[6], payload[7]];
-        SchemeType::from_bytes(scheme_type).ok_or_else(|| {
-            CencError::UnsupportedScheme(String::from_utf8_lossy(&scheme_type).to_string())
-        })
+        Ok(SchemeTypeBox::decode_payload(payload)?.scheme_type)
     }
 
     #[cfg(test)]
@@ -579,97 +705,22 @@ impl TrackEncryptionInfo {
     /// IV size meaning that a constant IV follows `default_KID`. Constant IVs
     /// are copied into a 16-byte working IV and used for every sample unless
     /// sample-group metadata overrides them.
+    #[cfg(test)]
     fn parse_tenc(payload: &[u8]) -> Result<Self> {
-        if payload.len() < 24 {
-            return Err(CencError::InvalidTenc("tenc too short".to_string()));
-        }
-        let version = payload[0];
-        let mut offset = 4;
-        if payload.len().saturating_sub(offset) == 20 {
-            // Some producers omit the reserved byte before isProtected in a
-            // version-0 tenc payload. Accept that legacy layout only when the
-            // remaining length uniquely matches the shortened form.
-            offset += 1;
-        }
-        let (pattern, is_protected, iv_size) = if version == 0 {
-            let _reserved = payload[offset];
-            offset += 1;
-            let is_protected = payload[offset] != 0;
-            offset += 1;
-            let iv_size = payload[offset];
-            offset += 1;
-            (None, is_protected, iv_size)
-        } else if version == 1 {
-            let mut pattern_offset = offset;
-            if payload.len().saturating_sub(pattern_offset) >= 4 {
-                let candidate_iv_size = payload[pattern_offset + 2];
-                if !matches!(candidate_iv_size, 0 | 8 | 16)
-                    && matches!(payload[pattern_offset + 3], 0 | 8 | 16)
-                {
-                    pattern_offset += 1;
-                }
-            }
-            let byte = payload[pattern_offset];
-            pattern_offset += 1;
-            let pattern = CbcPattern {
-                crypt_byte_block: byte >> 4,
-                skip_byte_block: byte & 0x0f,
-            };
-            let is_protected = payload[pattern_offset] != 0;
-            pattern_offset += 1;
-            let iv_size = payload[pattern_offset];
-            pattern_offset += 1;
-            offset = pattern_offset;
-            (Some(pattern), is_protected, iv_size)
-        } else {
-            return Err(CencError::InvalidTenc(format!(
-                "unsupported tenc version {version}"
-            )));
-        };
-        if is_protected && !matches!(iv_size, 0 | 8 | 16) {
-            return Err(CencError::InvalidTenc(format!(
-                "unsupported iv_size {iv_size}"
-            )));
-        }
+        Ok(Self::from_tenc_box(TrackEncryptionBox::decode_payload(
+            payload,
+        )?))
+    }
 
-        if payload.len() < offset + 16 {
-            return Err(CencError::InvalidTenc("missing default_kid".to_string()));
-        }
-        let mut kid = [0u8; 16];
-        kid.copy_from_slice(&payload[offset..offset + 16]);
-        offset += 16;
-
-        let constant_iv = if is_protected && iv_size == 0 {
-            if payload.len() < offset + 1 {
-                return Err(CencError::InvalidTenc(
-                    "missing constant iv size".to_string(),
-                ));
-            }
-            let size = payload[offset] as usize;
-            offset += 1;
-            if size > 16 {
-                return Err(CencError::InvalidTenc(format!(
-                    "unsupported constant iv size {size}"
-                )));
-            }
-            if payload.len() < offset + size {
-                return Err(CencError::InvalidTenc("constant iv truncated".to_string()));
-            }
-            let mut iv = [0u8; 16];
-            iv[..size].copy_from_slice(&payload[offset..offset + size]);
-            Some(iv)
-        } else {
-            None
-        };
-
-        Ok(Self {
+    fn from_tenc_box(tenc: TrackEncryptionBox) -> Self {
+        Self {
             scheme: SchemeType::Cenc,
-            kid,
-            iv_size,
-            constant_iv,
-            pattern,
-            is_protected,
-        })
+            kid: tenc.default_kid,
+            iv_size: tenc.default_per_sample_iv_size,
+            constant_iv: tenc.default_constant_iv,
+            pattern: tenc.default_crypt_byte_block,
+            is_protected: tenc.default_is_protected,
+        }
     }
 }
 
