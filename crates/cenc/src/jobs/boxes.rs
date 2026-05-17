@@ -529,6 +529,7 @@ impl TrackEncryptionInfo {
             .iter()
             .find(|child| child.box_type == BOX_TENC)
             .ok_or(CencError::MissingTenc)?;
+        Self::validate_scheme_tenc_version(scheme, tenc.payload.first().copied().unwrap_or(0))?;
         let mut info = Self::parse_tenc(tenc.payload)?;
         info.scheme = scheme;
         Ok(info)
@@ -547,6 +548,24 @@ impl TrackEncryptionInfo {
     #[cfg(test)]
     fn parse_schm_for_test(payload: &[u8]) -> Result<SchemeType> {
         Self::parse_schm(payload)
+    }
+
+    fn validate_scheme_tenc_version(scheme: SchemeType, version: u8) -> Result<()> {
+        let valid = match scheme {
+            SchemeType::Cenc | SchemeType::Cbc1 | SchemeType::Sve1 => version == 0,
+            SchemeType::Cens | SchemeType::Cbcs => version == 1,
+        };
+        if valid {
+            Ok(())
+        } else {
+            Err(CencError::InvalidTenc(format!(
+                "{scheme:?} requires tenc version {}, got {version}",
+                match scheme {
+                    SchemeType::Cenc | SchemeType::Cbc1 | SchemeType::Sve1 => 0,
+                    SchemeType::Cens | SchemeType::Cbcs => 1,
+                }
+            )))
+        }
     }
 
     /// Parse a TrackEncryptionBox (`tenc`) payload.
@@ -1255,6 +1274,24 @@ mod tests {
             TrackEncryptionInfo::parse_schm_for_test(&payload.into_payload()).unwrap(),
             SchemeType::Sve1
         );
+    }
+
+    #[test]
+    fn validate_scheme_tenc_version_enforces_scheme_rules() {
+        assert!(TrackEncryptionInfo::validate_scheme_tenc_version(SchemeType::Cenc, 0).is_ok());
+        assert!(TrackEncryptionInfo::validate_scheme_tenc_version(SchemeType::Cbc1, 0).is_ok());
+        assert!(TrackEncryptionInfo::validate_scheme_tenc_version(SchemeType::Cens, 1).is_ok());
+        assert!(TrackEncryptionInfo::validate_scheme_tenc_version(SchemeType::Cbcs, 1).is_ok());
+        assert!(TrackEncryptionInfo::validate_scheme_tenc_version(SchemeType::Sve1, 0).is_ok());
+
+        assert!(matches!(
+            TrackEncryptionInfo::validate_scheme_tenc_version(SchemeType::Cenc, 1),
+            Err(CencError::InvalidTenc(_))
+        ));
+        assert!(matches!(
+            TrackEncryptionInfo::validate_scheme_tenc_version(SchemeType::Cbcs, 0),
+            Err(CencError::InvalidTenc(_))
+        ));
     }
 
     #[test]
