@@ -200,9 +200,9 @@ pub(crate) struct SampleEncryptionBox {
 
 /// Track-encryption override parameters carried by `senc` flag `0x000001`.
 ///
-/// The override metadata is serialized before `sample_count`. `algorithm_id`
-/// is retained for layout fidelity; this crate selects cipher mode from the
-/// sample entry's scheme type.
+/// The override metadata is serialized before `sample_count`. For MPEG `cenc`,
+/// `AlgorithmID == 0` marks the samples as not encrypted, while
+/// `AlgorithmID == 1` keeps AES-CTR encryption active.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TrackEncryptionOverride {
     pub(crate) algorithm_id: [u8; 3],
@@ -213,6 +213,11 @@ pub(crate) struct TrackEncryptionOverride {
 impl SampleEncryptionBox {
     pub(crate) fn override_kid(&self) -> Option<[u8; 16]> {
         self.override_parameters.map(|parameters| parameters.kid)
+    }
+
+    pub(crate) fn overrides_to_clear_samples(&self) -> bool {
+        self.override_parameters
+            .is_some_and(|parameters| parameters.algorithm_id == [0, 0, 0])
     }
 }
 
@@ -1192,6 +1197,27 @@ mod tests {
                 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0, 0, 0, 0, 0, 0, 0, 0
             ]
         );
+    }
+
+    #[test]
+    fn parse_senc_detects_algorithm_override_to_clear_samples() {
+        let payload = SencBoxSyntax {
+            flags: 0x000001,
+            override_parameters: Some(TrackEncryptionOverride {
+                algorithm_id: [0, 0, 0],
+                iv_size: 8,
+                kid: SAMPLE_KID,
+            }),
+            samples: vec![SencSampleSyntax {
+                iv: vec![0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88],
+                subsamples: Vec::new(),
+            }],
+        }
+        .payload();
+
+        let parsed = SampleEncryptionBox::parse_senc(&payload, 16, None).unwrap();
+
+        assert!(parsed.overrides_to_clear_samples());
     }
 
     /// `senc` entries use the effective IV size selected by track metadata or

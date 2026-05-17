@@ -41,6 +41,9 @@ pub(crate) fn parse_decrypt_jobs_non_fmp4(moov: &MoovBox) -> Result<ParsedCenc> 
             .next();
         let senc_info =
             SampleEncryptionBox::parse_senc(&senc.payload, track_iv_size, track_constant_iv)?;
+        if senc_info.overrides_to_clear_samples() {
+            continue;
+        }
         let senc_override_kid = senc_info.override_kid();
         let senc_entries = senc_info.entries;
 

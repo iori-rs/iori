@@ -259,7 +259,11 @@ impl EffectiveSampleEncryption {
         group: Option<SeigEntry>,
         sample: &SampleEncryptionEntry,
         senc_override_kid: Option<[u8; 16]>,
+        senc_overrides_to_clear: bool,
     ) -> Option<Self> {
+        if senc_overrides_to_clear {
+            return None;
+        }
         if matches!(group, Some(entry) if !entry.is_protected) {
             return None;
         }
@@ -386,7 +390,7 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                 .unwrap_or_else(|| vec![None; sample_count]);
 
             let senc_box = unknown_boxes.find(BOX_SENC);
-            let (entries, senc_override_kid) = 'entries: {
+            let (entries, senc_override_kid, senc_overrides_to_clear) = 'entries: {
                 let sizes = unknown_boxes.parse_cenc_saiz()?;
                 let offsets = unknown_boxes.parse_cenc_saio()?;
                 if let (Some(sizes), Some(offsets)) = (sizes, offsets)
@@ -401,7 +405,7 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                     )
                 {
                     debug_assert_eq!(entries.len(), sample_count);
-                    break 'entries (entries, None);
+                    break 'entries (entries, None, false);
                 }
 
                 if let Some(senc) = senc_box {
@@ -412,13 +416,15 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                     )?;
                     if !parsed.entries.is_empty() {
                         let override_kid = parsed.override_kid();
-                        break 'entries (parsed.entries, override_kid);
+                        let overrides_to_clear = parsed.overrides_to_clear_samples();
+                        break 'entries (parsed.entries, override_kid, overrides_to_clear);
                     }
                 }
 
                 (
                     SeigSampleGroups::parse(&unknown_boxes)?.build_entries(sample_count, info)?,
                     None,
+                    false,
                 )
             };
 
@@ -439,6 +445,7 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                     group_override,
                     &entry,
                     senc_override_kid,
+                    senc_overrides_to_clear,
                 ) else {
                     continue;
                 };
@@ -453,6 +460,7 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::SchemeType;
 
     #[test]
     fn auxiliary_sample_entries_use_single_saio_offset_as_contiguous_table() {
@@ -498,5 +506,26 @@ mod tests {
             entries[2].iv,
             [17, 18, 19, 20, 21, 22, 23, 24, 0, 0, 0, 0, 0, 0, 0, 0]
         );
+    }
+
+    #[test]
+    fn effective_sample_encryption_skips_senc_algorithm_zero() {
+        let track = TrackEncryptionInfo {
+            scheme: SchemeType::Cenc,
+            kid: [1; 16],
+            iv_size: 8,
+            constant_iv: None,
+            pattern: None,
+            is_protected: true,
+        };
+        let sample = SampleEncryptionEntry {
+            iv: [2; 16],
+            subsamples: Vec::new(),
+        };
+
+        let effective =
+            EffectiveSampleEncryption::from_metadata(&track, None, &sample, Some([3; 16]), true);
+
+        assert!(effective.is_none());
     }
 }
