@@ -59,44 +59,65 @@ fragment() {
   mp4fragment "${SOURCE_DIR}/${name}.mp4" "${PLAIN_DIR}/${name}.mp4"
 }
 
+method_suffix() {
+  local method="$1"
+  echo "${method#MPEG-}" | tr '[:upper:]' '[:lower:]'
+}
+
 encrypt_audio_track() {
   local name="$1"
-  mp4encrypt --method MPEG-CENC \
+  local method="$2"
+  local suffix
+  suffix="$(method_suffix "${method}")"
+  mp4encrypt --method "${method}" \
     --key "1:${AUDIO_KEY}:${IV}" --property "1:KID:${AUDIO_KID}" \
-    "${PLAIN_DIR}/${name}.mp4" "${ENCRYPTED_DIR}/${name}.cenc.mp4"
+    "${PLAIN_DIR}/${name}.mp4" "${ENCRYPTED_DIR}/${name}.${suffix}.mp4"
 }
 
 encrypt_video_track() {
   local name="$1"
-  mp4encrypt --method MPEG-CENC \
+  local method="$2"
+  local suffix
+  suffix="$(method_suffix "${method}")"
+  mp4encrypt --method "${method}" \
     --key "1:${VIDEO_KEY}:${IV}" --property "1:KID:${VIDEO_KID}" \
-    "${PLAIN_DIR}/${name}.mp4" "${ENCRYPTED_DIR}/${name}.cenc.mp4"
+    "${PLAIN_DIR}/${name}.mp4" "${ENCRYPTED_DIR}/${name}.${suffix}.mp4"
 }
 
 encrypt_av_tracks() {
   local name="$1"
-  mp4encrypt --method MPEG-CENC \
+  local method="$2"
+  local suffix
+  suffix="$(method_suffix "${method}")"
+  mp4encrypt --method "${method}" \
     --key "1:${VIDEO_KEY}:${IV}" --property "1:KID:${VIDEO_KID}" \
     --key "2:${AUDIO_KEY}:${IV}" --property "2:KID:${AUDIO_KID}" \
-    "${PLAIN_DIR}/${name}.mp4" "${ENCRYPTED_DIR}/${name}.cenc.mp4"
+    "${PLAIN_DIR}/${name}.mp4" "${ENCRYPTED_DIR}/${name}.${suffix}.mp4"
 }
 
 decrypt_oracle() {
   local name="$1"
+  local method="$2"
+  local suffix
+  suffix="$(method_suffix "${method}")"
   mp4decrypt \
     --key "${VIDEO_KID}:${VIDEO_KEY}" \
     --key "${AUDIO_KID}:${AUDIO_KEY}" \
-    "${ENCRYPTED_DIR}/${name}.cenc.mp4" "${ORACLE_DIR}/${name}.cenc.dec.mp4"
+    "${ENCRYPTED_DIR}/${name}.${suffix}.mp4" "${ORACLE_DIR}/${name}.${suffix}.dec.mp4"
 }
 
 write_manifest_entry() {
   local name="$1"
   local kind="$2"
-  printf "%s\t%s\t%s\t%s\n" \
+  local method="$3"
+  local suffix
+  suffix="$(method_suffix "${method}")"
+  printf "%s\t%s\t%s\t%s\t%s\n" \
     "${name}" \
     "${kind}" \
-    "encrypted/${name}.cenc.mp4" \
-    "oracle/${name}.cenc.dec.mp4" >>"${OUTPUT_DIR}/manifest.tsv"
+    "${method}" \
+    "encrypted/${name}.${suffix}.mp4" \
+    "oracle/${name}.${suffix}.dec.mp4" >>"${OUTPUT_DIR}/manifest.tsv"
 }
 
 for tool in ffmpeg mp4fragment mp4encrypt mp4decrypt; do
@@ -105,7 +126,7 @@ done
 
 rm -rf "${OUTPUT_DIR}"
 mkdir -p "${SOURCE_DIR}" "${PLAIN_DIR}" "${ENCRYPTED_DIR}" "${ORACLE_DIR}"
-printf "name\tkind\tencrypted\toracle\n" >"${OUTPUT_DIR}/manifest.tsv"
+printf "name\tkind\tmethod\tencrypted\toracle\n" >"${OUTPUT_DIR}/manifest.tsv"
 
 make_audio "audio_1s" 1
 make_audio "audio_4s" 4
@@ -118,22 +139,24 @@ for name in audio_1s audio_4s video_180p_1s video_360p_4s av_180p_1s av_360p_4s;
   fragment "${name}"
 done
 
-for name in audio_1s audio_4s; do
-  encrypt_audio_track "${name}"
-  decrypt_oracle "${name}"
-  write_manifest_entry "${name}" "audio"
+for method in MPEG-CENC MPEG-CENS MPEG-CBC1 MPEG-CBCS; do
+  for name in audio_1s audio_4s; do
+    encrypt_audio_track "${name}" "${method}"
+    decrypt_oracle "${name}" "${method}"
+    write_manifest_entry "${name}" "audio" "${method}"
+  done
+
+  for name in video_180p_1s video_360p_4s; do
+    encrypt_video_track "${name}" "${method}"
+    decrypt_oracle "${name}" "${method}"
+    write_manifest_entry "${name}" "video" "${method}"
+  done
+
+  for name in av_180p_1s av_360p_4s; do
+    encrypt_av_tracks "${name}" "${method}"
+    decrypt_oracle "${name}" "${method}"
+    write_manifest_entry "${name}" "audio-video" "${method}"
+  done
 done
 
-for name in video_180p_1s video_360p_4s; do
-  encrypt_video_track "${name}"
-  decrypt_oracle "${name}"
-  write_manifest_entry "${name}" "video"
-done
-
-for name in av_180p_1s av_360p_4s; do
-  encrypt_av_tracks "${name}"
-  decrypt_oracle "${name}"
-  write_manifest_entry "${name}" "audio-video"
-done
-
-echo "generated CENC matrix at ${OUTPUT_DIR}"
+echo "generated encryption matrix at ${OUTPUT_DIR}"

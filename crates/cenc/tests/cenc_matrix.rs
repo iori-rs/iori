@@ -12,7 +12,7 @@ const AUDIO_KID: &str = "ffeeddccbbaa99887766554433221100";
 const AUDIO_KEY: &str = "fedcba9876543210fedcba9876543210";
 
 #[test]
-fn generated_cenc_matrix_matches_bento4_oracles() {
+fn generated_encryption_matrix_matches_bento4_oracles() {
     let matrix = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
         .join("fixtures")
@@ -41,23 +41,26 @@ fn generated_cenc_matrix_matches_bento4_oracles() {
         assert_eq!(
             encrypted.len(),
             decrypted.len(),
-            "size changed for {} ({})",
+            "size changed for {} ({}, {})",
             entry.name,
-            entry.kind
+            entry.kind,
+            entry.method
         );
         assert_eq!(
             encrypted_layout,
             top_level_box_layout(&decrypted).unwrap(),
-            "top-level layout changed for {} ({})",
+            "top-level layout changed for {} ({}, {})",
             entry.name,
-            entry.kind
+            entry.kind,
+            entry.method
         );
         assert_eq!(
             read_all_mdat_payloads(&oracle).unwrap(),
             read_all_mdat_payloads(&decrypted).unwrap(),
-            "mdat payload mismatch for {} ({})",
+            "mdat payload mismatch for {} ({}, {})",
             entry.name,
-            entry.kind
+            entry.kind,
+            entry.method
         );
     }
 }
@@ -65,6 +68,7 @@ fn generated_cenc_matrix_matches_bento4_oracles() {
 struct MatrixEntry<'a> {
     name: &'a str,
     kind: &'a str,
+    method: &'a str,
     encrypted: &'a Path,
     oracle: &'a Path,
 }
@@ -74,6 +78,7 @@ impl<'a> MatrixEntry<'a> {
         let mut fields = line.split('\t');
         let name = fields.next().unwrap();
         let kind = fields.next().unwrap();
+        let method = fields.next().unwrap();
         let encrypted = Path::new(fields.next().unwrap());
         let oracle = Path::new(fields.next().unwrap());
         assert!(
@@ -83,6 +88,7 @@ impl<'a> MatrixEntry<'a> {
         Self {
             name,
             kind,
+            method,
             encrypted,
             oracle,
         }

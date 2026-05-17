@@ -1,12 +1,16 @@
-# CENC fixture matrix
+# Encryption fixture matrix
 
-`generate.sh` builds a local CENC compatibility matrix from deterministic
+`generate.sh` builds a local compatibility matrix from deterministic
 audio and video sources:
 
 - audio-only MP4
 - video-only MP4
 - audio+video MP4
 - short and larger variants
+- `MPEG-CENC`
+- `MPEG-CENS`
+- `MPEG-CBC1`
+- `MPEG-CBCS`
 
 The script writes generated media under `generated/`, which is ignored by git.
 It also writes Bento4 `mp4decrypt` outputs as oracle files. The Rust matrix
