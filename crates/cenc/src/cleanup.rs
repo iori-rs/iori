@@ -2,7 +2,7 @@ use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
     EncryptedAudioSampleEntryBox, EncryptedVideoSampleEntryBox, OriginalFormatBox,
     ProtectionSchemeInfoBox, PsshBox, RawMp4Box, SaioBox, SaizBox, SampleEncryptionBox, SbgpBox,
-    SgpdSeigBox,
+    SgpdSeigBox, find_raw_box,
 };
 use shiguredo_mp4::boxes::{
     Av01Box, Avc1Box, FlacBox, FreeBox, Hev1Box, Hvc1Box, MdiaBox, MinfBox, MoofBox, MoovBox,
@@ -76,22 +76,22 @@ fn normalize_traf(data: &mut [u8], traf: RawMp4Box) -> Result<()> {
 fn normalize_trak(data: &mut [u8], trak: RawMp4Box) -> Result<()> {
     let trak_children =
         parse_boxes_range(data, trak.start + trak.header_size, trak.start + trak.size)?;
-    let Some(mdia) = find_box(&trak_children, MdiaBox::TYPE) else {
+    let Some(mdia) = find_raw_box(&trak_children, MdiaBox::TYPE) else {
         return Ok(());
     };
     let mdia_children =
         parse_boxes_range(data, mdia.start + mdia.header_size, mdia.start + mdia.size)?;
-    let Some(minf) = find_box(&mdia_children, MinfBox::TYPE) else {
+    let Some(minf) = find_raw_box(&mdia_children, MinfBox::TYPE) else {
         return Ok(());
     };
     let minf_children =
         parse_boxes_range(data, minf.start + minf.header_size, minf.start + minf.size)?;
-    let Some(stbl) = find_box(&minf_children, StblBox::TYPE) else {
+    let Some(stbl) = find_raw_box(&minf_children, StblBox::TYPE) else {
         return Ok(());
     };
     let stbl_children =
         parse_boxes_range(data, stbl.start + stbl.header_size, stbl.start + stbl.size)?;
-    let Some(stsd) = find_box(&stbl_children, StsdBox::TYPE) else {
+    let Some(stsd) = find_raw_box(&stbl_children, StsdBox::TYPE) else {
         return Ok(());
     };
     normalize_stsd(data, *stsd)
@@ -150,7 +150,7 @@ fn normalize_sample_entry(
 ) -> Result<()> {
     let children_start = entry_payload_start + base_size;
     let children = parse_boxes_range(data, children_start, entry_payload_end)?;
-    let Some(sinf) = find_box(&children, ProtectionSchemeInfoBox::TYPE) else {
+    let Some(sinf) = find_raw_box(&children, ProtectionSchemeInfoBox::TYPE) else {
         return Ok(());
     };
 
@@ -159,7 +159,7 @@ fn normalize_sample_entry(
     // no-op but is still correct.
     let sinf_children =
         parse_boxes_range(data, sinf.start + sinf.header_size, sinf.start + sinf.size)?;
-    if let Some(frma) = find_box(&sinf_children, OriginalFormatBox::TYPE)
+    if let Some(frma) = find_raw_box(&sinf_children, OriginalFormatBox::TYPE)
         && frma.size >= frma.header_size + 4
     {
         let payload = &data[frma.start + frma.header_size..frma.start + frma.size];
@@ -187,10 +187,6 @@ fn free_box(data: &mut [u8], b: &RawMp4Box) {
 fn parse_boxes_range(data: &[u8], start: usize, end: usize) -> Result<Vec<RawMp4Box>> {
     RawMp4Box::parse_range(data, start, end, 0)
         .map_err(|err| CencError::MetadataCleanup(err.to_string()))
-}
-
-fn find_box(boxes: &[RawMp4Box], typ: BoxType) -> Option<&RawMp4Box> {
-    boxes.iter().find(|b| b.box_type == typ)
 }
 
 fn read_u32(data: &[u8], offset: usize) -> Result<u32> {

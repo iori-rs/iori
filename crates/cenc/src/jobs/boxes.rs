@@ -215,6 +215,14 @@ pub(crate) fn find_unknown_box<'a>(
         .find(|box_item| box_item.box_type == box_type)
 }
 
+pub(crate) fn find_raw_box(boxes: &[RawMp4Box], box_type: BoxType) -> Option<&RawMp4Box> {
+    boxes.iter().find(|box_item| box_item.box_type == box_type)
+}
+
+pub(crate) fn has_raw_box(boxes: &[RawMp4Box], box_type: BoxType) -> bool {
+    find_raw_box(boxes, box_type).is_some()
+}
+
 pub(crate) fn parse_first_matching_unknown_box<'a, T>(
     boxes: impl Iterator<Item = &'a UnknownBox>,
     box_type: BoxType,
