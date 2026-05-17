@@ -191,6 +191,13 @@ impl ChildBox<'_> {
     }
 }
 
+fn find_child_box<'children, 'payload>(
+    children: &'children [ChildBox<'payload>],
+    box_type: BoxType,
+) -> Option<&'children ChildBox<'payload>> {
+    children.iter().find(|child| child.box_type == box_type)
+}
+
 // ---------------------------------------------------------------------------
 // RawMp4Box — lightweight top-level box descriptor
 // ---------------------------------------------------------------------------
@@ -593,9 +600,7 @@ impl<'a> ProtectionSchemeInfoBox<'a> {
     }
 
     fn find(&self, box_type: BoxType) -> Option<&ChildBox<'a>> {
-        self.children
-            .iter()
-            .find(|child| child.box_type == box_type)
+        find_child_box(&self.children, box_type)
     }
 }
 
@@ -614,9 +619,7 @@ impl<'a> SchemeInformationBox<'a> {
     }
 
     fn find(&self, box_type: BoxType) -> Option<&ChildBox<'a>> {
-        self.children
-            .iter()
-            .find(|child| child.box_type == box_type)
+        find_child_box(&self.children, box_type)
     }
 }
 
@@ -793,17 +796,16 @@ impl TrackEncryptionInfo {
                 ));
             }
             let children = ChildBox::parse_children(&unknown.payload[base_size..])?;
-            let sinf = children
-                .iter()
-                .find(|child| child.box_type == ProtectionSchemeInfoBox::TYPE)
+            let sinf = find_child_box(&children, ProtectionSchemeInfoBox::TYPE)
                 .ok_or(CencError::MissingSinf)?;
             return Ok(Some(Self::parse_sinf(sinf.payload)?));
         }
 
-        for ub in unknown_boxes_from_sample_entry(entry) {
-            if ub.box_type == ProtectionSchemeInfoBox::TYPE {
-                return Ok(Some(Self::parse_sinf(&ub.payload)?));
-            }
+        if let Some(sinf) = find_unknown_box(
+            unknown_boxes_from_sample_entry(entry).iter(),
+            ProtectionSchemeInfoBox::TYPE,
+        ) {
+            return Ok(Some(Self::parse_sinf(&sinf.payload)?));
         }
 
         Ok(None)
