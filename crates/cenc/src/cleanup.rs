@@ -111,20 +111,15 @@ fn normalize_stsd(data: &mut [u8], stsd: RawMp4Box) -> Result<()> {
         let entry_payload_start = entry.payload_start();
         let entry_payload_end = entry.end();
         if entry_payload_start + base_size < entry_payload_end {
-            normalize_sample_entry(data, entry_payload_start, entry_payload_end, base_size)?;
+            normalize_sample_entry(data, entry, base_size)?;
         }
     }
     Ok(())
 }
 
-fn normalize_sample_entry(
-    data: &mut [u8],
-    entry_payload_start: usize,
-    entry_payload_end: usize,
-    base_size: usize,
-) -> Result<()> {
-    let children_start = entry_payload_start + base_size;
-    let children = parse_boxes_range(data, children_start, entry_payload_end)?;
+fn normalize_sample_entry(data: &mut [u8], entry: RawMp4Box, base_size: usize) -> Result<()> {
+    let children_start = entry.payload_start() + base_size;
+    let children = parse_boxes_range(data, children_start, entry.end())?;
     let Some(sinf) = find_raw_box(&children, ProtectionSchemeInfoBox::TYPE) else {
         return Ok(());
     };
@@ -138,8 +133,7 @@ fn normalize_sample_entry(
     {
         let original_format =
             OriginalFormatBox::decode_payload(frma.payload(data))?.original_format;
-        let entry_type_offset = entry_payload_start - 4;
-        data[entry_type_offset..entry_type_offset + 4].copy_from_slice(original_format.as_bytes());
+        data[entry.start + 4..entry.start + 8].copy_from_slice(original_format.as_bytes());
     }
 
     // Zero out sinf in-place: replace box type with 'free' and zero the payload.
