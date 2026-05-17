@@ -442,6 +442,48 @@ impl SampleEncryptionEntry {
     }
 }
 
+#[derive(Debug)]
+pub(crate) struct ProtectionSchemeInfoBox<'a> {
+    children: Vec<ChildBox<'a>>,
+}
+
+impl<'a> ProtectionSchemeInfoBox<'a> {
+    pub(crate) const TYPE: BoxType = BOX_SINF;
+
+    fn decode_payload(payload: &'a [u8]) -> Result<Self> {
+        Ok(Self {
+            children: ChildBox::parse_children(payload)?,
+        })
+    }
+
+    fn find(&self, box_type: BoxType) -> Option<&ChildBox<'a>> {
+        self.children
+            .iter()
+            .find(|child| child.box_type == box_type)
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct SchemeInformationBox<'a> {
+    children: Vec<ChildBox<'a>>,
+}
+
+impl<'a> SchemeInformationBox<'a> {
+    pub(crate) const TYPE: BoxType = BOX_SCHI;
+
+    fn decode_payload(payload: &'a [u8]) -> Result<Self> {
+        Ok(Self {
+            children: ChildBox::parse_children(payload)?,
+        })
+    }
+
+    fn find(&self, box_type: BoxType) -> Option<&ChildBox<'a>> {
+        self.children
+            .iter()
+            .find(|child| child.box_type == box_type)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SchemeTypeBox {
     pub(crate) full_box_header: FullBoxHeader,
@@ -623,13 +665,13 @@ impl TrackEncryptionInfo {
             let children = ChildBox::parse_children(&unknown.payload[base_size..])?;
             let sinf = children
                 .iter()
-                .find(|child| child.box_type == BOX_SINF)
+                .find(|child| child.box_type == ProtectionSchemeInfoBox::TYPE)
                 .ok_or(CencError::MissingSinf)?;
             return Ok(Some(Self::parse_sinf(sinf.payload)?));
         }
 
         for ub in unknown_boxes_from_sample_entry(entry) {
-            if ub.box_type == BOX_SINF {
+            if ub.box_type == ProtectionSchemeInfoBox::TYPE {
                 return Ok(Some(Self::parse_sinf(&ub.payload)?));
             }
         }
@@ -638,10 +680,9 @@ impl TrackEncryptionInfo {
     }
 
     fn parse_sinf(sinf_payload: &[u8]) -> Result<Self> {
-        let sinf_children = ChildBox::parse_children(sinf_payload)?;
-        let schm = sinf_children
-            .iter()
-            .find(|child| child.box_type == SchemeTypeBox::TYPE)
+        let sinf = ProtectionSchemeInfoBox::decode_payload(sinf_payload)?;
+        let schm = sinf
+            .find(SchemeTypeBox::TYPE)
             .ok_or(CencError::MissingSchm)?;
         let scheme = SchemeTypeBox::decode_payload(schm.payload)?.scheme_type;
         if scheme == SchemeType::Sve1 {
@@ -649,14 +690,12 @@ impl TrackEncryptionInfo {
                 "sve1".to_string(),
             ));
         }
-        let schi = sinf_children
-            .iter()
-            .find(|child| child.box_type == BOX_SCHI)
+        let schi = sinf
+            .find(SchemeInformationBox::TYPE)
             .ok_or(CencError::MissingTenc)?;
-        let schi_children = ChildBox::parse_children(schi.payload)?;
-        let tenc = schi_children
-            .iter()
-            .find(|child| child.box_type == TrackEncryptionBox::TYPE)
+        let schi = SchemeInformationBox::decode_payload(schi.payload)?;
+        let tenc = schi
+            .find(TrackEncryptionBox::TYPE)
             .ok_or(CencError::MissingTenc)?;
         let tenc = TrackEncryptionBox::decode_payload(tenc.payload)?;
         Self::validate_scheme_tenc_version(scheme, tenc.full_box_header.version)?;
