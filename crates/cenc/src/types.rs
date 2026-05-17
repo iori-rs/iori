@@ -2,28 +2,48 @@ use std::collections::HashMap;
 
 use crate::errors::{CencError, Result};
 
-/// Map from Key ID (KID) to decryption key, both 16 bytes.
+/// Map from Key ID (KID) or track ID to 16-byte decryption keys.
 #[derive(Debug, Clone)]
-pub struct KeyMap(HashMap<[u8; 16], [u8; 16]>);
+pub struct KeyMap {
+    kids: HashMap<[u8; 16], [u8; 16]>,
+    tracks: HashMap<u32, [u8; 16]>,
+}
 
 impl KeyMap {
     pub fn new() -> Self {
-        Self(HashMap::new())
+        Self {
+            kids: HashMap::new(),
+            tracks: HashMap::new(),
+        }
     }
 
     pub fn get(&self, kid: &[u8; 16]) -> Option<&[u8; 16]> {
-        self.0.get(kid)
+        self.kids.get(kid)
+    }
+
+    pub fn get_for_job(&self, job: &DecryptJob) -> Option<&[u8; 16]> {
+        job.track_id
+            .and_then(|track_id| self.tracks.get(&track_id))
+            .or_else(|| self.kids.get(&job.kid))
     }
 
     pub fn insert(&mut self, kid: [u8; 16], key: [u8; 16]) {
-        self.0.insert(kid, key);
+        self.kids.insert(kid, key);
+    }
+
+    pub fn insert_track(&mut self, track_id: u32, key: [u8; 16]) {
+        self.tracks.insert(track_id, key);
     }
 
     pub fn contains_key(&self, kid: &[u8; 16]) -> bool {
-        self.0.contains_key(kid)
+        self.kids.contains_key(kid)
     }
 
-    /// Build a `KeyMap` from hex-encoded KID:Key string pairs.
+    /// Build a `KeyMap` from track-id-or-KID:key string pairs.
+    ///
+    /// The left side may be either a decimal track ID or a 128-bit KID encoded
+    /// as hex. This mirrors Bento4's `mp4decrypt --key <id>:<k>` behavior:
+    /// track IDs are tried before KID lookup when both are available.
     pub fn from_hex_pairs<I, K, V>(keys: I) -> Result<Self>
     where
         I: IntoIterator<Item = (K, V)>,
@@ -31,10 +51,12 @@ impl KeyMap {
         V: AsRef<str>,
     {
         let mut map = Self::new();
-        for (kid, key) in keys {
-            let kid_bytes = parse_hex_16(kid.as_ref())?;
+        for (id, key) in keys {
             let key_bytes = parse_hex_16(key.as_ref())?;
-            map.insert(kid_bytes, key_bytes);
+            match parse_key_id(id.as_ref())? {
+                KeyId::Kid(kid) => map.insert(kid, key_bytes),
+                KeyId::Track(track_id) => map.insert_track(track_id, key_bytes),
+            }
         }
         Ok(map)
     }
@@ -44,6 +66,21 @@ impl Default for KeyMap {
     fn default() -> Self {
         Self::new()
     }
+}
+
+enum KeyId {
+    Kid([u8; 16]),
+    Track(u32),
+}
+
+fn parse_key_id(id: &str) -> Result<KeyId> {
+    let cleaned = id.replace('-', "");
+    if cleaned.len() == 32 {
+        return parse_hex_16(id).map(KeyId::Kid);
+    }
+    id.parse::<u32>()
+        .map(KeyId::Track)
+        .map_err(|_| CencError::InvalidKeyHex(id.to_string()))
 }
 
 fn parse_hex_16(hex_str: &str) -> Result<[u8; 16]> {
@@ -133,6 +170,7 @@ pub struct Subsample {
 
 #[derive(Debug, Clone)]
 pub struct DecryptJob {
+    pub track_id: Option<u32>,
     pub offset: u64,
     pub size: u32,
     pub iv: [u8; 16],
@@ -164,6 +202,31 @@ mod tests {
                 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
                 0xee, 0xff,
             ]),
+            Some(&[
+                0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab,
+                0xcd, 0xef,
+            ])
+        );
+    }
+
+    #[test]
+    fn key_map_accepts_decimal_track_id_keys() {
+        let key = "0123456789abcdef0123456789abcdef";
+
+        let map = KeyMap::from_hex_pairs([("7", key)]).unwrap();
+        let job = DecryptJob {
+            track_id: Some(7),
+            offset: 0,
+            size: 0,
+            iv: [0; 16],
+            subsamples: Vec::new(),
+            scheme: SchemeType::Cenc,
+            pattern: None,
+            kid: [0xff; 16],
+        };
+
+        assert_eq!(
+            map.get_for_job(&job),
             Some(&[
                 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab,
                 0xcd, 0xef,

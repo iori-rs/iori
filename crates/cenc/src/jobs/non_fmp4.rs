@@ -67,6 +67,7 @@ pub(crate) fn parse_decrypt_jobs_non_fmp4(moov: &MoovBox) -> Result<ParsedCenc> 
 
             let senc_entry = &senc_entries[index];
             jobs.push(DecryptJob {
+                track_id: Some(trak.tkhd_box.track_id),
                 offset: sample.data_offset(),
                 size: sample.data_size(),
                 iv: senc_entry.iv,

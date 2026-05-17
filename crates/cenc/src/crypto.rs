@@ -11,7 +11,7 @@ impl ParsedCenc {
     pub fn decrypt_in_place(&self, data: &mut [u8], keys: &KeyMap, base_offset: u64) -> Result<()> {
         for job in &self.jobs {
             let key = keys
-                .get(&job.kid)
+                .get_for_job(job)
                 .ok_or_else(|| CencError::MissingKey(hex::encode(job.kid)))?;
             let job_start = job
                 .offset

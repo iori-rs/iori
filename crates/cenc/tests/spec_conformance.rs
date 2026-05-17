@@ -39,6 +39,7 @@ fn job(
     subsamples: Vec<Subsample>,
 ) -> DecryptJob {
     DecryptJob {
+        track_id: None,
         offset: 0,
         size: sample_len as u32,
         iv: [0x7a; 16],

@@ -47,6 +47,7 @@ fn decrypt_jobs(jobs: Vec<DecryptJob>) -> ParsedCenc {
 fn decrypt_cenc_roundtrip() {
     let plain = (0u8..128).collect::<Vec<_>>();
     let job = DecryptJob {
+        track_id: None,
         offset: 0,
         size: plain.len() as u32,
         iv: [0x10; 16],
@@ -68,9 +69,37 @@ fn decrypt_cenc_roundtrip() {
 }
 
 #[test]
+fn decrypt_prefers_track_id_key_before_kid_key() {
+    let plain = (0u8..64).collect::<Vec<_>>();
+    let job = DecryptJob {
+        track_id: Some(7),
+        offset: 0,
+        size: plain.len() as u32,
+        iv: [0x10; 16],
+        subsamples: Vec::new(),
+        scheme: SchemeType::Cenc,
+        pattern: None,
+        kid: KID,
+    };
+    let mut keys = KeyMap::new();
+    keys.insert_track(7, KEY);
+
+    let mut encrypted = plain.clone();
+    decrypt_jobs(vec![job.clone()])
+        .decrypt_in_place(&mut encrypted, &keys, 0)
+        .unwrap();
+    decrypt_jobs(vec![job])
+        .decrypt_in_place(&mut encrypted, &keys, 0)
+        .unwrap();
+
+    assert_eq!(plain, encrypted);
+}
+
+#[test]
 fn decrypt_cens_pattern_roundtrip() {
     let plain = (0u8..96).collect::<Vec<_>>();
     let job = DecryptJob {
+        track_id: None,
         offset: 0,
         size: plain.len() as u32,
         iv: [0x20; 16],
@@ -98,6 +127,7 @@ fn decrypt_cens_pattern_roundtrip() {
 fn decrypt_cbc1_roundtrip() {
     let plain = (0u8..64).collect::<Vec<_>>();
     let job = DecryptJob {
+        track_id: None,
         offset: 0,
         size: plain.len() as u32,
         iv: [0x33; 16],
@@ -134,6 +164,7 @@ fn decrypt_cbcs_pattern_with_subsamples() {
         },
     ];
     let job = DecryptJob {
+        track_id: None,
         offset: 0,
         size: plain.len() as u32,
         iv: [0x44; 16],
@@ -159,6 +190,7 @@ fn decrypt_cbcs_pattern_with_subsamples() {
 fn decrypt_rejects_subsamples_that_do_not_cover_sample() {
     let mut encrypted = vec![0u8; 16];
     let job = DecryptJob {
+        track_id: None,
         offset: 0,
         size: encrypted.len() as u32,
         iv: [0x10; 16],
@@ -196,6 +228,7 @@ fn decrypt_cenc_keeps_ctr_keystream_position_across_subsamples() {
         },
     ];
     let job = DecryptJob {
+        track_id: None,
         offset: 0,
         size: plain.len() as u32,
         iv: [0x55; 16],
@@ -374,6 +407,7 @@ fn decrypt_fmp4_media_segment_with_initial_segment_reference() {
 fn decrypt_reports_missing_key_by_kid() {
     let mut encrypted = vec![0u8; 16];
     let job = DecryptJob {
+        track_id: None,
         offset: 0,
         size: encrypted.len() as u32,
         iv: [0x10; 16],
@@ -394,6 +428,7 @@ fn decrypt_reports_missing_key_by_kid() {
 fn decrypt_rejects_jobs_outside_base_offset_window() {
     let mut encrypted = vec![0u8; 16];
     let job = DecryptJob {
+        track_id: None,
         offset: 8,
         size: encrypted.len() as u32,
         iv: [0x10; 16],

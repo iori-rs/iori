@@ -276,12 +276,14 @@ impl EffectiveSampleEncryption {
 
     fn into_decrypt_job(
         self,
+        track_id: u32,
         track: &TrackEncryptionInfo,
         sample: SampleEncryptionEntry,
         offset: u64,
         size: u32,
     ) -> DecryptJob {
         DecryptJob {
+            track_id: Some(track_id),
             offset,
             size,
             iv: self.iv,
@@ -449,7 +451,7 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                 ) else {
                     continue;
                 };
-                jobs.push(effective.into_decrypt_job(info, entry, offset, size));
+                jobs.push(effective.into_decrypt_job(tfhd.track_id, info, entry, offset, size));
             }
         }
     }
