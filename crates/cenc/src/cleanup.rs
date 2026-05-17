@@ -228,21 +228,19 @@ fn find_box(boxes: &[RawBox], typ: BoxType) -> Option<&RawBox> {
 }
 
 fn read_u32(data: &[u8], offset: usize) -> Result<u32> {
-    if offset + 4 > data.len() {
-        return Err(CencError::MetadataCleanup("u32 out of bounds".to_string()));
-    }
-    Ok(u32::from_be_bytes(
-        data[offset..offset + 4].try_into().unwrap(),
-    ))
+    decode_at(data, offset, "u32")
 }
 
 fn read_type(data: &[u8], offset: usize) -> Result<[u8; 4]> {
-    if offset + 4 > data.len() {
-        return Err(CencError::MetadataCleanup("type out of bounds".to_string()));
-    }
-    Ok(data[offset..offset + 4].try_into().unwrap())
+    decode_at(data, offset, "type")
 }
 
 fn read_box_type(data: &[u8], offset: usize) -> Result<BoxType> {
     Ok(BoxType::Normal(read_type(data, offset)?))
+}
+
+fn decode_at<T: Decode>(data: &[u8], offset: usize, name: &str) -> Result<T> {
+    let mut offset = offset;
+    T::decode_at(data, &mut offset)
+        .map_err(|_| CencError::MetadataCleanup(format!("{name} out of bounds")))
 }
