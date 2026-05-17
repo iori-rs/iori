@@ -1303,7 +1303,7 @@ mod tests {
     }
 
     struct SaizBoxSyntax {
-        aux_info: Option<([u8; 4], u32)>,
+        aux_info: Option<(BoxType, u32)>,
         default_sample_info_size: u8,
         sample_count: u32,
         explicit_sample_info_sizes: Vec<u8>,
@@ -1314,7 +1314,7 @@ mod tests {
             let mut mp4 = Mp4Syntax::new();
             mp4.full_box_header(0, u32::from(self.aux_info.is_some()));
             if let Some((aux_info_type, aux_info_type_parameter)) = self.aux_info {
-                mp4.bytes(&aux_info_type);
+                mp4.bytes(aux_info_type.as_bytes());
                 mp4.u32(aux_info_type_parameter);
             }
             mp4.u8(self.default_sample_info_size);
@@ -1328,7 +1328,7 @@ mod tests {
 
     struct SaioBoxSyntax {
         version: u8,
-        aux_info: Option<([u8; 4], u32)>,
+        aux_info: Option<(BoxType, u32)>,
         offsets: Vec<u64>,
     }
 
@@ -1337,7 +1337,7 @@ mod tests {
             let mut mp4 = Mp4Syntax::new();
             mp4.full_box_header(self.version, u32::from(self.aux_info.is_some()));
             if let Some((aux_info_type, aux_info_type_parameter)) = self.aux_info {
-                mp4.bytes(&aux_info_type);
+                mp4.bytes(aux_info_type.as_bytes());
                 mp4.u32(aux_info_type_parameter);
             }
             mp4.u32(self.offsets.len() as u32);
@@ -1354,7 +1354,7 @@ mod tests {
 
     struct SbgpBoxSyntax {
         version: u8,
-        grouping_type: [u8; 4],
+        grouping_type: BoxType,
         grouping_type_parameter: Option<u32>,
         entries: Vec<SbgpEntry>,
     }
@@ -1363,7 +1363,7 @@ mod tests {
         fn payload(&self) -> Vec<u8> {
             let mut mp4 = Mp4Syntax::new();
             mp4.full_box_header(self.version, 0);
-            mp4.bytes(&self.grouping_type);
+            mp4.bytes(self.grouping_type.as_bytes());
             if let Some(parameter) = self.grouping_type_parameter {
                 mp4.u32(parameter);
             }
@@ -1378,7 +1378,7 @@ mod tests {
 
     struct SgpdBoxSyntax {
         version: u8,
-        grouping_type: [u8; 4],
+        grouping_type: BoxType,
         default_length: Option<u32>,
         default_sample_description_index: Option<u32>,
         entries: Vec<SgpdSeigEntrySyntax>,
@@ -1397,7 +1397,7 @@ mod tests {
         fn payload(&self) -> Vec<u8> {
             let mut mp4 = Mp4Syntax::new();
             mp4.full_box_header(self.version, 0);
-            mp4.bytes(&self.grouping_type);
+            mp4.bytes(self.grouping_type.as_bytes());
             if let Some(default_length) = self.default_length {
                 mp4.u32(default_length);
             }
@@ -1455,7 +1455,7 @@ mod tests {
     fn sgpd_version_1_constant_iv_payload() -> Vec<u8> {
         SgpdBoxSyntax {
             version: 1,
-            grouping_type: *b"seig",
+            grouping_type: GROUPING_TYPE_SEIG,
             default_length: Some(37),
             default_sample_description_index: None,
             entries: vec![SgpdSeigEntrySyntax {
@@ -1489,7 +1489,7 @@ mod tests {
     fn test_parse_sgpd_seig_wrong_grouping_type() {
         let payload = SgpdBoxSyntax {
             version: 1,
-            grouping_type: *b"maif",
+            grouping_type: BoxType::Normal(*b"maif"),
             default_length: Some(37),
             default_sample_description_index: None,
             entries: vec![SgpdSeigEntrySyntax {
@@ -1738,7 +1738,7 @@ mod tests {
     /// skipped before reading `default_sample_info_size` and `sample_count`.
     #[test]
     fn parse_saiz_handles_aux_info_type_and_default_size() {
-        for scheme in [*b"cenc", *b"cbc1", *b"cens", *b"cbcs"] {
+        for scheme in CENC_AUX_INFO_TYPES {
             let payload = SaizBoxSyntax {
                 aux_info: Some((scheme, 0)),
                 default_sample_info_size: 16,
@@ -1776,7 +1776,7 @@ mod tests {
     /// those fields and then read each version-1 offset as a 64-bit value.
     #[test]
     fn parse_saio_handles_aux_info_type_and_64_bit_offsets() {
-        for scheme in [*b"cenc", *b"cbc1", *b"cens", *b"cbcs"] {
+        for scheme in CENC_AUX_INFO_TYPES {
             let payload = SaioBoxSyntax {
                 version: 1,
                 aux_info: Some((scheme, 1)),
@@ -1800,7 +1800,7 @@ mod tests {
     #[test]
     fn parse_saiz_ignores_non_cenc_aux_info_type() {
         let payload = SaizBoxSyntax {
-            aux_info: Some((*b"gps ", 0)),
+            aux_info: Some((BoxType::Normal(*b"gps "), 0)),
             default_sample_info_size: 16,
             sample_count: 1,
             explicit_sample_info_sizes: Vec::new(),
@@ -1819,7 +1819,7 @@ mod tests {
     fn parse_saio_ignores_non_cenc_aux_info_type() {
         let payload = SaioBoxSyntax {
             version: 0,
-            aux_info: Some((*b"gps ", 0)),
+            aux_info: Some((BoxType::Normal(*b"gps "), 0)),
             offsets: vec![32],
         }
         .payload();
@@ -1835,7 +1835,7 @@ mod tests {
     #[test]
     fn parse_saiz_ignores_cenc_aux_info_with_unsupported_parameter() {
         let payload = SaizBoxSyntax {
-            aux_info: Some((*b"cbcs", 2)),
+            aux_info: Some((SchemeType::Cbcs.box_type(), 2)),
             default_sample_info_size: 16,
             sample_count: 1,
             explicit_sample_info_sizes: Vec::new(),
@@ -1855,7 +1855,7 @@ mod tests {
     fn parse_sbgp_version_1_and_fragment_local_description_index() {
         let payload = SbgpBoxSyntax {
             version: 1,
-            grouping_type: *b"seig",
+            grouping_type: GROUPING_TYPE_SEIG,
             grouping_type_parameter: Some(7),
             entries: vec![
                 SbgpEntry {
@@ -1890,7 +1890,7 @@ mod tests {
     fn parse_sgpd_version_2_without_constant_iv_for_per_sample_iv() {
         let payload = SgpdBoxSyntax {
             version: 2,
-            grouping_type: *b"seig",
+            grouping_type: GROUPING_TYPE_SEIG,
             default_length: None,
             default_sample_description_index: Some(1),
             entries: vec![SgpdSeigEntrySyntax {
@@ -1944,7 +1944,7 @@ mod tests {
     fn parse_sgpd_rejects_constant_iv_longer_than_aes_block() {
         let payload = SgpdBoxSyntax {
             version: 1,
-            grouping_type: *b"seig",
+            grouping_type: GROUPING_TYPE_SEIG,
             default_length: Some(38),
             default_sample_description_index: None,
             entries: vec![SgpdSeigEntrySyntax {
