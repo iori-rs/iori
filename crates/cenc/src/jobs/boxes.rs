@@ -5,6 +5,7 @@ use shiguredo_mp4::boxes::{
     Vp08Box, Vp09Box,
 };
 use shiguredo_mp4::{BoxHeader, BoxType, Decode, FullBoxHeader};
+use std::ops::Range;
 
 const BOX_PSSH: BoxType = BoxType::Normal(*b"pssh");
 const BOX_SINF: BoxType = BoxType::Normal(*b"sinf");
@@ -300,12 +301,32 @@ impl RawMp4Box {
         self.start + self.header_size
     }
 
+    pub(crate) fn type_range(&self) -> Range<usize> {
+        self.start + 4..self.start + 8
+    }
+
     pub(crate) fn payload<'a>(&self, data: &'a [u8]) -> &'a [u8] {
         &data[self.payload_start()..self.end()]
     }
 
+    pub(crate) fn write_type(&self, data: &mut [u8], box_type: BoxType) {
+        data[self.type_range()].copy_from_slice(box_type.as_bytes());
+    }
+
+    pub(crate) fn clear_payload(&self, data: &mut [u8]) {
+        data[self.payload_start()..self.end()].fill(0);
+    }
+
     pub(crate) fn parse_children(&self, data: &[u8]) -> Result<Vec<Self>> {
         Self::parse_range(data, self.payload_start(), self.end(), 0)
+    }
+
+    pub(crate) fn parse_payload_children_from(
+        &self,
+        data: &[u8],
+        payload_offset: usize,
+    ) -> Result<Vec<Self>> {
+        Self::parse_range(data, self.payload_start() + payload_offset, self.end(), 0)
     }
 }
 

@@ -132,8 +132,8 @@ fn normalize_stsd(data: &mut [u8], stsd: RawMp4Box) -> Result<()> {
 }
 
 fn normalize_sample_entry(data: &mut [u8], entry: RawMp4Box, base_size: usize) -> Result<()> {
-    let children_start = entry.payload_start() + base_size;
-    let children = RawMp4Box::parse_range(data, children_start, entry.end(), 0)
+    let children = entry
+        .parse_payload_children_from(data, base_size)
         .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
     let Some(sinf) = find_raw_box(&children, ProtectionSchemeInfoBox::TYPE) else {
         return Ok(());
@@ -150,7 +150,7 @@ fn normalize_sample_entry(data: &mut [u8], entry: RawMp4Box, base_size: usize) -
     {
         let original_format =
             OriginalFormatBox::decode_payload(frma.payload(data))?.original_format;
-        data[entry.start + 4..entry.start + 8].copy_from_slice(original_format.as_bytes());
+        entry.write_type(data, original_format);
     }
 
     // Zero out sinf in-place: replace box type with 'free' and zero the payload.
@@ -163,6 +163,6 @@ fn normalize_sample_entry(data: &mut [u8], entry: RawMp4Box, base_size: usize) -
 /// Replace a box's type with `free` and zero its payload in-place.
 /// This keeps the file size unchanged while signaling to parsers that the bytes are free space.
 fn free_box(data: &mut [u8], b: &RawMp4Box) {
-    data[b.start + 4..b.start + 8].copy_from_slice(FreeBox::TYPE.as_bytes());
-    data[b.payload_start()..b.end()].fill(0);
+    b.write_type(data, FreeBox::TYPE);
+    b.clear_payload(data);
 }
