@@ -1,13 +1,10 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
-    EncryptedAudioSampleEntryBox, EncryptedVideoSampleEntryBox, OriginalFormatBox,
-    ProtectionSchemeInfoBox, PsshBox, RawMp4Box, SampleDescriptionBoxHeader,
-    encrypted_sample_entry_base_size, find_raw_box, is_fragment_encryption_metadata_box,
+    OriginalFormatBox, ProtectionSchemeInfoBox, PsshBox, RawMp4Box, SampleDescriptionBoxHeader,
+    find_raw_box, is_fragment_encryption_metadata_box, protected_sample_entry_base_size,
 };
-use shiguredo_mp4::BoxType;
 use shiguredo_mp4::boxes::{
-    Av01Box, Avc1Box, FlacBox, FreeBox, Hev1Box, Hvc1Box, MdiaBox, MinfBox, MoofBox, MoovBox,
-    Mp4aBox, OpusBox, StblBox, StsdBox, TrafBox, TrakBox, Vp08Box, Vp09Box,
+    FreeBox, MdiaBox, MinfBox, MoofBox, MoovBox, StblBox, StsdBox, TrafBox, TrakBox,
 };
 
 pub fn normalize_decrypted_fmp4(data: &mut [u8]) -> Result<()> {
@@ -108,7 +105,7 @@ fn normalize_stsd(data: &mut [u8], stsd: RawMp4Box) -> Result<()> {
         ));
     }
     for entry in entries {
-        let Some(base_size) = sample_entry_base_size(entry.box_type) else {
+        let Some(base_size) = protected_sample_entry_base_size(entry.box_type) else {
             continue;
         };
         let entry_payload_start = entry.payload_start();
@@ -118,24 +115,6 @@ fn normalize_stsd(data: &mut [u8], stsd: RawMp4Box) -> Result<()> {
         }
     }
     Ok(())
-}
-
-fn sample_entry_base_size(entry_type: BoxType) -> Option<usize> {
-    encrypted_sample_entry_base_size(entry_type).or_else(|| {
-        // CMAF cbcs: original codec type used directly with sinf appended
-        match entry_type {
-            Avc1Box::TYPE
-            | Hvc1Box::TYPE
-            | Hev1Box::TYPE
-            | Vp08Box::TYPE
-            | Vp09Box::TYPE
-            | Av01Box::TYPE => Some(EncryptedVideoSampleEntryBox::BASE_SIZE),
-            Mp4aBox::TYPE | OpusBox::TYPE | FlacBox::TYPE => {
-                Some(EncryptedAudioSampleEntryBox::BASE_SIZE)
-            }
-            _ => None,
-        }
-    })
 }
 
 fn normalize_sample_entry(

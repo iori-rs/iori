@@ -1,6 +1,9 @@
 use crate::errors::{CencError, Result};
 use crate::types::{CbcPattern, SchemeType, Subsample};
-use shiguredo_mp4::boxes::{SampleEntry, UnknownBox};
+use shiguredo_mp4::boxes::{
+    Av01Box, Avc1Box, FlacBox, Hev1Box, Hvc1Box, Mp4aBox, OpusBox, SampleEntry, UnknownBox,
+    Vp08Box, Vp09Box,
+};
 use shiguredo_mp4::{BoxHeader, BoxType, Decode, FullBoxHeader};
 
 const BOX_PSSH: BoxType = BoxType::Normal(*b"pssh");
@@ -81,6 +84,24 @@ impl EncryptedAudioSampleEntryBox {
 pub(crate) fn encrypted_sample_entry_base_size(box_type: BoxType) -> Option<usize> {
     EncryptedVideoSampleEntryBox::base_size_for(box_type)
         .or_else(|| EncryptedAudioSampleEntryBox::base_size_for(box_type))
+}
+
+pub(crate) fn protected_sample_entry_base_size(box_type: BoxType) -> Option<usize> {
+    encrypted_sample_entry_base_size(box_type).or_else(|| {
+        // CMAF cbcs: original codec type used directly with sinf appended.
+        match box_type {
+            Avc1Box::TYPE
+            | Hvc1Box::TYPE
+            | Hev1Box::TYPE
+            | Vp08Box::TYPE
+            | Vp09Box::TYPE
+            | Av01Box::TYPE => Some(EncryptedVideoSampleEntryBox::BASE_SIZE),
+            Mp4aBox::TYPE | OpusBox::TYPE | FlacBox::TYPE => {
+                Some(EncryptedAudioSampleEntryBox::BASE_SIZE)
+            }
+            _ => None,
+        }
+    })
 }
 
 pub(crate) fn is_fragment_encryption_metadata_box(box_type: BoxType) -> bool {
