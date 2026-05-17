@@ -3,10 +3,16 @@ use crate::types::{CbcPattern, SchemeType, Subsample};
 use shiguredo_mp4::boxes::{SampleEntry, UnknownBox};
 use shiguredo_mp4::{BoxHeader, BoxType, Decode, FullBoxHeader};
 
+pub(crate) const BOX_PSSH: BoxType = BoxType::Normal(*b"pssh");
+pub(crate) const BOX_TRAK: BoxType = BoxType::Normal(*b"trak");
+pub(crate) const BOX_MDIA: BoxType = BoxType::Normal(*b"mdia");
+pub(crate) const BOX_MINF: BoxType = BoxType::Normal(*b"minf");
+pub(crate) const BOX_STBL: BoxType = BoxType::Normal(*b"stbl");
 pub(crate) const BOX_SINF: BoxType = BoxType::Normal(*b"sinf");
 pub(crate) const BOX_SCHI: BoxType = BoxType::Normal(*b"schi");
 pub(crate) const BOX_SCHM: BoxType = BoxType::Normal(*b"schm");
 pub(crate) const BOX_TENC: BoxType = BoxType::Normal(*b"tenc");
+pub(crate) const BOX_FRMA: BoxType = BoxType::Normal(*b"frma");
 pub(crate) const BOX_SENC: BoxType = BoxType::Normal(*b"senc");
 pub(crate) const BOX_SBGP: BoxType = BoxType::Normal(*b"sbgp");
 pub(crate) const BOX_SGPD: BoxType = BoxType::Normal(*b"sgpd");

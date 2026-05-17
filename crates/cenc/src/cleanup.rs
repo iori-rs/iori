@@ -1,14 +1,10 @@
 use crate::errors::{CencError, Result};
-use crate::jobs::boxes::{BOX_SAIO, BOX_SAIZ, BOX_SBGP, BOX_SENC, BOX_SGPD, BOX_SINF};
+use crate::jobs::boxes::{
+    BOX_FRMA, BOX_MDIA, BOX_MINF, BOX_PSSH, BOX_SAIO, BOX_SAIZ, BOX_SBGP, BOX_SENC, BOX_SGPD,
+    BOX_SINF, BOX_STBL, BOX_TRAK,
+};
 use shiguredo_mp4::boxes::{MoofBox, MoovBox, StsdBox, TrafBox};
 use shiguredo_mp4::{BoxHeader, BoxType, Decode};
-
-const BOX_PSSH: BoxType = BoxType::Normal(*b"pssh");
-const BOX_TRAK: BoxType = BoxType::Normal(*b"trak");
-const BOX_MDIA: BoxType = BoxType::Normal(*b"mdia");
-const BOX_MINF: BoxType = BoxType::Normal(*b"minf");
-const BOX_STBL: BoxType = BoxType::Normal(*b"stbl");
-const BOX_FRMA: BoxType = BoxType::Normal(*b"frma");
 
 const VISUAL_SAMPLE_ENTRY_SIZE: usize = 78;
 const AUDIO_SAMPLE_ENTRY_SIZE: usize = 28;
