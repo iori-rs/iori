@@ -130,8 +130,10 @@ fn decrypt_cbc(
     subsamples: &[Subsample],
 ) -> Result<()> {
     let mut offset = 0usize;
-    let mut previous = iv;
-    let mut encrypted_block_index = 0u64;
+    let mut state = CbcState {
+        previous: iv,
+        block_index: 0,
+    };
     let patterned = pattern.is_some();
     let cipher = Aes128::new(GenericArray::from_slice(key));
     for subsample in subsamples {
@@ -145,13 +147,13 @@ fn decrypt_cbc(
         }
         if decrypt_len > 0 {
             if patterned {
-                previous = iv;
+                state = CbcState {
+                    previous: iv,
+                    block_index: 0,
+                };
             }
             let segment = &mut sample[offset..offset + decrypt_len];
-            let block_index = if patterned { 0 } else { encrypted_block_index };
-            let result = apply_cbc_pattern(segment, &cipher, previous, pattern, block_index);
-            previous = result.previous;
-            encrypted_block_index = result.block_index;
+            apply_cbc_pattern(segment, &cipher, pattern, &mut state);
         }
         offset = end;
     }
@@ -233,10 +235,9 @@ fn apply_ctr_continuous(
 fn apply_cbc_pattern(
     data: &mut [u8],
     cipher: &Aes128,
-    mut previous: [u8; 16],
     pattern: Option<CbcPattern>,
-    mut block_index: u64,
-) -> CbcResult {
+    state: &mut CbcState,
+) {
     let (crypt_blocks, skip_blocks) = pattern
         .map(|p| (p.crypt_byte_block, p.skip_byte_block))
         .unwrap_or((0, 0));
@@ -245,10 +246,10 @@ fn apply_cbc_pattern(
         let should_crypt = if cycle == 0 {
             true
         } else {
-            let pos = (block_index % cycle as u64) as u8;
+            let pos = (state.block_index % cycle as u64) as u8;
             pos < crypt_blocks
         };
-        block_index += 1;
+        state.block_index += 1;
         if !should_crypt {
             continue;
         }
@@ -257,13 +258,9 @@ fn apply_cbc_pattern(
         let mut block = GenericArray::clone_from_slice(&ciphertext);
         cipher.decrypt_block(&mut block);
         for i in 0..AES_BLOCK_SIZE {
-            chunk[i] = block[i] ^ previous[i];
+            chunk[i] = block[i] ^ state.previous[i];
         }
-        previous.copy_from_slice(&ciphertext);
-    }
-    CbcResult {
-        previous,
-        block_index,
+        state.previous.copy_from_slice(&ciphertext);
     }
 }
 
@@ -276,7 +273,7 @@ fn build_ctr_block(iv: [u8; 16], block_index: u64) -> [u8; 16] {
 }
 
 #[derive(Debug)]
-struct CbcResult {
+struct CbcState {
     previous: [u8; 16],
     block_index: u64,
 }
