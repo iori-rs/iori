@@ -1,7 +1,8 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
     RawMp4Box, SaioBox, SaizBox, SampleEncryptionBox, SampleEncryptionEntry, SbgpBox, SbgpEntry,
-    SeigEntry, SgpdSeigBox, TrackEncryptionInfo, parse_saio, parse_saiz,
+    SeigEntry, SgpdSeigBox, TrackEncryptionInfo, find_unknown_box,
+    parse_first_matching_unknown_box, parse_saio, parse_saiz,
 };
 use crate::types::{CbcPattern, DecryptJob, ParsedCenc};
 use shiguredo_mp4::boxes::{MoofBox, MoovBox, UnknownBox};
@@ -19,37 +20,19 @@ impl<'a> UnknownBoxes<'a> {
     }
 
     fn find(&self, box_type: BoxType) -> Option<&'a UnknownBox> {
-        self.traf
-            .iter()
-            .chain(self.moof.iter())
-            .find(|b| b.box_type == box_type)
+        find_unknown_box(self.iter(), box_type)
     }
 
     fn parse_seig_sbgp(&self) -> Result<Option<Vec<SbgpEntry>>> {
-        self.traf
-            .iter()
-            .chain(self.moof.iter())
-            .filter(|b| b.box_type == SbgpBox::TYPE)
-            .find_map(|b| SbgpEntry::parse_seig(&b.payload).transpose())
-            .transpose()
+        parse_first_matching_unknown_box(self.iter(), SbgpBox::TYPE, SbgpEntry::parse_seig)
     }
 
     fn parse_seig_sgpd(&self) -> Result<Option<Vec<SeigEntry>>> {
-        self.traf
-            .iter()
-            .chain(self.moof.iter())
-            .filter(|b| b.box_type == SgpdSeigBox::TYPE)
-            .find_map(|b| SeigEntry::parse_seig(&b.payload).transpose())
-            .transpose()
+        parse_first_matching_unknown_box(self.iter(), SgpdSeigBox::TYPE, SeigEntry::parse_seig)
     }
 
     fn parse_cenc_saiz(&self) -> Result<Option<Vec<u8>>> {
-        for box_item in self
-            .traf
-            .iter()
-            .chain(self.moof.iter())
-            .filter(|b| b.box_type == SaizBox::TYPE)
-        {
+        for box_item in self.iter().filter(|b| b.box_type == SaizBox::TYPE) {
             if let Some(sizes) = parse_saiz(&box_item.payload)? {
                 return Ok(Some(sizes));
             }
@@ -58,17 +41,16 @@ impl<'a> UnknownBoxes<'a> {
     }
 
     fn parse_cenc_saio(&self) -> Result<Option<Vec<u64>>> {
-        for box_item in self
-            .traf
-            .iter()
-            .chain(self.moof.iter())
-            .filter(|b| b.box_type == SaioBox::TYPE)
-        {
+        for box_item in self.iter().filter(|b| b.box_type == SaioBox::TYPE) {
             if let Some(offsets) = parse_saio(&box_item.payload)? {
                 return Ok(Some(offsets));
             }
         }
         Ok(None)
+    }
+
+    fn iter(&self) -> impl Iterator<Item = &'a UnknownBox> {
+        self.traf.iter().chain(self.moof.iter())
     }
 }
 

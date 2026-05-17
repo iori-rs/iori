@@ -1,6 +1,7 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
     SampleEncryptionBox, SbgpBox, SbgpEntry, SeigEntry, SgpdSeigBox, TrackEncryptionInfo,
+    find_unknown_box, parse_first_matching_unknown_box,
 };
 use crate::types::{DecryptJob, ParsedCenc};
 use shiguredo_mp4::aux::SampleTableAccessor;
@@ -21,20 +22,17 @@ struct NonFragmentedSampleGroups {
 
 impl NonFragmentedSampleGroups {
     fn parse_optional(boxes: &[UnknownBox]) -> Result<Option<Self>> {
-        let Some(sbgp) = boxes
-            .iter()
-            .filter(|b| b.box_type == SbgpBox::TYPE)
-            .find_map(|b| SbgpEntry::parse_seig(&b.payload).transpose())
-            .transpose()?
+        let Some(sbgp) =
+            parse_first_matching_unknown_box(boxes.iter(), SbgpBox::TYPE, SbgpEntry::parse_seig)?
         else {
             return Ok(None);
         };
-        let sgpd = boxes
-            .iter()
-            .filter(|b| b.box_type == SgpdSeigBox::TYPE)
-            .find_map(|b| SeigEntry::parse_seig(&b.payload).transpose())
-            .transpose()?
-            .ok_or(CencError::MissingSenc)?;
+        let sgpd = parse_first_matching_unknown_box(
+            boxes.iter(),
+            SgpdSeigBox::TYPE,
+            SeigEntry::parse_seig,
+        )?
+        .ok_or(CencError::MissingSenc)?;
         Ok(Some(Self { sbgp, sgpd }))
     }
 
@@ -75,10 +73,7 @@ pub(crate) fn parse_decrypt_jobs_non_fmp4(moov: &MoovBox) -> Result<ParsedCenc> 
         if !entry_infos.iter().any(|info| info.is_some()) {
             continue;
         }
-        let senc = stbl
-            .unknown_boxes
-            .iter()
-            .find(|b| b.box_type == SampleEncryptionBox::TYPE)
+        let senc = find_unknown_box(stbl.unknown_boxes.iter(), SampleEncryptionBox::TYPE)
             .ok_or(CencError::MissingSenc)?;
 
         let sample_table = SampleTableAccessor::new(stbl)?;

@@ -206,6 +206,27 @@ impl RawMp4Box {
     }
 }
 
+pub(crate) fn find_unknown_box<'a>(
+    boxes: impl Iterator<Item = &'a UnknownBox>,
+    box_type: BoxType,
+) -> Option<&'a UnknownBox> {
+    boxes
+        .into_iter()
+        .find(|box_item| box_item.box_type == box_type)
+}
+
+pub(crate) fn parse_first_matching_unknown_box<'a, T>(
+    boxes: impl Iterator<Item = &'a UnknownBox>,
+    box_type: BoxType,
+    mut parse_payload: impl FnMut(&'a [u8]) -> Result<Option<T>>,
+) -> Result<Option<T>> {
+    boxes
+        .into_iter()
+        .filter(|box_item| box_item.box_type == box_type)
+        .find_map(|box_item| parse_payload(&box_item.payload).transpose())
+        .transpose()
+}
+
 // ---------------------------------------------------------------------------
 // SampleEncryptionEntry
 // ---------------------------------------------------------------------------
