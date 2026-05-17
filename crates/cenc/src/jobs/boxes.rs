@@ -17,13 +17,19 @@ pub(crate) const BOX_SAIO: BoxType = BoxType::Normal(*b"saio");
 pub(crate) const BOX_ENCV: BoxType = BoxType::Normal(*b"encv");
 pub(crate) const BOX_ENCA: BoxType = BoxType::Normal(*b"enca");
 
-const CENC_AUX_INFO_TYPES: [[u8; 4]; 4] = [*b"cenc", *b"cbc1", *b"cens", *b"cbcs"];
+const CENC_AUX_INFO_TYPES: [BoxType; 4] = [
+    BoxType::Normal(*b"cenc"),
+    BoxType::Normal(*b"cbc1"),
+    BoxType::Normal(*b"cens"),
+    BoxType::Normal(*b"cbcs"),
+];
 const SENC_FLAG_OVERRIDE_TRACK_ENCRYPTION: usize = 0;
 const SENC_FLAG_USE_SUBSAMPLE_ENCRYPTION: usize = 1;
 const SENC_SUPPORTED_FLAGS: u32 =
     (1 << SENC_FLAG_OVERRIDE_TRACK_ENCRYPTION) | (1 << SENC_FLAG_USE_SUBSAMPLE_ENCRYPTION);
 const AUX_INFO_TYPE_PRESENT_FLAG: usize = 0;
-const GROUPING_TYPE_SEIG: [u8; 4] = *b"seig";
+const AUX_INFO_TYPE_UNSPECIFIED: BoxType = BoxType::Normal([0; 4]);
+const GROUPING_TYPE_SEIG: BoxType = BoxType::Normal(*b"seig");
 
 const VISUAL_SAMPLE_ENTRY_SIZE: usize = 78;
 const AUDIO_SAMPLE_ENTRY_SIZE: usize = 28;
@@ -90,6 +96,10 @@ impl<'a> ByteReader<'a> {
 
     pub(crate) fn read_type(&mut self) -> Result<[u8; 4]> {
         <[u8; 4]>::decode_at(self.data, &mut self.pos).map_err(Into::into)
+    }
+
+    pub(crate) fn read_box_type(&mut self) -> Result<BoxType> {
+        Ok(BoxType::Normal(self.read_type()?))
     }
 
     pub(crate) fn read_exact(&mut self, len: usize) -> Result<&'a [u8]> {
@@ -806,7 +816,7 @@ fn unknown_boxes_from_sample_entry(entry: &SampleEntry) -> &[UnknownBox] {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SaizBox {
     pub(crate) full_box_header: FullBoxHeader,
-    pub(crate) aux_info: Option<([u8; 4], u32)>,
+    pub(crate) aux_info: Option<(BoxType, u32)>,
     pub(crate) default_sample_info_size: u8,
     pub(crate) sample_count: u32,
     pub(crate) sample_info_sizes: Vec<u8>,
@@ -819,7 +829,7 @@ impl SaizBox {
         let mut reader = ByteReader::new(payload);
         let full_box_header = reader.read_full_box_header()?;
         let aux_info = if full_box_header.flags.is_set(AUX_INFO_TYPE_PRESENT_FLAG) {
-            Some((reader.read_type()?, reader.read_u32()?))
+            Some((reader.read_box_type()?, reader.read_u32()?))
         } else {
             None
         };
@@ -866,7 +876,7 @@ pub(crate) fn parse_saiz(payload: &[u8]) -> Result<Option<Vec<u8>>> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SaioBox {
     pub(crate) full_box_header: FullBoxHeader,
-    pub(crate) aux_info: Option<([u8; 4], u32)>,
+    pub(crate) aux_info: Option<(BoxType, u32)>,
     pub(crate) offsets: Vec<u64>,
 }
 
@@ -877,7 +887,7 @@ impl SaioBox {
         let mut reader = ByteReader::new(payload);
         let full_box_header = reader.read_full_box_header()?;
         let aux_info = if full_box_header.flags.is_set(AUX_INFO_TYPE_PRESENT_FLAG) {
-            Some((reader.read_type()?, reader.read_u32()?))
+            Some((reader.read_box_type()?, reader.read_u32()?))
         } else {
             None
         };
@@ -915,8 +925,8 @@ pub(crate) fn parse_saio(payload: &[u8]) -> Result<Option<Vec<u64>>> {
     Ok(Some(box_item.offsets))
 }
 
-fn is_cenc_aux_info(aux_info_type: [u8; 4], aux_info_type_parameter: u32) -> bool {
-    if aux_info_type == [0; 4] {
+fn is_cenc_aux_info(aux_info_type: BoxType, aux_info_type_parameter: u32) -> bool {
+    if aux_info_type == AUX_INFO_TYPE_UNSPECIFIED {
         return true;
     }
     aux_info_type_parameter <= 1
@@ -939,7 +949,7 @@ pub(crate) struct SbgpEntry {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SbgpBox {
     pub(crate) full_box_header: FullBoxHeader,
-    pub(crate) grouping_type: [u8; 4],
+    pub(crate) grouping_type: BoxType,
     pub(crate) grouping_type_parameter: Option<u32>,
     pub(crate) entries: Vec<SbgpEntry>,
 }
@@ -953,7 +963,7 @@ impl SbgpBox {
         if reader.remaining() < 4 {
             return Err(CencError::InvalidSenc("sbgp too short".to_string()));
         }
-        let grouping_type = reader.read_type()?;
+        let grouping_type = reader.read_box_type()?;
         let grouping_type_parameter = if full_box_header.version == 1 {
             Some(reader.read_u32()?)
         } else {
@@ -1041,7 +1051,7 @@ impl SgpdSeigBox {
         if reader.remaining() < 4 {
             return Err(CencError::InvalidSenc("sgpd too short".to_string()));
         }
-        let grouping_type = reader.read_type()?;
+        let grouping_type = reader.read_box_type()?;
         if grouping_type != GROUPING_TYPE_SEIG {
             return Ok(None);
         }
