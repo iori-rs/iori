@@ -1,6 +1,6 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
-    BOX_SAIO, BOX_SAIZ, BOX_SBGP, BOX_SENC, BOX_SGPD, RawMp4Box, SampleEncryptionBox,
+    BOX_SBGP, BOX_SENC, BOX_SGPD, RawMp4Box, SaioBox, SaizBox, SampleEncryptionBox,
     SampleEncryptionEntry, SbgpEntry, SeigEntry, TrackEncryptionInfo, parse_saio, parse_saiz,
 };
 use crate::types::{CbcPattern, DecryptJob, ParsedCenc};
@@ -48,7 +48,7 @@ impl<'a> UnknownBoxes<'a> {
             .traf
             .iter()
             .chain(self.moof.iter())
-            .filter(|b| b.box_type == BOX_SAIZ)
+            .filter(|b| b.box_type == SaizBox::TYPE)
         {
             if let Some(sizes) = parse_saiz(&box_item.payload)? {
                 return Ok(Some(sizes));
@@ -62,7 +62,7 @@ impl<'a> UnknownBoxes<'a> {
             .traf
             .iter()
             .chain(self.moof.iter())
-            .filter(|b| b.box_type == BOX_SAIO)
+            .filter(|b| b.box_type == SaioBox::TYPE)
         {
             if let Some(offsets) = parse_saio(&box_item.payload)? {
                 return Ok(Some(offsets));

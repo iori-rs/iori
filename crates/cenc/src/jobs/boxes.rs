@@ -65,6 +65,10 @@ impl<'a> ByteReader<'a> {
         u64::decode_at(self.data, &mut self.pos).map_err(Into::into)
     }
 
+    pub(crate) fn read_type(&mut self) -> Result<[u8; 4]> {
+        <[u8; 4]>::decode_at(self.data, &mut self.pos).map_err(Into::into)
+    }
+
     pub(crate) fn read_exact(&mut self, len: usize) -> Result<&'a [u8]> {
         if self.remaining() < len {
             return Err(CencError::InvalidSenc("unexpected end of data".into()));
@@ -682,26 +686,59 @@ fn unknown_boxes_from_sample_entry(entry: &SampleEntry) -> &[UnknownBox] {
 /// `aux_info_type_parameter` are present before the size table. A non-zero
 /// `default_sample_info_size` applies to every sample; otherwise the box
 /// carries one explicit size byte per sample.
-pub(crate) fn parse_saiz(payload: &[u8]) -> Result<Option<Vec<u8>>> {
-    let mut reader = ByteReader::new(payload);
-    let header = reader.read_full_box_header()?;
-    if header.flags.is_set(AUX_INFO_TYPE_PRESENT_FLAG) {
-        let aux_info_type = reader.read_u32()?;
-        let aux_info_type_parameter = reader.read_u32()?;
-        if !is_cenc_aux_info(aux_info_type, aux_info_type_parameter) {
-            return Ok(None);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SaizBox {
+    pub(crate) full_box_header: FullBoxHeader,
+    pub(crate) aux_info: Option<([u8; 4], u32)>,
+    pub(crate) default_sample_info_size: u8,
+    pub(crate) sample_count: u32,
+    pub(crate) sample_info_sizes: Vec<u8>,
+}
+
+impl SaizBox {
+    pub(crate) const TYPE: BoxType = BOX_SAIZ;
+
+    pub(crate) fn decode_payload(payload: &[u8]) -> Result<Self> {
+        let mut reader = ByteReader::new(payload);
+        let full_box_header = reader.read_full_box_header()?;
+        let aux_info = if full_box_header.flags.is_set(AUX_INFO_TYPE_PRESENT_FLAG) {
+            Some((reader.read_type()?, reader.read_u32()?))
+        } else {
+            None
+        };
+        let default_sample_info_size = reader.read_u8()?;
+        let sample_count = reader.read_u32()?;
+        let mut sample_info_sizes = Vec::with_capacity(sample_count as usize);
+        if default_sample_info_size != 0 {
+            sample_info_sizes.resize(sample_count as usize, default_sample_info_size);
+        } else {
+            let data = reader.read_exact(sample_count as usize)?;
+            sample_info_sizes.extend_from_slice(data);
         }
+        Ok(Self {
+            full_box_header,
+            aux_info,
+            default_sample_info_size,
+            sample_count,
+            sample_info_sizes,
+        })
     }
-    let default_size = reader.read_u8()?;
-    let sample_count = reader.read_u32()? as usize;
-    let mut sizes = Vec::with_capacity(sample_count);
-    if default_size != 0 {
-        sizes.resize(sample_count, default_size);
-    } else {
-        let data = reader.read_exact(sample_count)?;
-        sizes.extend_from_slice(data);
+
+    fn is_cenc_aux_info(&self) -> bool {
+        self.aux_info
+            .map(|(aux_info_type, aux_info_type_parameter)| {
+                is_cenc_aux_info(aux_info_type, aux_info_type_parameter)
+            })
+            .unwrap_or(true)
     }
-    Ok(Some(sizes))
+}
+
+pub(crate) fn parse_saiz(payload: &[u8]) -> Result<Option<Vec<u8>>> {
+    let box_item = SaizBox::decode_payload(payload)?;
+    if !box_item.is_cenc_aux_info() {
+        return Ok(None);
+    }
+    Ok(Some(box_item.sample_info_sizes))
 }
 
 /// Parse a SampleAuxiliaryInformationOffsetsBox (`saio`) payload.
@@ -709,37 +746,66 @@ pub(crate) fn parse_saiz(payload: &[u8]) -> Result<Option<Vec<u8>>> {
 /// When flag `0x000001` is set, `aux_info_type` and
 /// `aux_info_type_parameter` precede the offset table. Version 0 uses 32-bit
 /// offsets; version 1 uses 64-bit offsets.
-pub(crate) fn parse_saio(payload: &[u8]) -> Result<Option<Vec<u64>>> {
-    let mut reader = ByteReader::new(payload);
-    let header = reader.read_full_box_header()?;
-    if header.flags.is_set(AUX_INFO_TYPE_PRESENT_FLAG) {
-        let aux_info_type = reader.read_u32()?;
-        let aux_info_type_parameter = reader.read_u32()?;
-        if !is_cenc_aux_info(aux_info_type, aux_info_type_parameter) {
-            return Ok(None);
-        }
-    }
-    let entry_count = reader.read_u32()? as usize;
-    let mut offsets = Vec::with_capacity(entry_count);
-    for _ in 0..entry_count {
-        let value = if header.version == 0 {
-            reader.read_u32()? as u64
-        } else {
-            reader.read_u64()?
-        };
-        offsets.push(value);
-    }
-    Ok(Some(offsets))
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SaioBox {
+    pub(crate) full_box_header: FullBoxHeader,
+    pub(crate) aux_info: Option<([u8; 4], u32)>,
+    pub(crate) offsets: Vec<u64>,
 }
 
-fn is_cenc_aux_info(aux_info_type: u32, aux_info_type_parameter: u32) -> bool {
-    if aux_info_type == 0 {
+impl SaioBox {
+    pub(crate) const TYPE: BoxType = BOX_SAIO;
+
+    pub(crate) fn decode_payload(payload: &[u8]) -> Result<Self> {
+        let mut reader = ByteReader::new(payload);
+        let full_box_header = reader.read_full_box_header()?;
+        let aux_info = if full_box_header.flags.is_set(AUX_INFO_TYPE_PRESENT_FLAG) {
+            Some((reader.read_type()?, reader.read_u32()?))
+        } else {
+            None
+        };
+        let entry_count = reader.read_u32()? as usize;
+        let mut offsets = Vec::with_capacity(entry_count);
+        for _ in 0..entry_count {
+            let value = if full_box_header.version == 0 {
+                reader.read_u32()? as u64
+            } else {
+                reader.read_u64()?
+            };
+            offsets.push(value);
+        }
+        Ok(Self {
+            full_box_header,
+            aux_info,
+            offsets,
+        })
+    }
+
+    fn is_cenc_aux_info(&self) -> bool {
+        self.aux_info
+            .map(|(aux_info_type, aux_info_type_parameter)| {
+                is_cenc_aux_info(aux_info_type, aux_info_type_parameter)
+            })
+            .unwrap_or(true)
+    }
+}
+
+pub(crate) fn parse_saio(payload: &[u8]) -> Result<Option<Vec<u64>>> {
+    let box_item = SaioBox::decode_payload(payload)?;
+    if !box_item.is_cenc_aux_info() {
+        return Ok(None);
+    }
+    Ok(Some(box_item.offsets))
+}
+
+fn is_cenc_aux_info(aux_info_type: [u8; 4], aux_info_type_parameter: u32) -> bool {
+    if aux_info_type == [0; 4] {
         return true;
     }
     aux_info_type_parameter <= 1
         && CENC_AUX_INFO_TYPES
             .iter()
-            .any(|box_type| aux_info_type == u32::from_be_bytes(*box_type))
+            .any(|box_type| aux_info_type == *box_type)
 }
 
 // ---------------------------------------------------------------------------
