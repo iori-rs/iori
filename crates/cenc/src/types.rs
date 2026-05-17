@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::errors::{CencError, Result};
+use shiguredo_mp4::BoxType;
 
 /// Map from Key ID (KID) or track ID to 16-byte decryption keys.
 #[derive(Debug, Clone)]
@@ -104,13 +105,23 @@ pub enum SchemeType {
 }
 
 impl SchemeType {
-    pub(crate) fn from_bytes(bytes: [u8; 4]) -> Option<Self> {
-        match &bytes {
-            b"cenc" => Some(Self::Cenc),
-            b"cens" => Some(Self::Cens),
-            b"cbc1" => Some(Self::Cbc1),
-            b"cbcs" => Some(Self::Cbcs),
-            b"sve1" => Some(Self::Sve1),
+    pub(crate) const fn box_type(self) -> BoxType {
+        match self {
+            Self::Cenc => BoxType::Normal(*b"cenc"),
+            Self::Cens => BoxType::Normal(*b"cens"),
+            Self::Cbc1 => BoxType::Normal(*b"cbc1"),
+            Self::Cbcs => BoxType::Normal(*b"cbcs"),
+            Self::Sve1 => BoxType::Normal(*b"sve1"),
+        }
+    }
+
+    pub(crate) fn from_box_type(box_type: BoxType) -> Option<Self> {
+        match box_type {
+            box_type if box_type == Self::Cenc.box_type() => Some(Self::Cenc),
+            box_type if box_type == Self::Cens.box_type() => Some(Self::Cens),
+            box_type if box_type == Self::Cbc1.box_type() => Some(Self::Cbc1),
+            box_type if box_type == Self::Cbcs.box_type() => Some(Self::Cbcs),
+            box_type if box_type == Self::Sve1.box_type() => Some(Self::Sve1),
             _ => None,
         }
     }

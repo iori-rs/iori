@@ -18,10 +18,10 @@ const BOX_ENCV: BoxType = BoxType::Normal(*b"encv");
 const BOX_ENCA: BoxType = BoxType::Normal(*b"enca");
 
 const CENC_AUX_INFO_TYPES: [BoxType; 4] = [
-    BoxType::Normal(*b"cenc"),
-    BoxType::Normal(*b"cbc1"),
-    BoxType::Normal(*b"cens"),
-    BoxType::Normal(*b"cbcs"),
+    SchemeType::Cenc.box_type(),
+    SchemeType::Cbc1.box_type(),
+    SchemeType::Cens.box_type(),
+    SchemeType::Cbcs.box_type(),
 ];
 const SENC_FLAG_OVERRIDE_TRACK_ENCRYPTION: usize = 0;
 const SENC_FLAG_USE_SUBSAMPLE_ENCRYPTION: usize = 1;
@@ -534,14 +534,16 @@ impl SchemeTypeBox {
     pub(crate) fn decode_payload(payload: &[u8]) -> Result<Self> {
         let mut reader = ByteReader::new(payload);
         let full_box_header = reader.read_full_box_header()?;
-        let scheme_type_bytes = reader
-            .read_type()
+        let scheme_type_box = reader
+            .read_box_type()
             .map_err(|_| CencError::InvalidTenc("schm too short".to_string()))?;
         let scheme_version = reader
             .read_u32()
             .map_err(|_| CencError::InvalidTenc("schm too short".to_string()))?;
-        let scheme_type = SchemeType::from_bytes(scheme_type_bytes).ok_or_else(|| {
-            CencError::UnsupportedScheme(String::from_utf8_lossy(&scheme_type_bytes).to_string())
+        let scheme_type = SchemeType::from_box_type(scheme_type_box).ok_or_else(|| {
+            CencError::UnsupportedScheme(
+                String::from_utf8_lossy(scheme_type_box.as_bytes()).to_string(),
+            )
         })?;
         Ok(Self {
             full_box_header,
