@@ -1,8 +1,8 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
-    BOX_MDIA, BOX_MINF, BOX_SAIO, BOX_SAIZ, BOX_SBGP, BOX_SENC, BOX_SGPD, BOX_SINF, BOX_STBL,
-    BOX_TRAK, EncryptedAudioSampleEntryBox, EncryptedVideoSampleEntryBox, OriginalFormatBox,
-    PsshBox,
+    BOX_MDIA, BOX_MINF, BOX_STBL, BOX_TRAK, EncryptedAudioSampleEntryBox,
+    EncryptedVideoSampleEntryBox, OriginalFormatBox, ProtectionSchemeInfoBox, PsshBox, SaioBox,
+    SaizBox, SampleEncryptionBox, SbgpBox, SgpdSeigBox,
 };
 use shiguredo_mp4::boxes::{
     Av01Box, Avc1Box, FlacBox, FreeBox, Hev1Box, Hvc1Box, MoofBox, MoovBox, Mp4aBox, OpusBox,
@@ -69,11 +69,11 @@ fn normalize_traf(data: &mut [u8], traf: RawBox) -> Result<()> {
     let traf_children =
         parse_boxes_range(data, traf.start + traf.header_size, traf.start + traf.size)?;
     for child in &traf_children {
-        if child.typ == BOX_SENC
-            || child.typ == BOX_SAIZ
-            || child.typ == BOX_SAIO
-            || child.typ == BOX_SBGP
-            || child.typ == BOX_SGPD
+        if child.typ == SampleEncryptionBox::TYPE
+            || child.typ == SaizBox::TYPE
+            || child.typ == SaioBox::TYPE
+            || child.typ == SbgpBox::TYPE
+            || child.typ == SgpdSeigBox::TYPE
         {
             // Replace box type with 'free' and zero out payload (in-place).
             // senc/saiz/saio carry per-sample encryption info.
@@ -159,7 +159,7 @@ fn normalize_sample_entry(
 ) -> Result<()> {
     let children_start = entry_payload_start + base_size;
     let children = parse_boxes_range(data, children_start, entry_payload_end)?;
-    let Some(sinf) = find_box(&children, BOX_SINF) else {
+    let Some(sinf) = find_box(&children, ProtectionSchemeInfoBox::TYPE) else {
         return Ok(());
     };
 
