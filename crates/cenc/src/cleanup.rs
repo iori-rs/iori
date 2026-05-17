@@ -1,9 +1,12 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
-    BOX_FRMA, BOX_MDIA, BOX_MINF, BOX_PSSH, BOX_SAIO, BOX_SAIZ, BOX_SBGP, BOX_SENC, BOX_SGPD,
-    BOX_SINF, BOX_STBL, BOX_TRAK,
+    BOX_ENCA, BOX_ENCV, BOX_FRMA, BOX_MDIA, BOX_MINF, BOX_PSSH, BOX_SAIO, BOX_SAIZ, BOX_SBGP,
+    BOX_SENC, BOX_SGPD, BOX_SINF, BOX_STBL, BOX_TRAK,
 };
-use shiguredo_mp4::boxes::{MoofBox, MoovBox, StsdBox, TrafBox};
+use shiguredo_mp4::boxes::{
+    Av01Box, Avc1Box, FlacBox, FreeBox, Hev1Box, Hvc1Box, MoofBox, MoovBox, Mp4aBox, OpusBox,
+    StsdBox, TrafBox, Vp08Box, Vp09Box,
+};
 use shiguredo_mp4::{BoxHeader, BoxType, Decode};
 
 const VISUAL_SAMPLE_ENTRY_SIZE: usize = 78;
@@ -119,14 +122,19 @@ fn normalize_stsd(data: &mut [u8], stsd: RawBox) -> Result<()> {
                 "invalid stsd entry size".to_string(),
             ));
         }
-        let entry_type = read_type(data, offset + 4)?;
-        let base_size = match &entry_type {
+        let entry_type = read_box_type(data, offset + 4)?;
+        let base_size = match entry_type {
             // Standard CENC encrypted wrappers
-            b"encv" => VISUAL_SAMPLE_ENTRY_SIZE,
-            b"enca" => AUDIO_SAMPLE_ENTRY_SIZE,
+            BOX_ENCV => VISUAL_SAMPLE_ENTRY_SIZE,
+            BOX_ENCA => AUDIO_SAMPLE_ENTRY_SIZE,
             // CMAF cbcs: original codec type used directly with sinf appended
-            b"avc1" | b"hvc1" | b"hev1" | b"vp08" | b"vp09" | b"av01" => VISUAL_SAMPLE_ENTRY_SIZE,
-            b"mp4a" | b"opus" | b"flac" => AUDIO_SAMPLE_ENTRY_SIZE,
+            Avc1Box::TYPE
+            | Hvc1Box::TYPE
+            | Hev1Box::TYPE
+            | Vp08Box::TYPE
+            | Vp09Box::TYPE
+            | Av01Box::TYPE => VISUAL_SAMPLE_ENTRY_SIZE,
+            Mp4aBox::TYPE | OpusBox::TYPE | FlacBox::TYPE => AUDIO_SAMPLE_ENTRY_SIZE,
             _ => {
                 offset += entry_size;
                 continue;
@@ -177,7 +185,7 @@ fn normalize_sample_entry(
 /// Replace a box's type with `free` and zero its payload in-place.
 /// This keeps the file size unchanged while signaling to parsers that the bytes are free space.
 fn free_box(data: &mut [u8], b: &RawBox) {
-    data[b.start + 4..b.start + 8].copy_from_slice(b"free");
+    data[b.start + 4..b.start + 8].copy_from_slice(FreeBox::TYPE.as_bytes());
     let payload_start = b.start + b.header_size;
     let payload_end = b.start + b.size;
     data[payload_start..payload_end].fill(0);
@@ -233,4 +241,8 @@ fn read_type(data: &[u8], offset: usize) -> Result<[u8; 4]> {
         return Err(CencError::MetadataCleanup("type out of bounds".to_string()));
     }
     Ok(data[offset..offset + 4].try_into().unwrap())
+}
+
+fn read_box_type(data: &[u8], offset: usize) -> Result<BoxType> {
+    Ok(BoxType::Normal(read_type(data, offset)?))
 }

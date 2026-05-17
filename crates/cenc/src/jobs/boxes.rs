@@ -1,13 +1,13 @@
 use crate::errors::{CencError, Result};
 use crate::types::{CbcPattern, SchemeType, Subsample};
-use shiguredo_mp4::boxes::{SampleEntry, UnknownBox};
+use shiguredo_mp4::boxes::{MdiaBox, MinfBox, SampleEntry, StblBox, TrakBox, UnknownBox};
 use shiguredo_mp4::{BoxHeader, BoxType, Decode, FullBoxHeader};
 
 pub(crate) const BOX_PSSH: BoxType = BoxType::Normal(*b"pssh");
-pub(crate) const BOX_TRAK: BoxType = BoxType::Normal(*b"trak");
-pub(crate) const BOX_MDIA: BoxType = BoxType::Normal(*b"mdia");
-pub(crate) const BOX_MINF: BoxType = BoxType::Normal(*b"minf");
-pub(crate) const BOX_STBL: BoxType = BoxType::Normal(*b"stbl");
+pub(crate) const BOX_TRAK: BoxType = TrakBox::TYPE;
+pub(crate) const BOX_MDIA: BoxType = MdiaBox::TYPE;
+pub(crate) const BOX_MINF: BoxType = MinfBox::TYPE;
+pub(crate) const BOX_STBL: BoxType = StblBox::TYPE;
 pub(crate) const BOX_SINF: BoxType = BoxType::Normal(*b"sinf");
 pub(crate) const BOX_SCHI: BoxType = BoxType::Normal(*b"schi");
 pub(crate) const BOX_SCHM: BoxType = BoxType::Normal(*b"schm");
