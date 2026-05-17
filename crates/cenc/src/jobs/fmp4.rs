@@ -1,7 +1,7 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
-    BOX_SBGP, BOX_SENC, BOX_SGPD, RawMp4Box, SaioBox, SaizBox, SampleEncryptionBox,
-    SampleEncryptionEntry, SbgpEntry, SeigEntry, TrackEncryptionInfo, parse_saio, parse_saiz,
+    BOX_SENC, RawMp4Box, SaioBox, SaizBox, SampleEncryptionBox, SampleEncryptionEntry, SbgpBox,
+    SbgpEntry, SeigEntry, SgpdSeigBox, TrackEncryptionInfo, parse_saio, parse_saiz,
 };
 use crate::types::{CbcPattern, DecryptJob, ParsedCenc};
 use shiguredo_mp4::boxes::{MoofBox, MoovBox, UnknownBox};
@@ -29,7 +29,7 @@ impl<'a> UnknownBoxes<'a> {
         self.traf
             .iter()
             .chain(self.moof.iter())
-            .filter(|b| b.box_type == BOX_SBGP)
+            .filter(|b| b.box_type == SbgpBox::TYPE)
             .find_map(|b| SbgpEntry::parse_seig(&b.payload).transpose())
             .transpose()
     }
@@ -38,7 +38,7 @@ impl<'a> UnknownBoxes<'a> {
         self.traf
             .iter()
             .chain(self.moof.iter())
-            .filter(|b| b.box_type == BOX_SGPD)
+            .filter(|b| b.box_type == SgpdSeigBox::TYPE)
             .find_map(|b| SeigEntry::parse_seig(&b.payload).transpose())
             .transpose()
     }

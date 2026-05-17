@@ -1,6 +1,6 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
-    BOX_SBGP, BOX_SENC, BOX_SGPD, SampleEncryptionBox, SbgpEntry, SeigEntry, TrackEncryptionInfo,
+    BOX_SENC, SampleEncryptionBox, SbgpBox, SbgpEntry, SeigEntry, SgpdSeigBox, TrackEncryptionInfo,
 };
 use crate::types::{DecryptJob, ParsedCenc};
 use shiguredo_mp4::aux::SampleTableAccessor;
@@ -23,7 +23,7 @@ impl NonFragmentedSampleGroups {
     fn parse_optional(boxes: &[UnknownBox]) -> Result<Option<Self>> {
         let Some(sbgp) = boxes
             .iter()
-            .filter(|b| b.box_type == BOX_SBGP)
+            .filter(|b| b.box_type == SbgpBox::TYPE)
             .find_map(|b| SbgpEntry::parse_seig(&b.payload).transpose())
             .transpose()?
         else {
@@ -31,7 +31,7 @@ impl NonFragmentedSampleGroups {
         };
         let sgpd = boxes
             .iter()
-            .filter(|b| b.box_type == BOX_SGPD)
+            .filter(|b| b.box_type == SgpdSeigBox::TYPE)
             .find_map(|b| SeigEntry::parse_seig(&b.payload).transpose())
             .transpose()?
             .ok_or(CencError::MissingSenc)?;

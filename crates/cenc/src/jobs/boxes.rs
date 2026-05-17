@@ -27,6 +27,7 @@ const SENC_FLAG_USE_SUBSAMPLE_ENCRYPTION: usize = 1;
 const SENC_SUPPORTED_FLAGS: u32 =
     (1 << SENC_FLAG_OVERRIDE_TRACK_ENCRYPTION) | (1 << SENC_FLAG_USE_SUBSAMPLE_ENCRYPTION);
 const AUX_INFO_TYPE_PRESENT_FLAG: usize = 0;
+const GROUPING_TYPE_SEIG: [u8; 4] = *b"seig";
 
 const VISUAL_SAMPLE_ENTRY_SIZE: usize = 78;
 const AUDIO_SAMPLE_ENTRY_SIZE: usize = 28;
@@ -812,11 +813,55 @@ fn is_cenc_aux_info(aux_info_type: [u8; 4], aux_info_type_parameter: u32) -> boo
 // SbgpEntry — sample-to-group mapping
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SbgpEntry {
     pub(crate) sample_count: u32,
     /// 0 means "use track-level defaults", ≥1 is a 1-based index into the SGPD.
     pub(crate) group_description_index: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SbgpBox {
+    pub(crate) full_box_header: FullBoxHeader,
+    pub(crate) grouping_type: [u8; 4],
+    pub(crate) grouping_type_parameter: Option<u32>,
+    pub(crate) entries: Vec<SbgpEntry>,
+}
+
+impl SbgpBox {
+    pub(crate) const TYPE: BoxType = BOX_SBGP;
+
+    pub(crate) fn decode_payload(payload: &[u8]) -> Result<Self> {
+        let mut reader = ByteReader::new(payload);
+        let full_box_header = reader.read_full_box_header()?;
+        if reader.remaining() < 4 {
+            return Err(CencError::InvalidSenc("sbgp too short".to_string()));
+        }
+        let grouping_type = reader.read_type()?;
+        let grouping_type_parameter = if full_box_header.version == 1 {
+            Some(reader.read_u32()?)
+        } else {
+            None
+        };
+        let entry_count = reader.read_u32()? as usize;
+        let mut entries = Vec::with_capacity(entry_count);
+        for _ in 0..entry_count {
+            entries.push(SbgpEntry {
+                sample_count: reader.read_u32()?,
+                group_description_index: reader.read_u32()?,
+            });
+        }
+        Ok(Self {
+            full_box_header,
+            grouping_type,
+            grouping_type_parameter,
+            entries,
+        })
+    }
+
+    fn is_seig(&self) -> bool {
+        self.grouping_type == GROUPING_TYPE_SEIG
+    }
 }
 
 impl SbgpEntry {
@@ -840,27 +885,11 @@ impl SbgpEntry {
     /// Returns `None` when `grouping_type != "seig"`. Version 1 inserts
     /// `grouping_type_parameter` between `grouping_type` and `entry_count`.
     pub(crate) fn parse_seig(payload: &[u8]) -> Result<Option<Vec<Self>>> {
-        let mut reader = ByteReader::new(payload);
-        let header = reader.read_full_box_header()?;
-        if reader.remaining() < 4 {
-            return Err(CencError::InvalidSenc("sbgp too short".to_string()));
-        }
-        let grouping_type = reader.read_exact(4)?;
-        if grouping_type != b"seig" {
+        let box_item = SbgpBox::decode_payload(payload)?;
+        if !box_item.is_seig() {
             return Ok(None);
         }
-        if header.version == 1 {
-            let _ = reader.read_u32()?; // grouping_type_parameter
-        }
-        let entry_count = reader.read_u32()? as usize;
-        let mut entries = Vec::with_capacity(entry_count);
-        for _ in 0..entry_count {
-            entries.push(Self {
-                sample_count: reader.read_u32()?,
-                group_description_index: reader.read_u32()?,
-            });
-        }
-        Ok(Some(entries))
+        Ok(Some(box_item.entries))
     }
 }
 
@@ -869,7 +898,7 @@ impl SbgpEntry {
 // ---------------------------------------------------------------------------
 
 /// A single seig entry from an SGPD (SampleGroupDescription) box.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct SeigEntry {
     pub(crate) pattern: Option<CbcPattern>,
     pub(crate) is_protected: bool,
@@ -879,7 +908,95 @@ pub(crate) struct SeigEntry {
     pub(crate) constant_iv: Option<[u8; 16]>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SgpdSeigBox {
+    pub(crate) full_box_header: FullBoxHeader,
+    pub(crate) default_length: u32,
+    pub(crate) default_sample_description_index: Option<u32>,
+    pub(crate) entries: Vec<SeigEntry>,
+}
+
+impl SgpdSeigBox {
+    pub(crate) const TYPE: BoxType = BOX_SGPD;
+
+    pub(crate) fn decode_payload(payload: &[u8]) -> Result<Option<Self>> {
+        let mut reader = ByteReader::new(payload);
+        let full_box_header = reader.read_full_box_header()?;
+        if reader.remaining() < 4 {
+            return Err(CencError::InvalidSenc("sgpd too short".to_string()));
+        }
+        let grouping_type = reader.read_type()?;
+        if grouping_type != GROUPING_TYPE_SEIG {
+            return Ok(None);
+        }
+        let default_length = if full_box_header.version == 1 {
+            reader.read_u32()?
+        } else {
+            0u32
+        };
+        let default_sample_description_index = if full_box_header.version >= 2 {
+            Some(reader.read_u32()?)
+        } else {
+            None
+        };
+        let entry_count = reader.read_u32()? as usize;
+        let mut entries = Vec::with_capacity(entry_count);
+        for _ in 0..entry_count {
+            if full_box_header.version == 1 && default_length == 0 {
+                let _ = reader.read_u32()?; // length_including_length_field
+            }
+            entries.push(SeigEntry::decode_payload(&mut reader)?);
+        }
+        Ok(Some(Self {
+            full_box_header,
+            default_length,
+            default_sample_description_index,
+            entries,
+        }))
+    }
+}
+
 impl SeigEntry {
+    fn decode_payload(reader: &mut ByteReader) -> Result<Self> {
+        let crypt_skip = reader.read_u8()?;
+        let pattern = Some(CbcPattern {
+            crypt_byte_block: crypt_skip >> 4,
+            skip_byte_block: crypt_skip & 0x0f,
+        });
+        let _reserved = reader.read_u8()?;
+        let is_protected = reader.read_u8()? != 0;
+        let per_sample_iv_size = reader.read_u8()?;
+        if is_protected && !matches!(per_sample_iv_size, 0 | 8 | 16) {
+            return Err(CencError::InvalidSenc(format!(
+                "unsupported seig per_sample_iv_size {per_sample_iv_size}"
+            )));
+        }
+        let kid_bytes = reader.read_exact(16)?;
+        let mut kid = [0u8; 16];
+        kid.copy_from_slice(kid_bytes);
+        let constant_iv = if is_protected && per_sample_iv_size == 0 {
+            let constant_iv_size = reader.read_u8()? as usize;
+            if constant_iv_size > 16 {
+                return Err(CencError::InvalidSenc(format!(
+                    "unsupported seig constant iv size {constant_iv_size}"
+                )));
+            }
+            let iv_bytes = reader.read_exact(constant_iv_size)?;
+            let mut iv = [0u8; 16];
+            iv[..constant_iv_size].copy_from_slice(iv_bytes);
+            Some(iv)
+        } else {
+            None
+        };
+        Ok(Self {
+            pattern,
+            is_protected,
+            per_sample_iv_size,
+            kid,
+            constant_iv,
+        })
+    }
+
     /// Parse an SGPD box payload for seig entries.
     ///
     /// Returns `None` when `grouping_type != "seig"`. SGPD version 1 may use a
@@ -892,68 +1009,7 @@ impl SeigEntry {
     /// packed pattern byte uses the same high/low nibble layout as `tenc`
     /// version 1.
     pub(crate) fn parse_seig(payload: &[u8]) -> Result<Option<Vec<Self>>> {
-        let mut reader = ByteReader::new(payload);
-        let header = reader.read_full_box_header()?;
-        if reader.remaining() < 4 {
-            return Err(CencError::InvalidSenc("sgpd too short".to_string()));
-        }
-        let grouping_type = reader.read_exact(4)?;
-        if grouping_type != b"seig" {
-            return Ok(None);
-        }
-        let default_length = if header.version == 1 {
-            reader.read_u32()?
-        } else {
-            0u32
-        };
-        if header.version >= 2 {
-            let _ = reader.read_u32()?; // default_sample_description_index
-        }
-        let entry_count = reader.read_u32()? as usize;
-        let mut entries = Vec::with_capacity(entry_count);
-        for _ in 0..entry_count {
-            if header.version == 1 && default_length == 0 {
-                let _ = reader.read_u32()?; // length_including_length_field
-            }
-            let crypt_skip = reader.read_u8()?;
-            let pattern = Some(CbcPattern {
-                crypt_byte_block: crypt_skip >> 4,
-                skip_byte_block: crypt_skip & 0x0f,
-            });
-            let _reserved = reader.read_u8()?;
-            let is_protected = reader.read_u8()? != 0;
-            let per_sample_iv_size = reader.read_u8()?;
-            if is_protected && !matches!(per_sample_iv_size, 0 | 8 | 16) {
-                return Err(CencError::InvalidSenc(format!(
-                    "unsupported seig per_sample_iv_size {per_sample_iv_size}"
-                )));
-            }
-            let kid_bytes = reader.read_exact(16)?;
-            let mut kid = [0u8; 16];
-            kid.copy_from_slice(kid_bytes);
-            let constant_iv = if is_protected && per_sample_iv_size == 0 {
-                let constant_iv_size = reader.read_u8()? as usize;
-                if constant_iv_size > 16 {
-                    return Err(CencError::InvalidSenc(format!(
-                        "unsupported seig constant iv size {constant_iv_size}"
-                    )));
-                }
-                let iv_bytes = reader.read_exact(constant_iv_size)?;
-                let mut iv = [0u8; 16];
-                iv[..constant_iv_size].copy_from_slice(iv_bytes);
-                Some(iv)
-            } else {
-                None
-            };
-            entries.push(Self {
-                pattern,
-                is_protected,
-                per_sample_iv_size,
-                kid,
-                constant_iv,
-            });
-        }
-        Ok(Some(entries))
+        Ok(SgpdSeigBox::decode_payload(payload)?.map(|box_item| box_item.entries))
     }
 }
 
