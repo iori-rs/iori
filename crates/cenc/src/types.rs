@@ -158,7 +158,7 @@ impl CbcPattern {
     }
 
     pub(crate) fn is_active(&self) -> bool {
-        self.crypt_byte_block != 0 && self.skip_byte_block != 0
+        self.crypt_byte_block != 0 || self.skip_byte_block != 0
     }
 }
 
@@ -251,7 +251,7 @@ mod tests {
     }
 
     #[test]
-    fn pattern_encryption_is_active_only_when_crypt_and_skip_are_non_zero() {
+    fn pattern_encryption_is_active_when_either_crypt_or_skip_is_non_zero() {
         assert_eq!(
             SchemeType::Cbcs.effective_pattern(Some(CbcPattern {
                 crypt_byte_block: 1,
@@ -264,8 +264,28 @@ mod tests {
         );
         assert_eq!(
             SchemeType::Cbcs.effective_pattern(Some(CbcPattern {
+                crypt_byte_block: 10,
+                skip_byte_block: 0,
+            })),
+            Some(CbcPattern {
+                crypt_byte_block: 10,
+                skip_byte_block: 0,
+            })
+        );
+        assert_eq!(
+            SchemeType::Cbcs.effective_pattern(Some(CbcPattern {
                 crypt_byte_block: 0,
                 skip_byte_block: 9,
+            })),
+            Some(CbcPattern {
+                crypt_byte_block: 0,
+                skip_byte_block: 9,
+            })
+        );
+        assert_eq!(
+            SchemeType::Cbcs.effective_pattern(Some(CbcPattern {
+                crypt_byte_block: 0,
+                skip_byte_block: 0,
             })),
             None
         );

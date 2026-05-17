@@ -318,6 +318,79 @@ fn cbcs_skipped_pattern_blocks_do_not_update_cbc_chain() {
     assert_eq!(plain, encrypted);
 }
 
+/// A `cbcs` pattern with zero skipped blocks is still pattern encryption.
+///
+/// The 10:0 pattern is a common pattern value: every block is encrypted, but
+/// the `cbcs` subsample rule still applies. Each protected range starts a fresh
+/// CBC chain from the sample IV. Treating 10:0 as "no pattern" accidentally
+/// turns `cbcs` into `cbc1` and carries CBC state across subsamples.
+#[test]
+fn cbcs_zero_skip_pattern_still_resets_each_subsample() {
+    let plain = sample_bytes(72);
+    let pattern = CbcPattern {
+        crypt_byte_block: 10,
+        skip_byte_block: 0,
+    };
+    let subsamples = vec![
+        Subsample {
+            clear_bytes: 4,
+            encrypted_bytes: 32,
+        },
+        Subsample {
+            clear_bytes: 4,
+            encrypted_bytes: 32,
+        },
+    ];
+    let job = job(
+        plain.len(),
+        SchemeType::Cbcs,
+        Some(pattern),
+        subsamples.clone(),
+    );
+    let mut encrypted = plain.clone();
+
+    encrypt_cbc(&mut encrypted, job.iv, Some(pattern), &subsamples, true);
+
+    parsed(job)
+        .decrypt_in_place(&mut encrypted, &key_map(), 0)
+        .unwrap();
+    assert_eq!(plain, encrypted);
+}
+
+/// A `cbcs` pattern with zero encrypted blocks leaves every pattern block clear.
+///
+/// This is degenerate, but it follows directly from the pattern counts: zero
+/// crypt blocks followed by skipped blocks means no complete block is protected.
+/// It also protects against falling back to unpatterned CBC when only one of
+/// the pattern counters is non-zero.
+#[test]
+fn cbcs_zero_crypt_pattern_leaves_blocks_clear() {
+    let plain = sample_bytes(32);
+    let pattern = CbcPattern {
+        crypt_byte_block: 0,
+        skip_byte_block: 10,
+    };
+    let subsamples = vec![Subsample {
+        clear_bytes: 0,
+        encrypted_bytes: 32,
+    }];
+    let job = job(
+        plain.len(),
+        SchemeType::Cbcs,
+        Some(pattern),
+        subsamples.clone(),
+    );
+    let mut encrypted = plain.clone();
+
+    encrypt_cbc(&mut encrypted, job.iv, Some(pattern), &subsamples, true);
+    assert_eq!(plain, encrypted);
+
+    parsed(job)
+        .decrypt_in_place(&mut encrypted, &key_map(), 0)
+        .unwrap();
+    assert_eq!(plain, encrypted);
+}
+
 /// If a sample has no subsample table, the whole sample is one protected
 /// region.
 ///

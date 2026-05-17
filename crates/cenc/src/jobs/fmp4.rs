@@ -325,17 +325,24 @@ fn parse_auxiliary_sample_entries(
     offsets: &[u64],
     sizes: &[u8],
     trun_sample_counts: &[usize],
-    iv_size: u8,
-    constant_iv: Option<[u8; 16]>,
+    track_info: &TrackEncryptionInfo,
+    group_overrides: &[Option<SeigEntry>],
 ) -> Option<Vec<SampleEncryptionEntry>> {
     if offsets.is_empty() || sizes.len() != trun_sample_counts.iter().sum::<usize>() {
+        return None;
+    }
+    if sizes.len() != group_overrides.len() {
         return None;
     }
 
     if offsets.len() == 1 {
         let aux_offset = checked_aux_offset(moof_start, offsets[0], input.len())?;
-        return SampleEncryptionEntry::parse_sai(&input[aux_offset..], sizes, iv_size, constant_iv)
-            .ok();
+        return parse_auxiliary_sample_entries_at(
+            &input[aux_offset..],
+            sizes,
+            track_info,
+            group_overrides,
+        );
     }
 
     let mut entries = Vec::with_capacity(sizes.len());
@@ -347,18 +354,39 @@ fn parse_auxiliary_sample_entries(
         let aux_offset = checked_aux_offset(moof_start, *offsets.get(trun_index)?, input.len())?;
         let end = size_offset.checked_add(sample_count)?;
         let trun_sizes = sizes.get(size_offset..end)?;
-        let mut trun_entries = SampleEncryptionEntry::parse_sai(
+        let trun_groups = group_overrides.get(size_offset..end)?;
+        let mut trun_entries = parse_auxiliary_sample_entries_at(
             &input[aux_offset..],
             trun_sizes,
-            iv_size,
-            constant_iv,
-        )
-        .ok()?;
+            track_info,
+            trun_groups,
+        )?;
         entries.append(&mut trun_entries);
         size_offset = end;
     }
 
     (entries.len() == sizes.len()).then_some(entries)
+}
+
+fn parse_auxiliary_sample_entries_at(
+    data: &[u8],
+    sizes: &[u8],
+    track_info: &TrackEncryptionInfo,
+    group_overrides: &[Option<SeigEntry>],
+) -> Option<Vec<SampleEncryptionEntry>> {
+    let mut entries = Vec::with_capacity(sizes.len());
+    let mut offset = 0usize;
+    for (size, group) in sizes.iter().copied().zip(group_overrides.iter().copied()) {
+        let size = size as usize;
+        let end = offset.checked_add(size)?;
+        let entry_data = data.get(offset..end)?;
+        let (iv_size, constant_iv) = track_info.effective_iv_info(group);
+        let entry =
+            SampleEncryptionEntry::parse_sai_entry(entry_data, iv_size, constant_iv).ok()?;
+        entries.push(entry);
+        offset = end;
+    }
+    Some(entries)
 }
 
 fn checked_aux_offset(input_base: usize, relative_offset: u64, input_len: usize) -> Option<usize> {
@@ -426,8 +454,8 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                         &offsets,
                         &sizes,
                         samples.trun_sample_counts(),
-                        info.iv_size,
-                        info.constant_iv,
+                        info,
+                        &group_overrides,
                     )
                 {
                     debug_assert_eq!(entries.len(), sample_count);
@@ -439,10 +467,16 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                 }
 
                 if let Some(senc) = senc_box {
-                    let parsed = SampleEncryptionBox::parse_senc(
+                    let iv_info = group_overrides
+                        .iter()
+                        .copied()
+                        .map(|group| info.effective_iv_info(group))
+                        .collect::<Vec<_>>();
+                    let parsed = SampleEncryptionBox::parse_senc_with_iv_info(
                         &senc.payload,
                         info.iv_size,
                         info.constant_iv,
+                        Some(&iv_info),
                     )?;
                     if !parsed.entries.is_empty() {
                         let override_kid = parsed.override_kid();
@@ -500,14 +534,28 @@ mod tests {
     use super::*;
     use crate::types::SchemeType;
 
+    fn track_with_iv_size(iv_size: u8) -> TrackEncryptionInfo {
+        TrackEncryptionInfo {
+            scheme: SchemeType::Cenc,
+            kid: [1; 16],
+            iv_size,
+            constant_iv: None,
+            pattern: None,
+            is_protected: true,
+        }
+    }
+
     #[test]
     fn auxiliary_sample_entries_use_single_saio_offset_as_contiguous_table() {
         let mut input = vec![0u8; 80];
         input[20..28].copy_from_slice(&[1, 2, 3, 4, 5, 6, 7, 8]);
         input[28..36].copy_from_slice(&[9, 10, 11, 12, 13, 14, 15, 16]);
 
+        let track = track_with_iv_size(8);
+        let groups = vec![None, None];
         let entries =
-            parse_auxiliary_sample_entries(&input, 10, &[10], &[8, 8], &[1, 1], 8, None).unwrap();
+            parse_auxiliary_sample_entries(&input, 10, &[10], &[8, 8], &[1, 1], &track, &groups)
+                .unwrap();
 
         assert_eq!(entries.len(), 2);
         assert_eq!(
@@ -527,9 +575,18 @@ mod tests {
         input[60..68].copy_from_slice(&[9, 10, 11, 12, 13, 14, 15, 16]);
         input[68..76].copy_from_slice(&[17, 18, 19, 20, 21, 22, 23, 24]);
 
-        let entries =
-            parse_auxiliary_sample_entries(&input, 10, &[10, 50], &[8, 8, 8], &[1, 2], 8, None)
-                .unwrap();
+        let track = track_with_iv_size(8);
+        let groups = vec![None, None, None];
+        let entries = parse_auxiliary_sample_entries(
+            &input,
+            10,
+            &[10, 50],
+            &[8, 8, 8],
+            &[1, 2],
+            &track,
+            &groups,
+        )
+        .unwrap();
 
         assert_eq!(entries.len(), 3);
         assert_eq!(
@@ -543,6 +600,42 @@ mod tests {
         assert_eq!(
             entries[2].iv,
             [17, 18, 19, 20, 21, 22, 23, 24, 0, 0, 0, 0, 0, 0, 0, 0]
+        );
+    }
+
+    #[test]
+    fn auxiliary_sample_entries_use_seig_iv_size_overrides() {
+        let mut input = vec![0u8; 80];
+        input[20..28].copy_from_slice(&[1, 2, 3, 4, 5, 6, 7, 8]);
+        input[28..44].copy_from_slice(&[
+            9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+        ]);
+        let track = track_with_iv_size(16);
+        let groups = vec![
+            Some(SeigEntry {
+                pattern: None,
+                is_protected: true,
+                per_sample_iv_size: 8,
+                kid: [1; 16],
+                constant_iv: None,
+            }),
+            None,
+        ];
+
+        let entries =
+            parse_auxiliary_sample_entries(&input, 10, &[10], &[8, 16], &[2], &track, &groups)
+                .unwrap();
+
+        assert_eq!(entries.len(), 2);
+        assert_eq!(
+            entries[0].iv,
+            [1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0, 0, 0, 0, 0]
+        );
+        assert_eq!(
+            entries[1].iv,
+            [
+                9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24
+            ]
         );
     }
 

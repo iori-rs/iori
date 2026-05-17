@@ -13,6 +13,8 @@ pub(crate) const BOX_SGPD: [u8; 4] = *b"sgpd";
 pub(crate) const BOX_ENCV: [u8; 4] = *b"encv";
 pub(crate) const BOX_ENCA: [u8; 4] = *b"enca";
 
+const CENC_AUX_INFO_TYPES: [[u8; 4]; 4] = [*b"cenc", *b"cbc1", *b"cens", *b"cbcs"];
+
 const VISUAL_SAMPLE_ENTRY_SIZE: usize = 78;
 const AUDIO_SAMPLE_ENTRY_SIZE: usize = 28;
 
@@ -240,6 +242,15 @@ impl SampleEncryptionBox {
         iv_size: u8,
         constant_iv: Option<[u8; 16]>,
     ) -> Result<SampleEncryptionBox> {
+        Self::parse_senc_with_iv_info(payload, iv_size, constant_iv, None)
+    }
+
+    pub(crate) fn parse_senc_with_iv_info(
+        payload: &[u8],
+        iv_size: u8,
+        constant_iv: Option<[u8; 16]>,
+        per_sample_iv_info: Option<&[(u8, Option<[u8; 16]>)]>,
+    ) -> Result<SampleEncryptionBox> {
         if payload.len() < 8 {
             return Err(CencError::InvalidSenc("senc too short".to_string()));
         }
@@ -277,13 +288,29 @@ impl SampleEncryptionBox {
         } else {
             None
         };
-        let iv_size = override_parameters
+        let override_iv_size = override_parameters
             .map(|parameters| parameters.iv_size)
             .unwrap_or(iv_size);
         let sample_count = reader.read_u32()?;
+        if let Some(per_sample_iv_info) = per_sample_iv_info
+            && per_sample_iv_info.len() != sample_count as usize
+        {
+            return Err(CencError::SampleCountMismatch {
+                expected: sample_count,
+                actual: per_sample_iv_info.len() as u32,
+            });
+        }
         let mut entries = Vec::with_capacity(sample_count as usize);
-        for _ in 0..sample_count {
-            let iv = SampleEncryptionEntry::read_iv(&mut reader, iv_size, constant_iv)?;
+        for sample_index in 0..sample_count as usize {
+            let (sample_iv_size, sample_constant_iv) = if override_parameters.is_some() {
+                (override_iv_size, constant_iv)
+            } else if let Some(per_sample_iv_info) = per_sample_iv_info {
+                per_sample_iv_info[sample_index]
+            } else {
+                (override_iv_size, constant_iv)
+            };
+            let iv =
+                SampleEncryptionEntry::read_iv(&mut reader, sample_iv_size, sample_constant_iv)?;
             let subsamples = if has_subsamples {
                 SampleEncryptionEntry::read_subsamples(&mut reader)?
             } else {
@@ -324,6 +351,7 @@ impl SampleEncryptionEntry {
     /// `saiz` and the table payload is located through `saio`. The parser
     /// therefore constrains each read to one `saiz` entry and rejects leftover
     /// bytes in that entry.
+    #[cfg(test)]
     pub(crate) fn parse_sai(
         data: &[u8],
         sizes: &[u8],
@@ -334,32 +362,44 @@ impl SampleEncryptionEntry {
         let mut entries = Vec::with_capacity(sizes.len());
         for size in sizes {
             let size = *size as usize;
-            if size == 0 {
-                return Err(CencError::InvalidSenc("empty sample info size".to_string()));
-            }
             if data.len() < offset + size {
                 return Err(CencError::InvalidSenc("sai data truncated".to_string()));
             }
-            let mut reader = ByteReader::new(&data[offset..offset + size]);
-            let iv = Self::read_iv(&mut reader, iv_size, constant_iv)?;
-            let subsamples = if reader.remaining() > 0 {
-                if reader.remaining() < 2 {
-                    return Err(CencError::InvalidSenc(
-                        "subsample data truncated".to_string(),
-                    ));
-                }
-                let subs = Self::read_subsamples(&mut reader)?;
-                if reader.remaining() != 0 {
-                    return Err(CencError::InvalidSenc("sai size mismatch".to_string()));
-                }
-                subs
-            } else {
-                Vec::new()
-            };
-            entries.push(Self { iv, subsamples });
+            entries.push(Self::parse_sai_entry(
+                &data[offset..offset + size],
+                iv_size,
+                constant_iv,
+            )?);
             offset += size;
         }
         Ok(entries)
+    }
+
+    pub(crate) fn parse_sai_entry(
+        data: &[u8],
+        iv_size: u8,
+        constant_iv: Option<[u8; 16]>,
+    ) -> Result<Self> {
+        if data.is_empty() {
+            return Err(CencError::InvalidSenc("empty sample info size".to_string()));
+        }
+        let mut reader = ByteReader::new(data);
+        let iv = Self::read_iv(&mut reader, iv_size, constant_iv)?;
+        let subsamples = if reader.remaining() > 0 {
+            if reader.remaining() < 2 {
+                return Err(CencError::InvalidSenc(
+                    "subsample data truncated".to_string(),
+                ));
+            }
+            let subs = Self::read_subsamples(&mut reader)?;
+            if reader.remaining() != 0 {
+                return Err(CencError::InvalidSenc("sai size mismatch".to_string()));
+            }
+            subs
+        } else {
+            Vec::new()
+        };
+        Ok(Self { iv, subsamples })
     }
 
     /// Read a sample IV according to the effective per-sample IV size.
@@ -631,8 +671,8 @@ pub(crate) fn parse_saiz(payload: &[u8]) -> Result<Option<Vec<u8>>> {
     let header = FullBoxHeader::parse(&mut reader)?;
     if header.flags & 0x000001 != 0 {
         let aux_info_type = reader.read_u32()?;
-        let _ = reader.read_u32()?;
-        if aux_info_type != 0 && aux_info_type != u32::from_be_bytes(*b"cenc") {
+        let aux_info_type_parameter = reader.read_u32()?;
+        if !is_cenc_aux_info(aux_info_type, aux_info_type_parameter) {
             return Ok(None);
         }
     }
@@ -658,8 +698,8 @@ pub(crate) fn parse_saio(payload: &[u8]) -> Result<Option<Vec<u64>>> {
     let header = FullBoxHeader::parse(&mut reader)?;
     if header.flags & 0x000001 != 0 {
         let aux_info_type = reader.read_u32()?;
-        let _ = reader.read_u32()?;
-        if aux_info_type != 0 && aux_info_type != u32::from_be_bytes(*b"cenc") {
+        let aux_info_type_parameter = reader.read_u32()?;
+        if !is_cenc_aux_info(aux_info_type, aux_info_type_parameter) {
             return Ok(None);
         }
     }
@@ -674,6 +714,16 @@ pub(crate) fn parse_saio(payload: &[u8]) -> Result<Option<Vec<u64>>> {
         offsets.push(value);
     }
     Ok(Some(offsets))
+}
+
+fn is_cenc_aux_info(aux_info_type: u32, aux_info_type_parameter: u32) -> bool {
+    if aux_info_type == 0 {
+        return true;
+    }
+    aux_info_type_parameter <= 1
+        && CENC_AUX_INFO_TYPES
+            .iter()
+            .any(|box_type| aux_info_type == u32::from_be_bytes(*box_type))
 }
 
 // ---------------------------------------------------------------------------
@@ -854,6 +904,12 @@ impl TrackEncryptionInfo {
         group
             .and_then(|entry| entry.constant_iv)
             .unwrap_or(sample_iv)
+    }
+
+    pub(crate) fn effective_iv_info(&self, group: Option<SeigEntry>) -> (u8, Option<[u8; 16]>) {
+        group
+            .map(|entry| (entry.per_sample_iv_size, entry.constant_iv))
+            .unwrap_or((self.iv_size, self.constant_iv))
     }
 
     pub(crate) fn effective_pattern(&self, group: Option<SeigEntry>) -> Option<CbcPattern> {
@@ -1299,6 +1355,47 @@ mod tests {
         );
     }
 
+    #[test]
+    fn parse_senc_uses_per_sample_iv_size_overrides() {
+        let payload = SencBoxSyntax {
+            flags: 0,
+            override_parameters: None,
+            samples: vec![
+                SencSampleSyntax {
+                    iv: vec![0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88],
+                    subsamples: Vec::new(),
+                },
+                SencSampleSyntax {
+                    iv: vec![
+                        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c,
+                        0x0d, 0x0e, 0x0f, 0x10,
+                    ],
+                    subsamples: Vec::new(),
+                },
+            ],
+        }
+        .payload();
+        let iv_info = [(8, None), (16, None)];
+
+        let parsed =
+            SampleEncryptionBox::parse_senc_with_iv_info(&payload, 16, None, Some(&iv_info))
+                .unwrap();
+
+        assert_eq!(
+            parsed.entries[0].iv,
+            [
+                0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0, 0, 0, 0, 0, 0, 0, 0
+            ]
+        );
+        assert_eq!(
+            parsed.entries[1].iv,
+            [
+                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
+                0x0f, 0x10,
+            ]
+        );
+    }
+
     /// Only the two CENC-defined `senc` flags are accepted here.
     ///
     /// Other flag bits change the serialized layout or semantics. Accepting
@@ -1347,15 +1444,17 @@ mod tests {
     /// skipped before reading `default_sample_info_size` and `sample_count`.
     #[test]
     fn parse_saiz_handles_aux_info_type_and_default_size() {
-        let payload = SaizBoxSyntax {
-            aux_info: Some((*b"cenc", 0)),
-            default_sample_info_size: 16,
-            sample_count: 3,
-            explicit_sample_info_sizes: Vec::new(),
-        }
-        .payload();
+        for scheme in [*b"cenc", *b"cbc1", *b"cens", *b"cbcs"] {
+            let payload = SaizBoxSyntax {
+                aux_info: Some((scheme, 0)),
+                default_sample_info_size: 16,
+                sample_count: 3,
+                explicit_sample_info_sizes: Vec::new(),
+            }
+            .payload();
 
-        assert_eq!(parse_saiz(&payload).unwrap(), Some(vec![16, 16, 16]));
+            assert_eq!(parse_saiz(&payload).unwrap(), Some(vec![16, 16, 16]));
+        }
     }
 
     /// `saiz` explicit sizes are used when the default size is zero.
@@ -1383,17 +1482,19 @@ mod tests {
     /// those fields and then read each version-1 offset as a 64-bit value.
     #[test]
     fn parse_saio_handles_aux_info_type_and_64_bit_offsets() {
-        let payload = SaioBoxSyntax {
-            version: 1,
-            aux_info: Some((*b"cenc", 0)),
-            offsets: vec![0x0000_0001_0000_0002, 0x0000_0003_0000_0004],
-        }
-        .payload();
+        for scheme in [*b"cenc", *b"cbc1", *b"cens", *b"cbcs"] {
+            let payload = SaioBoxSyntax {
+                version: 1,
+                aux_info: Some((scheme, 1)),
+                offsets: vec![0x0000_0001_0000_0002, 0x0000_0003_0000_0004],
+            }
+            .payload();
 
-        assert_eq!(
-            parse_saio(&payload).unwrap().unwrap(),
-            vec![0x0000_0001_0000_0002, 0x0000_0003_0000_0004]
-        );
+            assert_eq!(
+                parse_saio(&payload).unwrap().unwrap(),
+                vec![0x0000_0001_0000_0002, 0x0000_0003_0000_0004]
+            );
+        }
     }
 
     /// `saiz` boxes with an explicit non-CENC auxiliary information type do
@@ -1430,6 +1531,24 @@ mod tests {
         .payload();
 
         assert_eq!(parse_saio(&payload).unwrap(), None);
+    }
+
+    /// CENC SAI references allow only aux info parameters 0 and 1.
+    ///
+    /// A matching protection-scheme type with another parameter is a different
+    /// auxiliary information stream and must not be consumed as IV/subsample
+    /// data.
+    #[test]
+    fn parse_saiz_ignores_cenc_aux_info_with_unsupported_parameter() {
+        let payload = SaizBoxSyntax {
+            aux_info: Some((*b"cbcs", 2)),
+            default_sample_info_size: 16,
+            sample_count: 1,
+            explicit_sample_info_sizes: Vec::new(),
+        }
+        .payload();
+
+        assert_eq!(parse_saiz(&payload).unwrap(), None);
     }
 
     /// `sbgp` version 1 inserts a grouping type parameter before entry count.

@@ -14,7 +14,9 @@ audio and video sources:
 
 The script writes generated media under `generated/`, which is ignored by git.
 It also writes Bento4 `mp4decrypt` outputs as oracle files. The Rust matrix
-test consumes the generated directory when it exists and otherwise skips.
+test consumes the generated directory when it exists and otherwise skips. An
+optional Shaka Packager differential test can also consume the same generated
+fixtures when `SHAKA_PACKAGER` points to the `packager` executable.
 
 Required tools:
 
@@ -22,10 +24,12 @@ Required tools:
 - Bento4 `mp4fragment`
 - Bento4 `mp4encrypt`
 - Bento4 `mp4decrypt`
+- Shaka Packager `packager` (optional, for `shaka_differential`)
 
 Run:
 
 ```sh
 crates/cenc/tests/fixtures/matrix/generate.sh
 cargo test -p iori-cenc --test cenc_matrix
+SHAKA_PACKAGER=/path/to/packager cargo test -p iori-cenc --test shaka_differential
 ```
