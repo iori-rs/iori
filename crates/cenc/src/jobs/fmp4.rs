@@ -141,6 +141,21 @@ struct SeigSampleGroups {
     sgpd: Vec<SeigEntry>,
 }
 
+/// Per-sample protection state expanded from `sbgp`/`sgpd`.
+///
+/// CENC sample groups are run-length metadata over the media samples. Each
+/// mapped sample still occupies one position in decode order, even when its
+/// `seig` description marks it unprotected. Keeping clear samples as explicit
+/// entries preserves the one-to-one relationship between sample indexes and
+/// sample-group indexes.
+enum GroupSampleEncryption {
+    /// The sample group description says this sample is not encrypted.
+    Clear,
+    /// The sample is encrypted and the group supplies the sample encryption
+    /// parameters that are otherwise carried by `senc` or `saiz`/`saio`.
+    Encrypted(SampleEncryptionEntry),
+}
+
 impl SeigSampleGroups {
     fn parse(required_boxes: &UnknownBoxes) -> Result<Self> {
         let sbgp = required_boxes
@@ -160,48 +175,57 @@ impl SeigSampleGroups {
         Ok(Some(Self { sbgp, sgpd }))
     }
 
-    /// Build per-sample encryption entries from `sbgp`/`sgpd` `seig` boxes.
+    /// Build per-sample protection states from `sbgp`/`sgpd` `seig` boxes.
     ///
     /// If no `senc` or `saiz`/`saio` data exists, protected samples may still
     /// be described by a `seig` sample group. In that layout the group supplies
-    /// a constant IV and there is no per-sample subsample table.
-    fn build_entries(
+    /// a constant IV and there is no per-sample subsample table. Unprotected
+    /// group descriptions are retained as clear samples instead of being
+    /// omitted, because omitting them would shift every later sample's
+    /// encryption metadata to the wrong media sample.
+    fn build_samples(
         &self,
         sample_count: usize,
         track_info: &TrackEncryptionInfo,
-    ) -> Result<Vec<SampleEncryptionEntry>> {
-        let mut entries = Vec::with_capacity(sample_count);
+    ) -> Result<Vec<GroupSampleEncryption>> {
+        let mut samples = Vec::with_capacity(sample_count);
         let mut remaining = sample_count;
 
         for sbgp_entry in &self.sbgp {
             let count = (sbgp_entry.sample_count as usize).min(remaining);
             for _ in 0..count {
-                let iv = if sbgp_entry.group_description_index == 0 {
-                    track_info.constant_iv.ok_or_else(|| {
+                let state = if sbgp_entry.group_description_index == 0 {
+                    let iv = track_info.constant_iv.ok_or_else(|| {
                         CencError::InvalidSenc(
                             "sbgp group_description_index=0 but no track-level constant IV"
                                 .to_string(),
                         )
-                    })?
+                    })?;
+                    GroupSampleEncryption::Encrypted(SampleEncryptionEntry {
+                        iv,
+                        subsamples: Vec::new(),
+                    })
                 } else {
                     let idx = sbgp_entry.description_index()?;
                     let seig = self.sgpd.get(idx).ok_or_else(|| {
                         CencError::InvalidSenc("invalid sbgp group_description_index".to_string())
                     })?;
                     if !seig.is_protected {
-                        continue;
+                        GroupSampleEncryption::Clear
+                    } else {
+                        let iv = seig.constant_iv.ok_or_else(|| {
+                            CencError::InvalidSenc(
+                                "sgpd seig entry has no constant IV (per_sample_iv_size != 0)"
+                                    .to_string(),
+                            )
+                        })?;
+                        GroupSampleEncryption::Encrypted(SampleEncryptionEntry {
+                            iv,
+                            subsamples: Vec::new(),
+                        })
                     }
-                    seig.constant_iv.ok_or_else(|| {
-                        CencError::InvalidSenc(
-                            "sgpd seig entry has no constant IV (per_sample_iv_size != 0)"
-                                .to_string(),
-                        )
-                    })?
                 };
-                entries.push(SampleEncryptionEntry {
-                    iv,
-                    subsamples: Vec::new(),
-                });
+                samples.push(state);
             }
             remaining -= count;
             if remaining == 0 {
@@ -209,7 +233,7 @@ impl SeigSampleGroups {
             }
         }
 
-        Ok(entries)
+        Ok(samples)
     }
 
     /// Expand sample-group overrides to one optional `seig` entry per sample.
@@ -407,7 +431,11 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                     )
                 {
                     debug_assert_eq!(entries.len(), sample_count);
-                    break 'entries (entries, None, false);
+                    let samples = entries
+                        .into_iter()
+                        .map(GroupSampleEncryption::Encrypted)
+                        .collect();
+                    break 'entries (samples, None, false);
                 }
 
                 if let Some(senc) = senc_box {
@@ -419,12 +447,17 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                     if !parsed.entries.is_empty() {
                         let override_kid = parsed.override_kid();
                         let overrides_to_clear = parsed.overrides_to_clear_samples();
-                        break 'entries (parsed.entries, override_kid, overrides_to_clear);
+                        let samples = parsed
+                            .entries
+                            .into_iter()
+                            .map(GroupSampleEncryption::Encrypted)
+                            .collect();
+                        break 'entries (samples, override_kid, overrides_to_clear);
                     }
                 }
 
                 (
-                    SeigSampleGroups::parse(&unknown_boxes)?.build_entries(sample_count, info)?,
+                    SeigSampleGroups::parse(&unknown_boxes)?.build_samples(sample_count, info)?,
                     None,
                     false,
                 )
@@ -437,11 +470,14 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                 });
             }
 
-            for (((offset, size), entry), group_override) in samples
+            for (((offset, size), sample_encryption), group_override) in samples
                 .into_iter()
                 .zip(entries.into_iter())
                 .zip(group_overrides.into_iter())
             {
+                let GroupSampleEncryption::Encrypted(entry) = sample_encryption else {
+                    continue;
+                };
                 let Some(effective) = EffectiveSampleEncryption::from_metadata(
                     info,
                     group_override,
@@ -529,5 +565,53 @@ mod tests {
             EffectiveSampleEncryption::from_metadata(&track, None, &sample, Some([3; 16]), true);
 
         assert!(effective.is_none());
+    }
+
+    #[test]
+    fn seig_sample_groups_keep_unprotected_samples_in_position() {
+        let groups = SeigSampleGroups {
+            sbgp: vec![
+                SbgpEntry {
+                    sample_count: 1,
+                    group_description_index: 1,
+                },
+                SbgpEntry {
+                    sample_count: 1,
+                    group_description_index: 2,
+                },
+            ],
+            sgpd: vec![
+                SeigEntry {
+                    pattern: None,
+                    is_protected: false,
+                    per_sample_iv_size: 0,
+                    kid: [0; 16],
+                    constant_iv: None,
+                },
+                SeigEntry {
+                    pattern: None,
+                    is_protected: true,
+                    per_sample_iv_size: 0,
+                    kid: [9; 16],
+                    constant_iv: Some([7; 16]),
+                },
+            ],
+        };
+        let track = TrackEncryptionInfo {
+            scheme: SchemeType::Cenc,
+            kid: [1; 16],
+            iv_size: 0,
+            constant_iv: None,
+            pattern: None,
+            is_protected: true,
+        };
+
+        let samples = groups.build_samples(2, &track).unwrap();
+
+        assert!(matches!(samples[0], GroupSampleEncryption::Clear));
+        match &samples[1] {
+            GroupSampleEncryption::Encrypted(entry) => assert_eq!(entry.iv, [7; 16]),
+            GroupSampleEncryption::Clear => panic!("second sample should be encrypted"),
+        }
     }
 }
