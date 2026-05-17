@@ -237,6 +237,7 @@ impl SampleEncryptionBox {
     /// constant IV. When the subsample flag is absent, the sample is
     /// represented by an empty subsample vector and later treated as one fully
     /// protected range.
+    #[cfg(test)]
     pub(crate) fn parse_senc(
         payload: &[u8],
         iv_size: u8,
@@ -724,19 +725,6 @@ fn is_cenc_aux_info(aux_info_type: u32, aux_info_type_parameter: u32) -> bool {
         && CENC_AUX_INFO_TYPES
             .iter()
             .any(|box_type| aux_info_type == u32::from_be_bytes(*box_type))
-}
-
-// ---------------------------------------------------------------------------
-// is_seig_grouping_box — predicate on external type
-// ---------------------------------------------------------------------------
-
-pub(crate) fn is_seig_grouping_box(b: &UnknownBox) -> bool {
-    match b.box_type {
-        BoxType::Normal(BOX_SBGP) | BoxType::Normal(BOX_SGPD) => {
-            b.payload.len() >= 8 && &b.payload[4..8] == b"seig"
-        }
-        _ => false,
-    }
 }
 
 // ---------------------------------------------------------------------------
