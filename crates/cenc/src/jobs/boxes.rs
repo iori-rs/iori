@@ -22,6 +22,11 @@ pub(crate) const BOX_ENCV: BoxType = BoxType::Normal(*b"encv");
 pub(crate) const BOX_ENCA: BoxType = BoxType::Normal(*b"enca");
 
 const CENC_AUX_INFO_TYPES: [[u8; 4]; 4] = [*b"cenc", *b"cbc1", *b"cens", *b"cbcs"];
+const SENC_FLAG_OVERRIDE_TRACK_ENCRYPTION: usize = 0;
+const SENC_FLAG_USE_SUBSAMPLE_ENCRYPTION: usize = 1;
+const SENC_SUPPORTED_FLAGS: u32 =
+    (1 << SENC_FLAG_OVERRIDE_TRACK_ENCRYPTION) | (1 << SENC_FLAG_USE_SUBSAMPLE_ENCRYPTION);
+const AUX_INFO_TYPE_PRESENT_FLAG: usize = 0;
 
 const VISUAL_SAMPLE_ENTRY_SIZE: usize = 78;
 const AUDIO_SAMPLE_ENTRY_SIZE: usize = 28;
@@ -235,22 +240,23 @@ impl SampleEncryptionBox {
         if payload.len() < 8 {
             return Err(CencError::InvalidSenc("senc too short".to_string()));
         }
-        let version = payload[0];
-        if version != 0 {
+        let mut reader = ByteReader::new(payload);
+        let header = reader.read_full_box_header()?;
+        if header.version != 0 {
             return Err(CencError::InvalidSenc(format!(
-                "unsupported senc version {version}"
+                "unsupported senc version {}",
+                header.version
             )));
         }
-        let flags = ((payload[1] as u32) << 16) | ((payload[2] as u32) << 8) | payload[3] as u32;
-        let has_override = (flags & 0x000001) != 0;
-        let has_subsamples = (flags & 0x000002) != 0;
-        if flags & !0x000003 != 0 {
+        let flags = header.flags.get();
+        let has_override = header.flags.is_set(SENC_FLAG_OVERRIDE_TRACK_ENCRYPTION);
+        let has_subsamples = header.flags.is_set(SENC_FLAG_USE_SUBSAMPLE_ENCRYPTION);
+        if flags & !SENC_SUPPORTED_FLAGS != 0 {
             return Err(CencError::InvalidSenc(format!(
                 "unsupported senc flags: {flags:#x}"
             )));
         }
 
-        let mut reader = ByteReader::new(&payload[4..]);
         let override_parameters = if has_override {
             let algorithm_id: [u8; 3] = reader.read_exact(3)?.try_into().map_err(|_| {
                 CencError::InvalidSenc("track encryption override truncated".to_string())
@@ -679,7 +685,7 @@ fn unknown_boxes_from_sample_entry(entry: &SampleEntry) -> &[UnknownBox] {
 pub(crate) fn parse_saiz(payload: &[u8]) -> Result<Option<Vec<u8>>> {
     let mut reader = ByteReader::new(payload);
     let header = reader.read_full_box_header()?;
-    if header.flags.get() & 0x000001 != 0 {
+    if header.flags.is_set(AUX_INFO_TYPE_PRESENT_FLAG) {
         let aux_info_type = reader.read_u32()?;
         let aux_info_type_parameter = reader.read_u32()?;
         if !is_cenc_aux_info(aux_info_type, aux_info_type_parameter) {
@@ -706,7 +712,7 @@ pub(crate) fn parse_saiz(payload: &[u8]) -> Result<Option<Vec<u8>>> {
 pub(crate) fn parse_saio(payload: &[u8]) -> Result<Option<Vec<u64>>> {
     let mut reader = ByteReader::new(payload);
     let header = reader.read_full_box_header()?;
-    if header.flags.get() & 0x000001 != 0 {
+    if header.flags.is_set(AUX_INFO_TYPE_PRESENT_FLAG) {
         let aux_info_type = reader.read_u32()?;
         let aux_info_type_parameter = reader.read_u32()?;
         if !is_cenc_aux_info(aux_info_type, aux_info_type_parameter) {
