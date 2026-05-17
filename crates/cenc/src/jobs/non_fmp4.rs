@@ -1,6 +1,6 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
-    BOX_SENC, SampleEncryptionBox, SbgpBox, SbgpEntry, SeigEntry, SgpdSeigBox, TrackEncryptionInfo,
+    SampleEncryptionBox, SbgpBox, SbgpEntry, SeigEntry, SgpdSeigBox, TrackEncryptionInfo,
 };
 use crate::types::{DecryptJob, ParsedCenc};
 use shiguredo_mp4::aux::SampleTableAccessor;
@@ -78,7 +78,7 @@ pub(crate) fn parse_decrypt_jobs_non_fmp4(moov: &MoovBox) -> Result<ParsedCenc> 
         let senc = stbl
             .unknown_boxes
             .iter()
-            .find(|b| b.box_type == BOX_SENC)
+            .find(|b| b.box_type == SampleEncryptionBox::TYPE)
             .ok_or(CencError::MissingSenc)?;
 
         let sample_table = SampleTableAccessor::new(stbl)?;

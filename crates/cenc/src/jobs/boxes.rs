@@ -186,6 +186,7 @@ pub(crate) struct SampleEncryptionEntry {
 /// track-encryption override parameters when flag `0x000001` is set.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct SampleEncryptionBox {
+    pub(crate) full_box_header: FullBoxHeader,
     pub(crate) entries: Vec<SampleEncryptionEntry>,
     pub(crate) override_parameters: Option<TrackEncryptionOverride>,
 }
@@ -203,6 +204,8 @@ pub(crate) struct TrackEncryptionOverride {
 }
 
 impl SampleEncryptionBox {
+    pub(crate) const TYPE: BoxType = BOX_SENC;
+
     pub(crate) fn override_kid(&self) -> Option<[u8; 16]> {
         self.override_parameters.map(|parameters| parameters.kid)
     }
@@ -246,16 +249,20 @@ impl SampleEncryptionBox {
             return Err(CencError::InvalidSenc("senc too short".to_string()));
         }
         let mut reader = ByteReader::new(payload);
-        let header = reader.read_full_box_header()?;
-        if header.version != 0 {
+        let full_box_header = reader.read_full_box_header()?;
+        if full_box_header.version != 0 {
             return Err(CencError::InvalidSenc(format!(
                 "unsupported senc version {}",
-                header.version
+                full_box_header.version
             )));
         }
-        let flags = header.flags.get();
-        let has_override = header.flags.is_set(SENC_FLAG_OVERRIDE_TRACK_ENCRYPTION);
-        let has_subsamples = header.flags.is_set(SENC_FLAG_USE_SUBSAMPLE_ENCRYPTION);
+        let flags = full_box_header.flags.get();
+        let has_override = full_box_header
+            .flags
+            .is_set(SENC_FLAG_OVERRIDE_TRACK_ENCRYPTION);
+        let has_subsamples = full_box_header
+            .flags
+            .is_set(SENC_FLAG_USE_SUBSAMPLE_ENCRYPTION);
         if flags & !SENC_SUPPORTED_FLAGS != 0 {
             return Err(CencError::InvalidSenc(format!(
                 "unsupported senc flags: {flags:#x}"
@@ -311,6 +318,7 @@ impl SampleEncryptionBox {
             entries.push(SampleEncryptionEntry { iv, subsamples });
         }
         Ok(SampleEncryptionBox {
+            full_box_header,
             entries,
             override_parameters,
         })

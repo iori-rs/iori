@@ -1,7 +1,7 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
-    BOX_SENC, RawMp4Box, SaioBox, SaizBox, SampleEncryptionBox, SampleEncryptionEntry, SbgpBox,
-    SbgpEntry, SeigEntry, SgpdSeigBox, TrackEncryptionInfo, parse_saio, parse_saiz,
+    RawMp4Box, SaioBox, SaizBox, SampleEncryptionBox, SampleEncryptionEntry, SbgpBox, SbgpEntry,
+    SeigEntry, SgpdSeigBox, TrackEncryptionInfo, parse_saio, parse_saiz,
 };
 use crate::types::{CbcPattern, DecryptJob, ParsedCenc};
 use shiguredo_mp4::boxes::{MoofBox, MoovBox, UnknownBox};
@@ -443,7 +443,7 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                 .transpose()?
                 .unwrap_or_else(|| vec![None; sample_count]);
 
-            let senc_box = unknown_boxes.find(BOX_SENC);
+            let senc_box = unknown_boxes.find(SampleEncryptionBox::TYPE);
             let (entries, senc_override_kid, senc_overrides_to_clear) = 'entries: {
                 let sizes = unknown_boxes.parse_cenc_saiz()?;
                 let offsets = unknown_boxes.parse_cenc_saio()?;
