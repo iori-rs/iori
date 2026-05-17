@@ -37,9 +37,10 @@ impl DecryptJob {
     ///
     /// CENC rule, paraphrased: when a sample has no subsample table, the
     /// entire sample is treated as one protected range. When a subsample table
-    /// is present, each entry partitions the sample into clear bytes followed
-    /// by protected bytes, and the entries must cover the sample in order
-    /// without gaps or overrun.
+    /// is present, each entry describes the next clear byte run followed by
+    /// the next protected byte run. The described runs must not overrun the
+    /// sample. Bytes that remain after the final entry are not part of a
+    /// protected run and stay unchanged.
     pub(crate) fn decrypt_sample(&self, sample: &mut [u8], key: &[u8; 16]) -> Result<()> {
         let subsamples = if self.subsamples.is_empty() {
             vec![Subsample {
@@ -70,9 +71,6 @@ fn validate_subsamples(sample_len: usize, subsamples: &[Subsample]) -> Result<()
         if offset > sample_len {
             return Err(CencError::OutOfBounds);
         }
-    }
-    if offset != sample_len {
-        return Err(CencError::OutOfBounds);
     }
     Ok(())
 }

@@ -187,27 +187,32 @@ fn decrypt_cbcs_pattern_with_subsamples() {
 }
 
 #[test]
-fn decrypt_rejects_subsamples_that_do_not_cover_sample() {
-    let mut encrypted = vec![0u8; 16];
+fn decrypt_keeps_trailing_bytes_after_subsample_table_clear() {
+    let plain = (0u8..24).collect::<Vec<_>>();
+    let subsamples = vec![Subsample {
+        clear_bytes: 2,
+        encrypted_bytes: 14,
+    }];
     let job = DecryptJob {
         track_id: None,
         offset: 0,
-        size: encrypted.len() as u32,
+        size: plain.len() as u32,
         iv: [0x10; 16],
-        subsamples: vec![Subsample {
-            clear_bytes: 0,
-            encrypted_bytes: 8,
-        }],
+        subsamples: subsamples.clone(),
         scheme: SchemeType::Cenc,
         pattern: None,
         kid: KID,
     };
 
-    assert!(
-        decrypt_jobs(vec![job])
-            .decrypt_in_place(&mut encrypted, &key_map(), 0)
-            .is_err()
-    );
+    let mut encrypted = plain.clone();
+    encrypt_ctr_continuous_with_subsamples(&mut encrypted, job.iv, &subsamples);
+    assert_eq!(&plain[16..], &encrypted[16..]);
+
+    decrypt_jobs(vec![job])
+        .decrypt_in_place(&mut encrypted, &key_map(), 0)
+        .unwrap();
+
+    assert_eq!(plain, encrypted);
 }
 
 #[test]
