@@ -515,6 +515,11 @@ impl TrackEncryptionInfo {
             .find(|child| child.box_type == BOX_SCHM)
             .ok_or(CencError::MissingSchm)?;
         let scheme = Self::parse_schm(schm.payload)?;
+        if scheme == SchemeType::Sve1 {
+            return Err(CencError::UnsupportedContentSensitiveScheme(
+                "sve1".to_string(),
+            ));
+        }
         let schi = sinf_children
             .iter()
             .find(|child| child.box_type == BOX_SCHI)
@@ -537,6 +542,11 @@ impl TrackEncryptionInfo {
         SchemeType::from_bytes(scheme_type).ok_or_else(|| {
             CencError::UnsupportedScheme(String::from_utf8_lossy(&scheme_type).to_string())
         })
+    }
+
+    #[cfg(test)]
+    fn parse_schm_for_test(payload: &[u8]) -> Result<SchemeType> {
+        Self::parse_schm(payload)
     }
 
     /// Parse a TrackEncryptionBox (`tenc`) payload.
@@ -1232,6 +1242,19 @@ mod tests {
         .payload();
 
         assert!(SeigEntry::parse_seig(&payload).unwrap().is_none());
+    }
+
+    #[test]
+    fn parse_schm_recognizes_sve1_scheme_type() {
+        let mut payload = Mp4Syntax::new();
+        payload.full_box_header(0, 0);
+        payload.bytes(b"sve1");
+        payload.u32(0x0001_0000);
+
+        assert_eq!(
+            TrackEncryptionInfo::parse_schm_for_test(&payload.into_payload()).unwrap(),
+            SchemeType::Sve1
+        );
     }
 
     #[test]

@@ -23,6 +23,8 @@ pub enum CencError {
     MissingSenc,
     #[error("unsupported scheme type: {0}")]
     UnsupportedScheme(String),
+    #[error("unsupported content-sensitive encryption scheme: {0}")]
+    UnsupportedContentSensitiveScheme(String),
     #[error("missing tenc box in encrypted sample entry")]
     MissingTenc,
     #[error("missing sinf box in encrypted sample entry")]

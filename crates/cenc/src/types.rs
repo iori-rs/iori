@@ -100,6 +100,7 @@ pub enum SchemeType {
     Cens,
     Cbc1,
     Cbcs,
+    Sve1,
 }
 
 impl SchemeType {
@@ -109,12 +110,13 @@ impl SchemeType {
             b"cens" => Some(Self::Cens),
             b"cbc1" => Some(Self::Cbc1),
             b"cbcs" => Some(Self::Cbcs),
+            b"sve1" => Some(Self::Sve1),
             _ => None,
         }
     }
 
     pub fn is_ctr(&self) -> bool {
-        matches!(self, Self::Cenc | Self::Cens)
+        matches!(self, Self::Cenc | Self::Cens | Self::Sve1)
     }
 
     pub fn is_cbc(&self) -> bool {
@@ -123,7 +125,7 @@ impl SchemeType {
 
     pub(crate) fn cipher_mode(&self) -> CipherMode {
         match self {
-            Self::Cenc | Self::Cens => CipherMode::AesCtr,
+            Self::Cenc | Self::Cens | Self::Sve1 => CipherMode::AesCtr,
             Self::Cbc1 | Self::Cbcs => CipherMode::AesCbc,
         }
     }
@@ -291,6 +293,13 @@ mod tests {
         );
         assert_eq!(
             SchemeType::Cbc1.effective_pattern(Some(CbcPattern {
+                crypt_byte_block: 1,
+                skip_byte_block: 9,
+            })),
+            None
+        );
+        assert_eq!(
+            SchemeType::Sve1.effective_pattern(Some(CbcPattern {
                 crypt_byte_block: 1,
                 skip_byte_block: 9,
             })),
