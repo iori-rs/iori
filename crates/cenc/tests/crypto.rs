@@ -366,31 +366,30 @@ fn decrypt_fmp4_preserves_size_and_top_level_layout() {
         "0123456789abcdef0123456789abcdef".to_string(),
     )]);
 
-    for name in ["cenc.mp4"] {
-        let encrypted = fs::read(base.join(name)).unwrap();
-        let encrypted_layout = top_level_box_layout(&encrypted).unwrap();
-        let encrypted_mdat = find_top_level_box(&encrypted, b"mdat").unwrap();
+    let name = "cenc.mp4";
+    let encrypted = fs::read(base.join(name)).unwrap();
+    let encrypted_layout = top_level_box_layout(&encrypted).unwrap();
+    let encrypted_mdat = find_top_level_box(&encrypted, b"mdat").unwrap();
 
-        let mut decrypted = encrypted.clone();
-        decrypt_mp4(&mut decrypted, &keys).unwrap();
+    let mut decrypted = encrypted.clone();
+    decrypt_mp4(&mut decrypted, &keys).unwrap();
 
-        assert_eq!(encrypted.len(), decrypted.len(), "size changed for {name}");
-        assert_eq!(
-            encrypted_layout,
-            top_level_box_layout(&decrypted).unwrap(),
-            "top-level box layout changed for {name}"
-        );
-        assert_eq!(
-            encrypted_mdat,
-            find_top_level_box(&decrypted, b"mdat").unwrap(),
-            "mdat location changed for {name}"
-        );
-        assert_eq!(
-            plain_mdat,
-            read_mdat_payload(&decrypted).unwrap(),
-            "mdat payload mismatch for {name}"
-        );
-    }
+    assert_eq!(encrypted.len(), decrypted.len(), "size changed for {name}");
+    assert_eq!(
+        encrypted_layout,
+        top_level_box_layout(&decrypted).unwrap(),
+        "top-level box layout changed for {name}"
+    );
+    assert_eq!(
+        encrypted_mdat,
+        find_top_level_box(&decrypted, b"mdat").unwrap(),
+        "mdat location changed for {name}"
+    );
+    assert_eq!(
+        plain_mdat,
+        read_mdat_payload(&decrypted).unwrap(),
+        "mdat payload mismatch for {name}"
+    );
 }
 
 #[test]
