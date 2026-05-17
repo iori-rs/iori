@@ -32,21 +32,11 @@ impl<'a> UnknownBoxes<'a> {
     }
 
     fn parse_cenc_saiz(&self) -> Result<Option<Vec<u8>>> {
-        for box_item in self.iter().filter(|b| b.box_type == SaizBox::TYPE) {
-            if let Some(sizes) = parse_saiz(&box_item.payload)? {
-                return Ok(Some(sizes));
-            }
-        }
-        Ok(None)
+        parse_first_matching_unknown_box(self.iter(), SaizBox::TYPE, parse_saiz)
     }
 
     fn parse_cenc_saio(&self) -> Result<Option<Vec<u64>>> {
-        for box_item in self.iter().filter(|b| b.box_type == SaioBox::TYPE) {
-            if let Some(offsets) = parse_saio(&box_item.payload)? {
-                return Ok(Some(offsets));
-            }
-        }
-        Ok(None)
+        parse_first_matching_unknown_box(self.iter(), SaioBox::TYPE, parse_saio)
     }
 
     fn iter(&self) -> impl Iterator<Item = &'a UnknownBox> {
