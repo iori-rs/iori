@@ -8,6 +8,7 @@ pub struct BoxLayout {
     pub header_size: usize,
 }
 
+#[allow(dead_code)]
 pub fn top_level_box_layout(data: &[u8]) -> Option<Vec<BoxLayout>> {
     let mut boxes = Vec::new();
     let mut offset = 0usize;
@@ -33,15 +34,31 @@ pub fn top_level_box_layout(data: &[u8]) -> Option<Vec<BoxLayout>> {
     Some(boxes)
 }
 
+#[allow(dead_code)]
 pub fn find_top_level_box(data: &[u8], target: &[u8; 4]) -> Option<BoxLayout> {
     top_level_box_layout(data)?
         .into_iter()
         .find(|layout| &layout.typ == target)
 }
 
+#[allow(dead_code)]
 pub fn read_mdat_payload(data: &[u8]) -> Option<Vec<u8>> {
     let mdat = find_top_level_box(data, b"mdat")?;
     let payload_start = mdat.start + mdat.header_size;
     let payload_end = mdat.start + mdat.size;
     Some(data[payload_start..payload_end].to_vec())
+}
+
+#[allow(dead_code)]
+pub fn read_all_mdat_payloads(data: &[u8]) -> Option<Vec<u8>> {
+    let mut payload = Vec::new();
+    for mdat in top_level_box_layout(data)?
+        .into_iter()
+        .filter(|layout| layout.typ == *b"mdat")
+    {
+        let payload_start = mdat.start + mdat.header_size;
+        let payload_end = mdat.start + mdat.size;
+        payload.extend_from_slice(&data[payload_start..payload_end]);
+    }
+    Some(payload)
 }

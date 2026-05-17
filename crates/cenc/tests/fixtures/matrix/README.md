@@ -1,0 +1,27 @@
+# CENC fixture matrix
+
+`generate.sh` builds a local CENC compatibility matrix from deterministic
+audio and video sources:
+
+- audio-only MP4
+- video-only MP4
+- audio+video MP4
+- short and larger variants
+
+The script writes generated media under `generated/`, which is ignored by git.
+It also writes Bento4 `mp4decrypt` outputs as oracle files. The Rust matrix
+test consumes the generated directory when it exists and otherwise skips.
+
+Required tools:
+
+- `ffmpeg`
+- Bento4 `mp4fragment`
+- Bento4 `mp4encrypt`
+- Bento4 `mp4decrypt`
+
+Run:
+
+```sh
+crates/cenc/tests/fixtures/matrix/generate.sh
+cargo test -p iori-cenc --test cenc_matrix
+```
