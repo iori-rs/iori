@@ -42,6 +42,34 @@ impl<'a> UnknownBoxes<'a> {
             .find_map(|b| SeigEntry::parse_seig(&b.payload).transpose())
             .transpose()
     }
+
+    fn parse_cenc_saiz(&self) -> Result<Option<Vec<u8>>> {
+        for box_item in self
+            .traf
+            .iter()
+            .chain(self.moof.iter())
+            .filter(|b| b.box_type == BoxType::Normal(*b"saiz"))
+        {
+            if let Some(sizes) = parse_saiz(&box_item.payload)? {
+                return Ok(Some(sizes));
+            }
+        }
+        Ok(None)
+    }
+
+    fn parse_cenc_saio(&self) -> Result<Option<Vec<u64>>> {
+        for box_item in self
+            .traf
+            .iter()
+            .chain(self.moof.iter())
+            .filter(|b| b.box_type == BoxType::Normal(*b"saio"))
+        {
+            if let Some(offsets) = parse_saio(&box_item.payload)? {
+                return Ok(Some(offsets));
+            }
+        }
+        Ok(None)
+    }
 }
 
 struct FragmentSamples {
@@ -300,6 +328,25 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
 
             let senc_box = unknown_boxes.find(BOX_SENC);
             let (entries, senc_override_kid) = 'entries: {
+                let sizes = unknown_boxes.parse_cenc_saiz()?;
+                let offsets = unknown_boxes.parse_cenc_saio()?;
+                if let (Some(sizes), Some(offsets)) = (sizes, offsets)
+                    && !offsets.is_empty()
+                    && sizes.len() == sample_count
+                {
+                    let aux_offset = moof_start + offsets[0] as usize;
+                    if aux_offset < input.len()
+                        && let Ok(entries) = SampleEncryptionEntry::parse_sai(
+                            &input[aux_offset..],
+                            &sizes,
+                            info.iv_size,
+                            info.constant_iv,
+                        )
+                    {
+                        break 'entries (entries, None);
+                    }
+                }
+
                 if let Some(senc) = senc_box {
                     let parsed = SampleEncryptionBox::parse_senc(
                         &senc.payload,
@@ -310,35 +357,6 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                         let override_kid = parsed.override_kid();
                         break 'entries (parsed.entries, override_kid);
                     }
-                }
-
-                let saiz = unknown_boxes.find(*b"saiz");
-                let saio = unknown_boxes.find(*b"saio");
-                if let (Some(saiz), Some(saio)) = (saiz, saio) {
-                    let sizes = parse_saiz(&saiz.payload)?;
-                    let offsets = parse_saio(&saio.payload)?;
-                    if offsets.is_empty() {
-                        return Err(CencError::MissingSenc);
-                    }
-                    if sizes.len() != sample_count {
-                        return Err(CencError::SampleCountMismatch {
-                            expected: sample_count as u32,
-                            actual: sizes.len() as u32,
-                        });
-                    }
-                    let aux_offset = moof_start + offsets[0] as usize;
-                    if aux_offset >= input.len() {
-                        return Err(CencError::OutOfBounds);
-                    }
-                    break 'entries (
-                        SampleEncryptionEntry::parse_sai(
-                            &input[aux_offset..],
-                            &sizes,
-                            info.iv_size,
-                            info.constant_iv,
-                        )?,
-                        None,
-                    );
                 }
 
                 (

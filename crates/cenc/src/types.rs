@@ -96,7 +96,10 @@ impl SchemeType {
     }
 
     pub(crate) fn effective_pattern(&self, pattern: Option<CbcPattern>) -> Option<CbcPattern> {
-        self.uses_pattern_encryption().then_some(pattern).flatten()
+        self.uses_pattern_encryption()
+            .then_some(pattern)
+            .flatten()
+            .filter(CbcPattern::is_active)
     }
 }
 
@@ -115,6 +118,10 @@ pub struct CbcPattern {
 impl CbcPattern {
     pub fn cycle_length(&self) -> u8 {
         self.crypt_byte_block.saturating_add(self.skip_byte_block)
+    }
+
+    pub(crate) fn is_active(&self) -> bool {
+        self.crypt_byte_block != 0 && self.skip_byte_block != 0
     }
 }
 
@@ -178,5 +185,33 @@ mod tests {
             )]),
             Err(CencError::InvalidKeyHex(_))
         ));
+    }
+
+    #[test]
+    fn pattern_encryption_is_active_only_when_crypt_and_skip_are_non_zero() {
+        assert_eq!(
+            SchemeType::Cbcs.effective_pattern(Some(CbcPattern {
+                crypt_byte_block: 1,
+                skip_byte_block: 9,
+            })),
+            Some(CbcPattern {
+                crypt_byte_block: 1,
+                skip_byte_block: 9,
+            })
+        );
+        assert_eq!(
+            SchemeType::Cbcs.effective_pattern(Some(CbcPattern {
+                crypt_byte_block: 0,
+                skip_byte_block: 9,
+            })),
+            None
+        );
+        assert_eq!(
+            SchemeType::Cbc1.effective_pattern(Some(CbcPattern {
+                crypt_byte_block: 1,
+                skip_byte_block: 9,
+            })),
+            None
+        );
     }
 }

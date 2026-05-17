@@ -602,12 +602,15 @@ fn unknown_boxes_from_sample_entry(entry: &SampleEntry) -> &[UnknownBox] {
 /// `aux_info_type_parameter` are present before the size table. A non-zero
 /// `default_sample_info_size` applies to every sample; otherwise the box
 /// carries one explicit size byte per sample.
-pub(crate) fn parse_saiz(payload: &[u8]) -> Result<Vec<u8>> {
+pub(crate) fn parse_saiz(payload: &[u8]) -> Result<Option<Vec<u8>>> {
     let mut reader = ByteReader::new(payload);
     let header = FullBoxHeader::parse(&mut reader)?;
     if header.flags & 0x000001 != 0 {
+        let aux_info_type = reader.read_u32()?;
         let _ = reader.read_u32()?;
-        let _ = reader.read_u32()?;
+        if aux_info_type != 0 && aux_info_type != u32::from_be_bytes(*b"cenc") {
+            return Ok(None);
+        }
     }
     let default_size = reader.read_u8()?;
     let sample_count = reader.read_u32()? as usize;
@@ -618,7 +621,7 @@ pub(crate) fn parse_saiz(payload: &[u8]) -> Result<Vec<u8>> {
         let data = reader.read_exact(sample_count)?;
         sizes.extend_from_slice(data);
     }
-    Ok(sizes)
+    Ok(Some(sizes))
 }
 
 /// Parse a SampleAuxiliaryInformationOffsetsBox (`saio`) payload.
@@ -626,12 +629,15 @@ pub(crate) fn parse_saiz(payload: &[u8]) -> Result<Vec<u8>> {
 /// When flag `0x000001` is set, `aux_info_type` and
 /// `aux_info_type_parameter` precede the offset table. Version 0 uses 32-bit
 /// offsets; version 1 uses 64-bit offsets.
-pub(crate) fn parse_saio(payload: &[u8]) -> Result<Vec<u64>> {
+pub(crate) fn parse_saio(payload: &[u8]) -> Result<Option<Vec<u64>>> {
     let mut reader = ByteReader::new(payload);
     let header = FullBoxHeader::parse(&mut reader)?;
     if header.flags & 0x000001 != 0 {
+        let aux_info_type = reader.read_u32()?;
         let _ = reader.read_u32()?;
-        let _ = reader.read_u32()?;
+        if aux_info_type != 0 && aux_info_type != u32::from_be_bytes(*b"cenc") {
+            return Ok(None);
+        }
     }
     let entry_count = reader.read_u32()? as usize;
     let mut offsets = Vec::with_capacity(entry_count);
@@ -643,7 +649,7 @@ pub(crate) fn parse_saio(payload: &[u8]) -> Result<Vec<u64>> {
         };
         offsets.push(value);
     }
-    Ok(offsets)
+    Ok(Some(offsets))
 }
 
 // ---------------------------------------------------------------------------
@@ -1283,7 +1289,7 @@ mod tests {
         }
         .payload();
 
-        assert_eq!(parse_saiz(&payload).unwrap(), vec![16, 16, 16]);
+        assert_eq!(parse_saiz(&payload).unwrap(), Some(vec![16, 16, 16]));
     }
 
     /// `saiz` explicit sizes are used when the default size is zero.
@@ -1301,7 +1307,7 @@ mod tests {
         }
         .payload();
 
-        assert_eq!(parse_saiz(&payload).unwrap(), vec![8, 16, 0, 24]);
+        assert_eq!(parse_saiz(&payload).unwrap(), Some(vec![8, 16, 0, 24]));
     }
 
     /// `saio` version 1 stores 64-bit offsets.
@@ -1319,9 +1325,45 @@ mod tests {
         .payload();
 
         assert_eq!(
-            parse_saio(&payload).unwrap(),
+            parse_saio(&payload).unwrap().unwrap(),
             vec![0x0000_0001_0000_0002, 0x0000_0003_0000_0004]
         );
+    }
+
+    /// `saiz` boxes with an explicit non-CENC auxiliary information type do
+    /// not describe common-encryption sample metadata.
+    ///
+    /// A demuxer may carry several auxiliary information streams. The CENC
+    /// parser must ignore size tables for other streams instead of treating
+    /// them as IV and subsample sizes.
+    #[test]
+    fn parse_saiz_ignores_non_cenc_aux_info_type() {
+        let payload = SaizBoxSyntax {
+            aux_info: Some((*b"gps ", 0)),
+            default_sample_info_size: 16,
+            sample_count: 1,
+            explicit_sample_info_sizes: Vec::new(),
+        }
+        .payload();
+
+        assert_eq!(parse_saiz(&payload).unwrap(), None);
+    }
+
+    /// `saio` boxes are subject to the same CENC auxiliary-information filter
+    /// as `saiz`.
+    ///
+    /// Offsets for a different auxiliary information stream must not be used
+    /// as CENC IV/subsample offsets.
+    #[test]
+    fn parse_saio_ignores_non_cenc_aux_info_type() {
+        let payload = SaioBoxSyntax {
+            version: 0,
+            aux_info: Some((*b"gps ", 0)),
+            offsets: vec![32],
+        }
+        .payload();
+
+        assert_eq!(parse_saio(&payload).unwrap(), None);
     }
 
     /// `sbgp` version 1 inserts a grouping type parameter before entry count.
