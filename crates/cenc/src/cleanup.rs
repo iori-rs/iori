@@ -1,7 +1,8 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
-    BOX_ENCA, BOX_ENCV, BOX_FRMA, BOX_MDIA, BOX_MINF, BOX_PSSH, BOX_SAIO, BOX_SAIZ, BOX_SBGP,
-    BOX_SENC, BOX_SGPD, BOX_SINF, BOX_STBL, BOX_TRAK,
+    BOX_MDIA, BOX_MINF, BOX_SAIO, BOX_SAIZ, BOX_SBGP, BOX_SENC, BOX_SGPD, BOX_SINF, BOX_STBL,
+    BOX_TRAK, EncryptedAudioSampleEntryBox, EncryptedVideoSampleEntryBox, OriginalFormatBox,
+    PsshBox,
 };
 use shiguredo_mp4::boxes::{
     Av01Box, Avc1Box, FlacBox, FreeBox, Hev1Box, Hvc1Box, MoofBox, MoovBox, Mp4aBox, OpusBox,
@@ -39,7 +40,7 @@ fn normalize_moov(data: &mut [u8], moov: &RawBox) -> Result<()> {
     let moov_children =
         parse_boxes_range(data, moov.start + moov.header_size, moov.start + moov.size)?;
     for child in &moov_children {
-        if child.typ == BOX_PSSH {
+        if child.typ == PsshBox::TYPE {
             // Zero out pssh from moov: hls.js collects moov-level pssh boxes and
             // uses them to trigger EME key session setup.
             free_box(data, child);
@@ -54,7 +55,7 @@ fn normalize_moof(data: &mut [u8], moof: &RawBox) -> Result<()> {
     let moof_children =
         parse_boxes_range(data, moof.start + moof.header_size, moof.start + moof.size)?;
     for child in &moof_children {
-        if child.typ == BOX_PSSH {
+        if child.typ == PsshBox::TYPE {
             // Zero out pssh: hls.js uses pssh presence to trigger EME key loading.
             free_box(data, child);
         } else if child.typ == TrafBox::TYPE {
@@ -125,8 +126,8 @@ fn normalize_stsd(data: &mut [u8], stsd: RawBox) -> Result<()> {
         let entry_type = read_box_type(data, offset + 4)?;
         let base_size = match entry_type {
             // Standard CENC encrypted wrappers
-            BOX_ENCV => VISUAL_SAMPLE_ENTRY_SIZE,
-            BOX_ENCA => AUDIO_SAMPLE_ENTRY_SIZE,
+            EncryptedVideoSampleEntryBox::TYPE => VISUAL_SAMPLE_ENTRY_SIZE,
+            EncryptedAudioSampleEntryBox::TYPE => AUDIO_SAMPLE_ENTRY_SIZE,
             // CMAF cbcs: original codec type used directly with sinf appended
             Avc1Box::TYPE
             | Hvc1Box::TYPE
@@ -167,7 +168,7 @@ fn normalize_sample_entry(
     // no-op but is still correct.
     let sinf_children =
         parse_boxes_range(data, sinf.start + sinf.header_size, sinf.start + sinf.size)?;
-    if let Some(frma) = find_box(&sinf_children, BOX_FRMA)
+    if let Some(frma) = find_box(&sinf_children, OriginalFormatBox::TYPE)
         && frma.size >= frma.header_size + 4
     {
         let original_format = read_type(data, frma.start + frma.header_size)?;

@@ -32,6 +32,32 @@ const GROUPING_TYPE_SEIG: [u8; 4] = *b"seig";
 const VISUAL_SAMPLE_ENTRY_SIZE: usize = 78;
 const AUDIO_SAMPLE_ENTRY_SIZE: usize = 28;
 
+pub(crate) struct PsshBox;
+
+impl PsshBox {
+    pub(crate) const TYPE: BoxType = BOX_PSSH;
+}
+
+pub(crate) struct OriginalFormatBox;
+
+impl OriginalFormatBox {
+    pub(crate) const TYPE: BoxType = BOX_FRMA;
+}
+
+pub(crate) struct EncryptedVideoSampleEntryBox;
+
+impl EncryptedVideoSampleEntryBox {
+    pub(crate) const TYPE: BoxType = BOX_ENCV;
+    pub(crate) const BASE_SIZE: usize = VISUAL_SAMPLE_ENTRY_SIZE;
+}
+
+pub(crate) struct EncryptedAudioSampleEntryBox;
+
+impl EncryptedAudioSampleEntryBox {
+    pub(crate) const TYPE: BoxType = BOX_ENCA;
+    pub(crate) const BASE_SIZE: usize = AUDIO_SAMPLE_ENTRY_SIZE;
+}
+
 // ---------------------------------------------------------------------------
 // ByteReader — cursor-based binary reader
 // ---------------------------------------------------------------------------
@@ -646,16 +672,18 @@ impl TrackEncryptionInfo {
     /// treated as protected rather than requiring an `encv`/`enca` wrapper.
     fn parse_sample_entry(entry: &SampleEntry) -> Result<Option<Self>> {
         if let SampleEntry::Unknown(unknown) = entry {
-            if unknown.box_type != BOX_ENCV && unknown.box_type != BOX_ENCA {
+            if unknown.box_type != EncryptedVideoSampleEntryBox::TYPE
+                && unknown.box_type != EncryptedAudioSampleEntryBox::TYPE
+            {
                 return Ok(None);
             }
             let BoxType::Normal(box_type) = unknown.box_type else {
                 return Ok(None);
             };
-            let base_size = if unknown.box_type == BOX_ENCV {
-                VISUAL_SAMPLE_ENTRY_SIZE
+            let base_size = if unknown.box_type == EncryptedVideoSampleEntryBox::TYPE {
+                EncryptedVideoSampleEntryBox::BASE_SIZE
             } else {
-                AUDIO_SAMPLE_ENTRY_SIZE
+                EncryptedAudioSampleEntryBox::BASE_SIZE
             };
             if unknown.payload.len() <= base_size {
                 return Err(CencError::UnsupportedSampleEntry(
