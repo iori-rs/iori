@@ -263,6 +263,7 @@ impl SampleEncryptionBox {
             let algorithm_id: [u8; 3] = reader.read_exact(3)?.try_into().map_err(|_| {
                 CencError::InvalidSenc("track encryption override truncated".to_string())
             })?;
+            validate_senc_override_algorithm_id(algorithm_id)?;
             let override_iv_size = reader.read_u8()?;
             validate_iv_size(override_iv_size, "senc override")?;
             let kid_bytes = reader.read_exact(16)?;
@@ -294,6 +295,24 @@ impl SampleEncryptionBox {
             entries,
             override_parameters,
         })
+    }
+}
+
+/// Validate the CENC AlgorithmID carried by a `senc` override header.
+///
+/// The override header can replace the track-level encryption parameters for
+/// all samples described by the box. For the CENC decryptor, AlgorithmID `0`
+/// means the listed samples are clear and AlgorithmID `1` means AES-CTR CENC.
+/// Other algorithm IDs select algorithms outside the currently supported CENC
+/// path, so accepting them would create decrypt jobs with the wrong cipher.
+fn validate_senc_override_algorithm_id(algorithm_id: [u8; 3]) -> Result<()> {
+    if matches!(algorithm_id, [0, 0, 0] | [0, 0, 1]) {
+        Ok(())
+    } else {
+        Err(CencError::InvalidSenc(format!(
+            "unsupported senc AlgorithmID {}",
+            hex::encode(algorithm_id)
+        )))
     }
 }
 
@@ -1218,6 +1237,27 @@ mod tests {
         let parsed = SampleEncryptionBox::parse_senc(&payload, 16, None).unwrap();
 
         assert!(parsed.overrides_to_clear_samples());
+    }
+
+    #[test]
+    fn parse_senc_rejects_unsupported_algorithm_override() {
+        let payload = SencBoxSyntax {
+            flags: 0x000001,
+            override_parameters: Some(TrackEncryptionOverride {
+                algorithm_id: [0, 0, 2],
+                iv_size: 8,
+                kid: SAMPLE_KID,
+            }),
+            samples: vec![SencSampleSyntax {
+                iv: vec![0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88],
+                subsamples: Vec::new(),
+            }],
+        }
+        .payload();
+
+        let err = SampleEncryptionBox::parse_senc(&payload, 16, None).unwrap_err();
+
+        assert!(matches!(err, CencError::InvalidSenc(message) if message.contains("AlgorithmID")));
     }
 
     /// `senc` entries use the effective IV size selected by track metadata or
