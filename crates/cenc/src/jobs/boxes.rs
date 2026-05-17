@@ -40,10 +40,20 @@ impl PsshBox {
     pub(crate) const TYPE: BoxType = BOX_PSSH;
 }
 
-pub(crate) struct OriginalFormatBox;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OriginalFormatBox {
+    pub(crate) original_format: BoxType,
+}
 
 impl OriginalFormatBox {
     pub(crate) const TYPE: BoxType = BOX_FRMA;
+
+    pub(crate) fn decode_payload(payload: &[u8]) -> Result<Self> {
+        let mut reader = ByteReader::new(payload);
+        Ok(Self {
+            original_format: reader.read_box_type()?,
+        })
+    }
 }
 
 pub(crate) struct EncryptedVideoSampleEntryBox;

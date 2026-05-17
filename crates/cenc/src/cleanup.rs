@@ -162,9 +162,10 @@ fn normalize_sample_entry(
     if let Some(frma) = find_box(&sinf_children, OriginalFormatBox::TYPE)
         && frma.size >= frma.header_size + 4
     {
-        let original_format = read_type(data, frma.start + frma.header_size)?;
+        let payload = &data[frma.start + frma.header_size..frma.start + frma.size];
+        let original_format = OriginalFormatBox::decode_payload(payload)?.original_format;
         let entry_type_offset = entry_payload_start - 4;
-        data[entry_type_offset..entry_type_offset + 4].copy_from_slice(&original_format);
+        data[entry_type_offset..entry_type_offset + 4].copy_from_slice(original_format.as_bytes());
     }
 
     // Zero out sinf in-place: replace box type with 'free' and zero the payload.
@@ -196,12 +197,8 @@ fn read_u32(data: &[u8], offset: usize) -> Result<u32> {
     decode_at(data, offset, "u32")
 }
 
-fn read_type(data: &[u8], offset: usize) -> Result<[u8; 4]> {
-    decode_at(data, offset, "type")
-}
-
 fn read_box_type(data: &[u8], offset: usize) -> Result<BoxType> {
-    Ok(BoxType::Normal(read_type(data, offset)?))
+    Ok(BoxType::Normal(decode_at(data, offset, "type")?))
 }
 
 fn decode_at<T: Decode>(data: &[u8], offset: usize, name: &str) -> Result<T> {
