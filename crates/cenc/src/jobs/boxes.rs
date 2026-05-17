@@ -1,7 +1,7 @@
 use crate::errors::{CencError, Result};
 use crate::types::{CbcPattern, SchemeType, Subsample};
 use shiguredo_mp4::boxes::{SampleEntry, UnknownBox};
-use shiguredo_mp4::{BoxHeader, BoxType, Decode};
+use shiguredo_mp4::{BoxHeader, BoxType, Decode, FullBoxHeader};
 
 pub(crate) const BOX_SINF: [u8; 4] = *b"sinf";
 pub(crate) const BOX_SCHI: [u8; 4] = *b"schi";
@@ -37,24 +37,19 @@ impl<'a> ByteReader<'a> {
     }
 
     pub(crate) fn read_u8(&mut self) -> Result<u8> {
-        if self.remaining() < 1 {
-            return Err(CencError::InvalidSenc("u8 truncated".into()));
-        }
-        let v = self.data[self.pos];
-        self.pos += 1;
-        Ok(v)
+        u8::decode_at(self.data, &mut self.pos).map_err(Into::into)
     }
 
     pub(crate) fn read_u16(&mut self) -> Result<u16> {
-        Ok(u16::from_be_bytes(self.read_array()?))
+        u16::decode_at(self.data, &mut self.pos).map_err(Into::into)
     }
 
     pub(crate) fn read_u32(&mut self) -> Result<u32> {
-        Ok(u32::from_be_bytes(self.read_array()?))
+        u32::decode_at(self.data, &mut self.pos).map_err(Into::into)
     }
 
     pub(crate) fn read_u64(&mut self) -> Result<u64> {
-        Ok(u64::from_be_bytes(self.read_array()?))
+        u64::decode_at(self.data, &mut self.pos).map_err(Into::into)
     }
 
     pub(crate) fn read_exact(&mut self, len: usize) -> Result<&'a [u8]> {
@@ -66,31 +61,8 @@ impl<'a> ByteReader<'a> {
         Ok(slice)
     }
 
-    fn read_array<const N: usize>(&mut self) -> Result<[u8; N]> {
-        let bytes = self.read_exact(N)?;
-        bytes
-            .try_into()
-            .map_err(|_| CencError::InvalidSenc("unexpected end of data".into()))
-    }
-}
-
-// ---------------------------------------------------------------------------
-// FullBoxHeader
-// ---------------------------------------------------------------------------
-
-pub(crate) struct FullBoxHeader {
-    pub(crate) version: u8,
-    pub(crate) flags: u32,
-}
-
-impl FullBoxHeader {
-    pub(crate) fn parse(reader: &mut ByteReader) -> Result<Self> {
-        let version = reader.read_u8()?;
-        let b1 = reader.read_u8()?;
-        let b2 = reader.read_u8()?;
-        let b3 = reader.read_u8()?;
-        let flags = ((b1 as u32) << 16) | ((b2 as u32) << 8) | b3 as u32;
-        Ok(Self { version, flags })
+    pub(crate) fn read_full_box_header(&mut self) -> Result<FullBoxHeader> {
+        FullBoxHeader::decode_at(self.data, &mut self.pos).map_err(Into::into)
     }
 }
 
@@ -698,8 +670,8 @@ fn unknown_boxes_from_sample_entry(entry: &SampleEntry) -> &[UnknownBox] {
 /// carries one explicit size byte per sample.
 pub(crate) fn parse_saiz(payload: &[u8]) -> Result<Option<Vec<u8>>> {
     let mut reader = ByteReader::new(payload);
-    let header = FullBoxHeader::parse(&mut reader)?;
-    if header.flags & 0x000001 != 0 {
+    let header = reader.read_full_box_header()?;
+    if header.flags.get() & 0x000001 != 0 {
         let aux_info_type = reader.read_u32()?;
         let aux_info_type_parameter = reader.read_u32()?;
         if !is_cenc_aux_info(aux_info_type, aux_info_type_parameter) {
@@ -725,8 +697,8 @@ pub(crate) fn parse_saiz(payload: &[u8]) -> Result<Option<Vec<u8>>> {
 /// offsets; version 1 uses 64-bit offsets.
 pub(crate) fn parse_saio(payload: &[u8]) -> Result<Option<Vec<u64>>> {
     let mut reader = ByteReader::new(payload);
-    let header = FullBoxHeader::parse(&mut reader)?;
-    if header.flags & 0x000001 != 0 {
+    let header = reader.read_full_box_header()?;
+    if header.flags.get() & 0x000001 != 0 {
         let aux_info_type = reader.read_u32()?;
         let aux_info_type_parameter = reader.read_u32()?;
         if !is_cenc_aux_info(aux_info_type, aux_info_type_parameter) {
@@ -789,7 +761,7 @@ impl SbgpEntry {
     /// `grouping_type_parameter` between `grouping_type` and `entry_count`.
     pub(crate) fn parse_seig(payload: &[u8]) -> Result<Option<Vec<Self>>> {
         let mut reader = ByteReader::new(payload);
-        let header = FullBoxHeader::parse(&mut reader)?;
+        let header = reader.read_full_box_header()?;
         if reader.remaining() < 4 {
             return Err(CencError::InvalidSenc("sbgp too short".to_string()));
         }
@@ -841,7 +813,7 @@ impl SeigEntry {
     /// version 1.
     pub(crate) fn parse_seig(payload: &[u8]) -> Result<Option<Vec<Self>>> {
         let mut reader = ByteReader::new(payload);
-        let header = FullBoxHeader::parse(&mut reader)?;
+        let header = reader.read_full_box_header()?;
         if reader.remaining() < 4 {
             return Err(CencError::InvalidSenc("sgpd too short".to_string()));
         }
