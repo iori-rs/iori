@@ -105,7 +105,7 @@ fn decrypt_ctr(
         }
         let segment = &mut sample[offset..end];
         if let Some(pattern) = pattern {
-            pattern_state = apply_ctr_pattern(segment, key, iv, pattern, pattern_state);
+            apply_ctr_pattern(segment, key, iv, pattern, &mut pattern_state);
         } else {
             encrypted_byte_offset = apply_ctr_continuous(segment, key, iv, encrypted_byte_offset);
         }
@@ -174,8 +174,8 @@ fn apply_ctr_pattern(
     key: &[u8; 16],
     iv: [u8; 16],
     pattern: CbcPattern,
-    mut state: CtrPatternState,
-) -> CtrPatternState {
+    state: &mut CtrPatternState,
+) {
     let cipher = Aes128::new(GenericArray::from_slice(key));
     let cycle = pattern.cycle_length();
     let mut offset = 0usize;
@@ -199,7 +199,6 @@ fn apply_ctr_pattern(
         }
         offset += AES_BLOCK_SIZE;
     }
-    state
 }
 
 fn apply_ctr_continuous(
