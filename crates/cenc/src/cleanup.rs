@@ -10,9 +10,6 @@ use shiguredo_mp4::boxes::{
 };
 use shiguredo_mp4::{BoxType, Decode};
 
-const VISUAL_SAMPLE_ENTRY_SIZE: usize = 78;
-const AUDIO_SAMPLE_ENTRY_SIZE: usize = 28;
-
 pub fn normalize_decrypted_fmp4(data: &mut [u8]) -> Result<()> {
     let top = match parse_boxes_range(data, 0, data.len()) {
         Ok(boxes) => boxes,
@@ -118,16 +115,18 @@ fn normalize_stsd(data: &mut [u8], stsd: RawMp4Box) -> Result<()> {
         let entry_type = read_box_type(data, offset + 4)?;
         let base_size = match entry_type {
             // Standard CENC encrypted wrappers
-            EncryptedVideoSampleEntryBox::TYPE => VISUAL_SAMPLE_ENTRY_SIZE,
-            EncryptedAudioSampleEntryBox::TYPE => AUDIO_SAMPLE_ENTRY_SIZE,
+            EncryptedVideoSampleEntryBox::TYPE => EncryptedVideoSampleEntryBox::BASE_SIZE,
+            EncryptedAudioSampleEntryBox::TYPE => EncryptedAudioSampleEntryBox::BASE_SIZE,
             // CMAF cbcs: original codec type used directly with sinf appended
             Avc1Box::TYPE
             | Hvc1Box::TYPE
             | Hev1Box::TYPE
             | Vp08Box::TYPE
             | Vp09Box::TYPE
-            | Av01Box::TYPE => VISUAL_SAMPLE_ENTRY_SIZE,
-            Mp4aBox::TYPE | OpusBox::TYPE | FlacBox::TYPE => AUDIO_SAMPLE_ENTRY_SIZE,
+            | Av01Box::TYPE => EncryptedVideoSampleEntryBox::BASE_SIZE,
+            Mp4aBox::TYPE | OpusBox::TYPE | FlacBox::TYPE => {
+                EncryptedAudioSampleEntryBox::BASE_SIZE
+            }
             _ => {
                 offset += entry_size;
                 continue;
