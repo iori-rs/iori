@@ -2,8 +2,9 @@ use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
     EncryptedAudioSampleEntryBox, EncryptedVideoSampleEntryBox, OriginalFormatBox,
     ProtectionSchemeInfoBox, PsshBox, RawMp4Box, SaioBox, SaizBox, SampleDescriptionBoxHeader,
-    SampleEncryptionBox, SbgpBox, SgpdSeigBox, find_raw_box,
+    SampleEncryptionBox, SbgpBox, SgpdSeigBox, encrypted_sample_entry_base_size, find_raw_box,
 };
+use shiguredo_mp4::BoxType;
 use shiguredo_mp4::boxes::{
     Av01Box, Avc1Box, FlacBox, FreeBox, Hev1Box, Hvc1Box, MdiaBox, MinfBox, MoofBox, MoovBox,
     Mp4aBox, OpusBox, StblBox, StsdBox, TrafBox, TrakBox, Vp08Box, Vp09Box,
@@ -112,21 +113,8 @@ fn normalize_stsd(data: &mut [u8], stsd: RawMp4Box) -> Result<()> {
         ));
     }
     for entry in entries {
-        let base_size = match entry.box_type {
-            // Standard CENC encrypted wrappers
-            EncryptedVideoSampleEntryBox::TYPE => EncryptedVideoSampleEntryBox::BASE_SIZE,
-            EncryptedAudioSampleEntryBox::TYPE => EncryptedAudioSampleEntryBox::BASE_SIZE,
-            // CMAF cbcs: original codec type used directly with sinf appended
-            Avc1Box::TYPE
-            | Hvc1Box::TYPE
-            | Hev1Box::TYPE
-            | Vp08Box::TYPE
-            | Vp09Box::TYPE
-            | Av01Box::TYPE => EncryptedVideoSampleEntryBox::BASE_SIZE,
-            Mp4aBox::TYPE | OpusBox::TYPE | FlacBox::TYPE => {
-                EncryptedAudioSampleEntryBox::BASE_SIZE
-            }
-            _ => continue,
+        let Some(base_size) = sample_entry_base_size(entry.box_type) else {
+            continue;
         };
         let entry_payload_start = entry.payload_start();
         let entry_payload_end = entry.end();
@@ -135,6 +123,24 @@ fn normalize_stsd(data: &mut [u8], stsd: RawMp4Box) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn sample_entry_base_size(entry_type: BoxType) -> Option<usize> {
+    encrypted_sample_entry_base_size(entry_type).or_else(|| {
+        // CMAF cbcs: original codec type used directly with sinf appended
+        match entry_type {
+            Avc1Box::TYPE
+            | Hvc1Box::TYPE
+            | Hev1Box::TYPE
+            | Vp08Box::TYPE
+            | Vp09Box::TYPE
+            | Av01Box::TYPE => Some(EncryptedVideoSampleEntryBox::BASE_SIZE),
+            Mp4aBox::TYPE | OpusBox::TYPE | FlacBox::TYPE => {
+                Some(EncryptedAudioSampleEntryBox::BASE_SIZE)
+            }
+            _ => None,
+        }
+    })
 }
 
 fn normalize_sample_entry(

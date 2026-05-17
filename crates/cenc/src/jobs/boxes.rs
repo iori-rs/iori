@@ -61,6 +61,10 @@ pub(crate) struct EncryptedVideoSampleEntryBox;
 impl EncryptedVideoSampleEntryBox {
     pub(crate) const TYPE: BoxType = BOX_ENCV;
     pub(crate) const BASE_SIZE: usize = VISUAL_SAMPLE_ENTRY_SIZE;
+
+    pub(crate) fn base_size_for(box_type: BoxType) -> Option<usize> {
+        (box_type == Self::TYPE).then_some(Self::BASE_SIZE)
+    }
 }
 
 pub(crate) struct EncryptedAudioSampleEntryBox;
@@ -68,6 +72,15 @@ pub(crate) struct EncryptedAudioSampleEntryBox;
 impl EncryptedAudioSampleEntryBox {
     pub(crate) const TYPE: BoxType = BOX_ENCA;
     pub(crate) const BASE_SIZE: usize = AUDIO_SAMPLE_ENTRY_SIZE;
+
+    pub(crate) fn base_size_for(box_type: BoxType) -> Option<usize> {
+        (box_type == Self::TYPE).then_some(Self::BASE_SIZE)
+    }
+}
+
+pub(crate) fn encrypted_sample_entry_base_size(box_type: BoxType) -> Option<usize> {
+    EncryptedVideoSampleEntryBox::base_size_for(box_type)
+        .or_else(|| EncryptedAudioSampleEntryBox::base_size_for(box_type))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -760,22 +773,12 @@ impl TrackEncryptionInfo {
     /// treated as protected rather than requiring an `encv`/`enca` wrapper.
     fn parse_sample_entry(entry: &SampleEntry) -> Result<Option<Self>> {
         if let SampleEntry::Unknown(unknown) = entry {
-            if unknown.box_type != EncryptedVideoSampleEntryBox::TYPE
-                && unknown.box_type != EncryptedAudioSampleEntryBox::TYPE
-            {
+            let Some(base_size) = encrypted_sample_entry_base_size(unknown.box_type) else {
                 return Ok(None);
-            }
-            let BoxType::Normal(box_type) = unknown.box_type else {
-                return Ok(None);
-            };
-            let base_size = if unknown.box_type == EncryptedVideoSampleEntryBox::TYPE {
-                EncryptedVideoSampleEntryBox::BASE_SIZE
-            } else {
-                EncryptedAudioSampleEntryBox::BASE_SIZE
             };
             if unknown.payload.len() <= base_size {
                 return Err(CencError::UnsupportedSampleEntry(
-                    String::from_utf8_lossy(&box_type).to_string(),
+                    String::from_utf8_lossy(unknown.box_type.as_bytes()).to_string(),
                 ));
             }
             let children = ChildBox::parse_children(&unknown.payload[base_size..])?;
