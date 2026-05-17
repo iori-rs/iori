@@ -13,9 +13,9 @@ pub fn normalize_decrypted_fmp4(data: &mut [u8]) -> Result<()> {
         Err(_) => return Ok(()),
     };
     for b in &top {
-        if b.box_type == MoovBox::TYPE {
+        if b.is_type(MoovBox::TYPE) {
             normalize_moov(data, b)?;
-        } else if b.box_type == MoofBox::TYPE {
+        } else if b.is_type(MoofBox::TYPE) {
             normalize_moof(data, b)?;
         }
     }
@@ -27,11 +27,11 @@ fn normalize_moov(data: &mut [u8], moov: &RawMp4Box) -> Result<()> {
         .parse_children(data)
         .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
     for child in &moov_children {
-        if child.box_type == PsshBox::TYPE {
+        if child.is_type(PsshBox::TYPE) {
             // Zero out pssh from moov: hls.js collects moov-level pssh boxes and
             // uses them to trigger EME key session setup.
             free_box(data, child);
-        } else if child.box_type == TrakBox::TYPE {
+        } else if child.is_type(TrakBox::TYPE) {
             normalize_trak(data, *child)?;
         }
     }
@@ -43,10 +43,10 @@ fn normalize_moof(data: &mut [u8], moof: &RawMp4Box) -> Result<()> {
         .parse_children(data)
         .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
     for child in &moof_children {
-        if child.box_type == PsshBox::TYPE {
+        if child.is_type(PsshBox::TYPE) {
             // Zero out pssh: hls.js uses pssh presence to trigger EME key loading.
             free_box(data, child);
-        } else if child.box_type == TrafBox::TYPE {
+        } else if child.is_type(TrafBox::TYPE) {
             normalize_traf(data, *child)?;
         }
     }

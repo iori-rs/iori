@@ -301,6 +301,10 @@ impl RawMp4Box {
         self.start + self.header_size
     }
 
+    pub(crate) fn is_type(&self, box_type: BoxType) -> bool {
+        self.box_type == box_type
+    }
+
     pub(crate) fn type_range(&self) -> Range<usize> {
         self.start + 4..self.start + 8
     }
@@ -340,11 +344,7 @@ pub(crate) fn find_unknown_box<'a>(
 }
 
 pub(crate) fn find_raw_box(boxes: &[RawMp4Box], box_type: BoxType) -> Option<&RawMp4Box> {
-    boxes.iter().find(|box_item| box_item.box_type == box_type)
-}
-
-pub(crate) fn has_raw_box(boxes: &[RawMp4Box], box_type: BoxType) -> bool {
-    find_raw_box(boxes, box_type).is_some()
+    boxes.iter().find(|box_item| box_item.is_type(box_type))
 }
 
 pub(crate) fn parse_first_matching_unknown_box<'a, T>(
