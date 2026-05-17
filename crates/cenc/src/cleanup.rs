@@ -4,11 +4,11 @@ use crate::jobs::boxes::{
     ProtectionSchemeInfoBox, PsshBox, RawMp4Box, SaioBox, SaizBox, SampleEncryptionBox, SbgpBox,
     SgpdSeigBox, find_raw_box,
 };
+use shiguredo_mp4::Decode;
 use shiguredo_mp4::boxes::{
     Av01Box, Avc1Box, FlacBox, FreeBox, Hev1Box, Hvc1Box, MdiaBox, MinfBox, MoofBox, MoovBox,
     Mp4aBox, OpusBox, StblBox, StsdBox, TrafBox, TrakBox, Vp08Box, Vp09Box,
 };
-use shiguredo_mp4::{BoxType, Decode};
 
 pub fn normalize_decrypted_fmp4(data: &mut [u8]) -> Result<()> {
     let top = match parse_boxes_range(data, 0, data.len()) {
@@ -97,16 +97,21 @@ fn normalize_stsd(data: &mut [u8], stsd: RawMp4Box) -> Result<()> {
         return Err(CencError::MetadataCleanup("stsd too short".to_string()));
     }
     let entry_count = read_u32(data, stsd_payload_start + 4)? as usize;
-    let mut offset = stsd_payload_start + 8;
-    for _ in 0..entry_count {
-        let entry_size = read_u32(data, offset)? as usize;
-        if entry_size < 8 || offset + entry_size > stsd_payload_end {
-            return Err(CencError::MetadataCleanup(
-                "invalid stsd entry size".to_string(),
-            ));
-        }
-        let entry_type = read_box_type(data, offset + 4)?;
-        let base_size = match entry_type {
+    let entries = RawMp4Box::parse_n_range(
+        data,
+        stsd_payload_start + 8,
+        stsd_payload_end,
+        0,
+        entry_count,
+    )
+    .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
+    if entries.len() != entry_count {
+        return Err(CencError::MetadataCleanup(
+            "stsd entry count exceeds payload".to_string(),
+        ));
+    }
+    for entry in entries {
+        let base_size = match entry.box_type {
             // Standard CENC encrypted wrappers
             EncryptedVideoSampleEntryBox::TYPE => EncryptedVideoSampleEntryBox::BASE_SIZE,
             EncryptedAudioSampleEntryBox::TYPE => EncryptedAudioSampleEntryBox::BASE_SIZE,
@@ -120,17 +125,13 @@ fn normalize_stsd(data: &mut [u8], stsd: RawMp4Box) -> Result<()> {
             Mp4aBox::TYPE | OpusBox::TYPE | FlacBox::TYPE => {
                 EncryptedAudioSampleEntryBox::BASE_SIZE
             }
-            _ => {
-                offset += entry_size;
-                continue;
-            }
+            _ => continue,
         };
-        let entry_payload_start = offset + 8;
-        let entry_payload_end = offset + entry_size;
+        let entry_payload_start = entry.payload_start();
+        let entry_payload_end = entry.end();
         if entry_payload_start + base_size < entry_payload_end {
             normalize_sample_entry(data, entry_payload_start, entry_payload_end, base_size)?;
         }
-        offset += entry_size;
     }
     Ok(())
 }
@@ -181,10 +182,6 @@ fn parse_boxes_range(data: &[u8], start: usize, end: usize) -> Result<Vec<RawMp4
 
 fn read_u32(data: &[u8], offset: usize) -> Result<u32> {
     decode_at(data, offset, "u32")
-}
-
-fn read_box_type(data: &[u8], offset: usize) -> Result<BoxType> {
-    Ok(BoxType::Normal(decode_at(data, offset, "type")?))
 }
 
 fn decode_at<T: Decode>(data: &[u8], offset: usize, name: &str) -> Result<T> {

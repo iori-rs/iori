@@ -173,9 +173,29 @@ impl RawMp4Box {
         end: usize,
         base_offset: usize,
     ) -> Result<Vec<Self>> {
+        Self::parse_range_with_limit(buf, start, end, base_offset, None)
+    }
+
+    pub(crate) fn parse_n_range(
+        buf: &[u8],
+        start: usize,
+        end: usize,
+        base_offset: usize,
+        count: usize,
+    ) -> Result<Vec<Self>> {
+        Self::parse_range_with_limit(buf, start, end, base_offset, Some(count))
+    }
+
+    fn parse_range_with_limit(
+        buf: &[u8],
+        start: usize,
+        end: usize,
+        base_offset: usize,
+        limit: Option<usize>,
+    ) -> Result<Vec<Self>> {
         let mut boxes = Vec::new();
         let mut offset = start;
-        while offset < end {
+        while offset < end && limit.is_none_or(|limit| boxes.len() < limit) {
             let (header, header_size) = BoxHeader::decode(&buf[offset..])?;
             let mut size = usize::try_from(header.box_size.get())
                 .map_err(|_| CencError::InvalidSenc("box size overflow".to_string()))?;
