@@ -1,12 +1,12 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
-    BOX_MDIA, BOX_MINF, BOX_STBL, BOX_TRAK, EncryptedAudioSampleEntryBox,
-    EncryptedVideoSampleEntryBox, OriginalFormatBox, ProtectionSchemeInfoBox, PsshBox, RawMp4Box,
-    SaioBox, SaizBox, SampleEncryptionBox, SbgpBox, SgpdSeigBox,
+    EncryptedAudioSampleEntryBox, EncryptedVideoSampleEntryBox, OriginalFormatBox,
+    ProtectionSchemeInfoBox, PsshBox, RawMp4Box, SaioBox, SaizBox, SampleEncryptionBox, SbgpBox,
+    SgpdSeigBox,
 };
 use shiguredo_mp4::boxes::{
-    Av01Box, Avc1Box, FlacBox, FreeBox, Hev1Box, Hvc1Box, MoofBox, MoovBox, Mp4aBox, OpusBox,
-    StsdBox, TrafBox, Vp08Box, Vp09Box,
+    Av01Box, Avc1Box, FlacBox, FreeBox, Hev1Box, Hvc1Box, MdiaBox, MinfBox, MoofBox, MoovBox,
+    Mp4aBox, OpusBox, StblBox, StsdBox, TrafBox, TrakBox, Vp08Box, Vp09Box,
 };
 use shiguredo_mp4::{BoxType, Decode};
 
@@ -36,7 +36,7 @@ fn normalize_moov(data: &mut [u8], moov: &RawMp4Box) -> Result<()> {
             // Zero out pssh from moov: hls.js collects moov-level pssh boxes and
             // uses them to trigger EME key session setup.
             free_box(data, child);
-        } else if child.box_type == BOX_TRAK {
+        } else if child.box_type == TrakBox::TYPE {
             normalize_trak(data, *child)?;
         }
     }
@@ -79,17 +79,17 @@ fn normalize_traf(data: &mut [u8], traf: RawMp4Box) -> Result<()> {
 fn normalize_trak(data: &mut [u8], trak: RawMp4Box) -> Result<()> {
     let trak_children =
         parse_boxes_range(data, trak.start + trak.header_size, trak.start + trak.size)?;
-    let Some(mdia) = find_box(&trak_children, BOX_MDIA) else {
+    let Some(mdia) = find_box(&trak_children, MdiaBox::TYPE) else {
         return Ok(());
     };
     let mdia_children =
         parse_boxes_range(data, mdia.start + mdia.header_size, mdia.start + mdia.size)?;
-    let Some(minf) = find_box(&mdia_children, BOX_MINF) else {
+    let Some(minf) = find_box(&mdia_children, MinfBox::TYPE) else {
         return Ok(());
     };
     let minf_children =
         parse_boxes_range(data, minf.start + minf.header_size, minf.start + minf.size)?;
-    let Some(stbl) = find_box(&minf_children, BOX_STBL) else {
+    let Some(stbl) = find_box(&minf_children, StblBox::TYPE) else {
         return Ok(());
     };
     let stbl_children =
