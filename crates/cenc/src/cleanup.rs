@@ -8,7 +8,7 @@ use shiguredo_mp4::boxes::{
 };
 
 pub fn normalize_decrypted_fmp4(data: &mut [u8]) -> Result<()> {
-    let top = match parse_boxes_range(data, 0, data.len()) {
+    let top = match RawMp4Box::parse_all(data, 0) {
         Ok(boxes) => boxes,
         Err(_) => return Ok(()),
     };
@@ -23,7 +23,9 @@ pub fn normalize_decrypted_fmp4(data: &mut [u8]) -> Result<()> {
 }
 
 fn normalize_moov(data: &mut [u8], moov: &RawMp4Box) -> Result<()> {
-    let moov_children = parse_box_children(data, moov)?;
+    let moov_children = moov
+        .parse_children(data)
+        .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
     for child in &moov_children {
         if child.box_type == PsshBox::TYPE {
             // Zero out pssh from moov: hls.js collects moov-level pssh boxes and
@@ -37,7 +39,9 @@ fn normalize_moov(data: &mut [u8], moov: &RawMp4Box) -> Result<()> {
 }
 
 fn normalize_moof(data: &mut [u8], moof: &RawMp4Box) -> Result<()> {
-    let moof_children = parse_box_children(data, moof)?;
+    let moof_children = moof
+        .parse_children(data)
+        .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
     for child in &moof_children {
         if child.box_type == PsshBox::TYPE {
             // Zero out pssh: hls.js uses pssh presence to trigger EME key loading.
@@ -50,7 +54,9 @@ fn normalize_moof(data: &mut [u8], moof: &RawMp4Box) -> Result<()> {
 }
 
 fn normalize_traf(data: &mut [u8], traf: RawMp4Box) -> Result<()> {
-    let traf_children = parse_box_children(data, &traf)?;
+    let traf_children = traf
+        .parse_children(data)
+        .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
     for child in &traf_children {
         if is_fragment_encryption_metadata_box(child.box_type) {
             // Replace box type with 'free' and zero out payload (in-place).
@@ -63,19 +69,27 @@ fn normalize_traf(data: &mut [u8], traf: RawMp4Box) -> Result<()> {
 }
 
 fn normalize_trak(data: &mut [u8], trak: RawMp4Box) -> Result<()> {
-    let trak_children = parse_box_children(data, &trak)?;
+    let trak_children = trak
+        .parse_children(data)
+        .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
     let Some(mdia) = find_raw_box(&trak_children, MdiaBox::TYPE) else {
         return Ok(());
     };
-    let mdia_children = parse_box_children(data, mdia)?;
+    let mdia_children = mdia
+        .parse_children(data)
+        .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
     let Some(minf) = find_raw_box(&mdia_children, MinfBox::TYPE) else {
         return Ok(());
     };
-    let minf_children = parse_box_children(data, minf)?;
+    let minf_children = minf
+        .parse_children(data)
+        .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
     let Some(stbl) = find_raw_box(&minf_children, StblBox::TYPE) else {
         return Ok(());
     };
-    let stbl_children = parse_box_children(data, stbl)?;
+    let stbl_children = stbl
+        .parse_children(data)
+        .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
     let Some(stsd) = find_raw_box(&stbl_children, StsdBox::TYPE) else {
         return Ok(());
     };
@@ -119,7 +133,8 @@ fn normalize_stsd(data: &mut [u8], stsd: RawMp4Box) -> Result<()> {
 
 fn normalize_sample_entry(data: &mut [u8], entry: RawMp4Box, base_size: usize) -> Result<()> {
     let children_start = entry.payload_start() + base_size;
-    let children = parse_boxes_range(data, children_start, entry.end())?;
+    let children = RawMp4Box::parse_range(data, children_start, entry.end(), 0)
+        .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
     let Some(sinf) = find_raw_box(&children, ProtectionSchemeInfoBox::TYPE) else {
         return Ok(());
     };
@@ -127,7 +142,9 @@ fn normalize_sample_entry(data: &mut [u8], entry: RawMp4Box, base_size: usize) -
     // Rewrite the sample entry's box type to the original codec format from frma.
     // For CMAF cbcs (avc1 with sinf where frma.original_format == avc1) this is a
     // no-op but is still correct.
-    let sinf_children = parse_box_children(data, sinf)?;
+    let sinf_children = sinf
+        .parse_children(data)
+        .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
     if let Some(frma) = find_raw_box(&sinf_children, OriginalFormatBox::TYPE)
         && frma.size >= frma.header_size + 4
     {
@@ -148,15 +165,4 @@ fn normalize_sample_entry(data: &mut [u8], entry: RawMp4Box, base_size: usize) -
 fn free_box(data: &mut [u8], b: &RawMp4Box) {
     data[b.start + 4..b.start + 8].copy_from_slice(FreeBox::TYPE.as_bytes());
     data[b.payload_start()..b.end()].fill(0);
-}
-
-fn parse_boxes_range(data: &[u8], start: usize, end: usize) -> Result<Vec<RawMp4Box>> {
-    RawMp4Box::parse_range(data, start, end, 0)
-        .map_err(|err| CencError::MetadataCleanup(err.to_string()))
-}
-
-fn parse_box_children(data: &[u8], box_item: &RawMp4Box) -> Result<Vec<RawMp4Box>> {
-    box_item
-        .parse_children(data)
-        .map_err(|err| CencError::MetadataCleanup(err.to_string()))
 }
