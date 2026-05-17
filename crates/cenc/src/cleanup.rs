@@ -1,25 +1,17 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
     BOX_MDIA, BOX_MINF, BOX_STBL, BOX_TRAK, EncryptedAudioSampleEntryBox,
-    EncryptedVideoSampleEntryBox, OriginalFormatBox, ProtectionSchemeInfoBox, PsshBox, SaioBox,
-    SaizBox, SampleEncryptionBox, SbgpBox, SgpdSeigBox,
+    EncryptedVideoSampleEntryBox, OriginalFormatBox, ProtectionSchemeInfoBox, PsshBox, RawMp4Box,
+    SaioBox, SaizBox, SampleEncryptionBox, SbgpBox, SgpdSeigBox,
 };
 use shiguredo_mp4::boxes::{
     Av01Box, Avc1Box, FlacBox, FreeBox, Hev1Box, Hvc1Box, MoofBox, MoovBox, Mp4aBox, OpusBox,
     StsdBox, TrafBox, Vp08Box, Vp09Box,
 };
-use shiguredo_mp4::{BoxHeader, BoxType, Decode};
+use shiguredo_mp4::{BoxType, Decode};
 
 const VISUAL_SAMPLE_ENTRY_SIZE: usize = 78;
 const AUDIO_SAMPLE_ENTRY_SIZE: usize = 28;
-
-#[derive(Debug, Clone, Copy)]
-struct RawBox {
-    typ: BoxType,
-    start: usize,
-    size: usize,
-    header_size: usize,
-}
 
 pub fn normalize_decrypted_fmp4(data: &mut [u8]) -> Result<()> {
     let top = match parse_boxes_range(data, 0, data.len()) {
@@ -27,53 +19,53 @@ pub fn normalize_decrypted_fmp4(data: &mut [u8]) -> Result<()> {
         Err(_) => return Ok(()),
     };
     for b in &top {
-        if b.typ == MoovBox::TYPE {
+        if b.box_type == MoovBox::TYPE {
             normalize_moov(data, b)?;
-        } else if b.typ == MoofBox::TYPE {
+        } else if b.box_type == MoofBox::TYPE {
             normalize_moof(data, b)?;
         }
     }
     Ok(())
 }
 
-fn normalize_moov(data: &mut [u8], moov: &RawBox) -> Result<()> {
+fn normalize_moov(data: &mut [u8], moov: &RawMp4Box) -> Result<()> {
     let moov_children =
         parse_boxes_range(data, moov.start + moov.header_size, moov.start + moov.size)?;
     for child in &moov_children {
-        if child.typ == PsshBox::TYPE {
+        if child.box_type == PsshBox::TYPE {
             // Zero out pssh from moov: hls.js collects moov-level pssh boxes and
             // uses them to trigger EME key session setup.
             free_box(data, child);
-        } else if child.typ == BOX_TRAK {
+        } else if child.box_type == BOX_TRAK {
             normalize_trak(data, *child)?;
         }
     }
     Ok(())
 }
 
-fn normalize_moof(data: &mut [u8], moof: &RawBox) -> Result<()> {
+fn normalize_moof(data: &mut [u8], moof: &RawMp4Box) -> Result<()> {
     let moof_children =
         parse_boxes_range(data, moof.start + moof.header_size, moof.start + moof.size)?;
     for child in &moof_children {
-        if child.typ == PsshBox::TYPE {
+        if child.box_type == PsshBox::TYPE {
             // Zero out pssh: hls.js uses pssh presence to trigger EME key loading.
             free_box(data, child);
-        } else if child.typ == TrafBox::TYPE {
+        } else if child.box_type == TrafBox::TYPE {
             normalize_traf(data, *child)?;
         }
     }
     Ok(())
 }
 
-fn normalize_traf(data: &mut [u8], traf: RawBox) -> Result<()> {
+fn normalize_traf(data: &mut [u8], traf: RawMp4Box) -> Result<()> {
     let traf_children =
         parse_boxes_range(data, traf.start + traf.header_size, traf.start + traf.size)?;
     for child in &traf_children {
-        if child.typ == SampleEncryptionBox::TYPE
-            || child.typ == SaizBox::TYPE
-            || child.typ == SaioBox::TYPE
-            || child.typ == SbgpBox::TYPE
-            || child.typ == SgpdSeigBox::TYPE
+        if child.box_type == SampleEncryptionBox::TYPE
+            || child.box_type == SaizBox::TYPE
+            || child.box_type == SaioBox::TYPE
+            || child.box_type == SbgpBox::TYPE
+            || child.box_type == SgpdSeigBox::TYPE
         {
             // Replace box type with 'free' and zero out payload (in-place).
             // senc/saiz/saio carry per-sample encryption info.
@@ -84,7 +76,7 @@ fn normalize_traf(data: &mut [u8], traf: RawBox) -> Result<()> {
     Ok(())
 }
 
-fn normalize_trak(data: &mut [u8], trak: RawBox) -> Result<()> {
+fn normalize_trak(data: &mut [u8], trak: RawMp4Box) -> Result<()> {
     let trak_children =
         parse_boxes_range(data, trak.start + trak.header_size, trak.start + trak.size)?;
     let Some(mdia) = find_box(&trak_children, BOX_MDIA) else {
@@ -108,7 +100,7 @@ fn normalize_trak(data: &mut [u8], trak: RawBox) -> Result<()> {
     normalize_stsd(data, *stsd)
 }
 
-fn normalize_stsd(data: &mut [u8], stsd: RawBox) -> Result<()> {
+fn normalize_stsd(data: &mut [u8], stsd: RawMp4Box) -> Result<()> {
     let stsd_payload_start = stsd.start + stsd.header_size;
     let stsd_payload_end = stsd.start + stsd.size;
     if stsd_payload_end < stsd_payload_start + 8 {
@@ -185,47 +177,20 @@ fn normalize_sample_entry(
 
 /// Replace a box's type with `free` and zero its payload in-place.
 /// This keeps the file size unchanged while signaling to parsers that the bytes are free space.
-fn free_box(data: &mut [u8], b: &RawBox) {
+fn free_box(data: &mut [u8], b: &RawMp4Box) {
     data[b.start + 4..b.start + 8].copy_from_slice(FreeBox::TYPE.as_bytes());
     let payload_start = b.start + b.header_size;
     let payload_end = b.start + b.size;
     data[payload_start..payload_end].fill(0);
 }
 
-fn parse_boxes_range(data: &[u8], start: usize, end: usize) -> Result<Vec<RawBox>> {
-    let mut boxes: Vec<_> = Vec::new();
-    let mut offset = start;
-    while offset < end {
-        let (header, header_size) = BoxHeader::decode(&data[offset..])
-            .map_err(|_| CencError::MetadataCleanup("box decode failed".to_string()))?;
-        let mut size = usize::try_from(header.box_size.get())
-            .map_err(|_| CencError::MetadataCleanup("box size overflow".to_string()))?;
-        if size == 0 {
-            size = end - offset;
-        }
-        if size < header_size || offset + size > end {
-            return Err(CencError::MetadataCleanup("invalid box size".to_string()));
-        }
-        let box_type = match header.box_type {
-            BoxType::Normal(_) => header.box_type,
-            BoxType::Uuid(_) => {
-                offset += size;
-                continue;
-            }
-        };
-        boxes.push(RawBox {
-            typ: box_type,
-            start: offset,
-            size,
-            header_size,
-        });
-        offset += size;
-    }
-    Ok(boxes)
+fn parse_boxes_range(data: &[u8], start: usize, end: usize) -> Result<Vec<RawMp4Box>> {
+    RawMp4Box::parse_range(data, start, end, 0)
+        .map_err(|err| CencError::MetadataCleanup(err.to_string()))
 }
 
-fn find_box(boxes: &[RawBox], typ: BoxType) -> Option<&RawBox> {
-    boxes.iter().find(|b| b.typ == typ)
+fn find_box(boxes: &[RawMp4Box], typ: BoxType) -> Option<&RawMp4Box> {
+    boxes.iter().find(|b| b.box_type == typ)
 }
 
 fn read_u32(data: &[u8], offset: usize) -> Result<u32> {

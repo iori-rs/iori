@@ -157,25 +157,35 @@ impl ChildBox<'_> {
 // RawMp4Box — lightweight top-level box descriptor
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct RawMp4Box {
     pub(crate) box_type: BoxType,
     pub(crate) start: usize,
     pub(crate) size: usize,
+    pub(crate) header_size: usize,
 }
 
 impl RawMp4Box {
     pub(crate) fn parse_all(buf: &[u8], base_offset: usize) -> Result<Vec<Self>> {
+        Self::parse_range(buf, 0, buf.len(), base_offset)
+    }
+
+    pub(crate) fn parse_range(
+        buf: &[u8],
+        start: usize,
+        end: usize,
+        base_offset: usize,
+    ) -> Result<Vec<Self>> {
         let mut boxes = Vec::new();
-        let mut offset = 0usize;
-        while offset < buf.len() {
+        let mut offset = start;
+        while offset < end {
             let (header, header_size) = BoxHeader::decode(&buf[offset..])?;
             let mut size = usize::try_from(header.box_size.get())
                 .map_err(|_| CencError::InvalidSenc("box size overflow".to_string()))?;
             if size == 0 {
-                size = buf.len() - offset;
+                size = end - offset;
             }
-            if size < header_size || offset + size > buf.len() {
+            if size < header_size || offset + size > end {
                 return Err(CencError::InvalidSenc("invalid box size".to_string()));
             }
             let box_type = match header.box_type {
@@ -189,6 +199,7 @@ impl RawMp4Box {
                 box_type,
                 start: base_offset + offset,
                 size,
+                header_size,
             });
             offset += size;
         }
