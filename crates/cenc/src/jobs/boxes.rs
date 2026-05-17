@@ -122,34 +122,17 @@ struct ChildBox<'a> {
 
 impl ChildBox<'_> {
     fn parse_children<'a>(payload: &'a [u8]) -> Result<Vec<ChildBox<'a>>> {
-        let mut boxes = Vec::new();
-        let mut offset = 0usize;
-        while offset < payload.len() {
-            let (header, header_size) = BoxHeader::decode(&payload[offset..])?;
-            let mut box_size = usize::try_from(header.box_size.get())
-                .map_err(|_| CencError::InvalidSenc("box size overflow".to_string()))?;
-            if box_size == 0 {
-                box_size = payload.len() - offset;
-            }
-            if box_size < header_size || offset + box_size > payload.len() {
-                return Err(CencError::InvalidSenc("invalid child box size".to_string()));
-            }
-            let start = offset + header_size;
-            let end = offset + box_size;
-            let box_type = match header.box_type {
-                BoxType::Normal(_) => header.box_type,
-                BoxType::Uuid(_) => {
-                    offset += box_size;
-                    continue;
-                }
-            };
-            boxes.push(ChildBox {
-                box_type,
-                payload: &payload[start..end],
-            });
-            offset += box_size;
-        }
-        Ok(boxes)
+        RawMp4Box::parse_range(payload, 0, payload.len(), 0)?
+            .into_iter()
+            .map(|box_item| {
+                let start = box_item.start + box_item.header_size;
+                let end = box_item.start + box_item.size;
+                Ok(ChildBox {
+                    box_type: box_item.box_type,
+                    payload: &payload[start..end],
+                })
+            })
+            .collect()
     }
 }
 
