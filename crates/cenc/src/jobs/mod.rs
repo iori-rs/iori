@@ -3,7 +3,7 @@ mod fmp4;
 mod non_fmp4;
 
 use crate::errors::{CencError, Result};
-use crate::jobs::boxes::{RawMp4Box, TrackEncryptionInfo, find_raw_box};
+use crate::jobs::boxes::{RawMp4Box, TrackEncryptionInfo};
 use crate::types::ParsedCenc;
 use shiguredo_mp4::Decode;
 use shiguredo_mp4::boxes::{MdatBox, MoofBox, MoovBox};
@@ -23,7 +23,11 @@ impl<'a> Mp4Context<'a> {
     }
 
     fn moov(&self) -> Result<Option<MoovBox>> {
-        let Some(raw_moov) = find_raw_box(&self.top_boxes, MoovBox::TYPE) else {
+        let Some(raw_moov) = self
+            .top_boxes
+            .iter()
+            .find(|box_item| box_item.is_type(MoovBox::TYPE))
+        else {
             return Ok(None);
         };
         let (moov, _) = MoovBox::decode(&self.input[raw_moov.start..raw_moov.end()])?;

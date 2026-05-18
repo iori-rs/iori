@@ -1,7 +1,7 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
     OriginalFormatBox, ProtectionSchemeInfoBox, PsshBox, RawMp4Box, SampleDescriptionBoxHeader,
-    find_raw_box, is_fragment_encryption_metadata_box, protected_sample_entry_base_size,
+    is_fragment_encryption_metadata_box, protected_sample_entry_base_size,
 };
 use shiguredo_mp4::boxes::{
     FreeBox, MdiaBox, MinfBox, MoofBox, MoovBox, StblBox, StsdBox, TrafBox, TrakBox,
@@ -72,25 +72,37 @@ fn normalize_trak(data: &mut [u8], trak: RawMp4Box) -> Result<()> {
     let trak_children = trak
         .parse_children(data)
         .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
-    let Some(mdia) = find_raw_box(&trak_children, MdiaBox::TYPE) else {
+    let Some(mdia) = trak_children
+        .iter()
+        .find(|box_item| box_item.is_type(MdiaBox::TYPE))
+    else {
         return Ok(());
     };
     let mdia_children = mdia
         .parse_children(data)
         .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
-    let Some(minf) = find_raw_box(&mdia_children, MinfBox::TYPE) else {
+    let Some(minf) = mdia_children
+        .iter()
+        .find(|box_item| box_item.is_type(MinfBox::TYPE))
+    else {
         return Ok(());
     };
     let minf_children = minf
         .parse_children(data)
         .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
-    let Some(stbl) = find_raw_box(&minf_children, StblBox::TYPE) else {
+    let Some(stbl) = minf_children
+        .iter()
+        .find(|box_item| box_item.is_type(StblBox::TYPE))
+    else {
         return Ok(());
     };
     let stbl_children = stbl
         .parse_children(data)
         .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
-    let Some(stsd) = find_raw_box(&stbl_children, StsdBox::TYPE) else {
+    let Some(stsd) = stbl_children
+        .iter()
+        .find(|box_item| box_item.is_type(StsdBox::TYPE))
+    else {
         return Ok(());
     };
     normalize_stsd(data, *stsd)
@@ -135,7 +147,10 @@ fn normalize_sample_entry(data: &mut [u8], entry: RawMp4Box, base_size: usize) -
     let children = entry
         .parse_payload_children_from(data, base_size)
         .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
-    let Some(sinf) = find_raw_box(&children, ProtectionSchemeInfoBox::TYPE) else {
+    let Some(sinf) = children
+        .iter()
+        .find(|box_item| box_item.is_type(ProtectionSchemeInfoBox::TYPE))
+    else {
         return Ok(());
     };
 
@@ -145,7 +160,9 @@ fn normalize_sample_entry(data: &mut [u8], entry: RawMp4Box, base_size: usize) -
     let sinf_children = sinf
         .parse_children(data)
         .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
-    if let Some(frma) = find_raw_box(&sinf_children, OriginalFormatBox::TYPE)
+    if let Some(frma) = sinf_children
+        .iter()
+        .find(|box_item| box_item.is_type(OriginalFormatBox::TYPE))
         && frma.size >= frma.header_size + 4
     {
         let original_format =
