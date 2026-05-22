@@ -109,8 +109,8 @@ pub struct WatchMessageMessageServer {
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct WatchMessageStatistics {
-    pub viewers: i32,
-    pub comments: i32,
+    pub viewers: Option<i32>,
+    pub comments: Option<i32>,
     pub ad_points: Option<i32>,
 }
 
