@@ -88,7 +88,6 @@ pub fn parse_playlist_res(input: &[u8]) -> Result<Playlist, M3u8ParseError> {
 
                 pending_inf = None;
                 pending_byterange = None;
-                current_key = None;
             }
             _ => {}
         }
