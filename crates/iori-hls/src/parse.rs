@@ -54,7 +54,15 @@ pub fn parse_playlist_res(input: &[u8]) -> Result<Playlist, M3u8ParseError> {
                 }
                 hls::Tag::Inf(inf) => pending_inf = Some(inf),
                 hls::Tag::Byterange(range) => pending_byterange = Some(range.into()),
-                hls::Tag::Key(key) => current_key = Some(key.into()),
+                hls::Tag::Key(key) => {
+                    let k: Key = key.into();
+                    // METHOD=NONE means no encryption; treat as absent key to match m3u8-rs behavior
+                    current_key = if k.method == KeyMethod::None {
+                        None
+                    } else {
+                        Some(k)
+                    };
+                }
                 hls::Tag::Map(map) => {
                     current_map = Some((map, &current_key).into());
                 }
@@ -89,6 +97,7 @@ pub fn parse_playlist_res(input: &[u8]) -> Result<Playlist, M3u8ParseError> {
                 pending_inf = None;
                 pending_byterange = None;
                 current_key = None;
+                current_map = None;
             }
             _ => {}
         }
