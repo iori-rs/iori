@@ -69,8 +69,8 @@ impl<C, M> IoriMerger<C, M> {
         Self::Pipe(PipeMerger::file(recycle, output_file))
     }
 
-    pub fn pipe_mux(output_file: PathBuf, recycle: bool, extra_commands: Option<String>) -> Self {
-        Self::Pipe(PipeMerger::mux(recycle, output_file, extra_commands))
+    pub fn pipe_mux(output_file: PathBuf, recycle: bool, extra_commands: Option<String>) -> IoriResult<Self> {
+        Ok(Self::Pipe(PipeMerger::mux(recycle, output_file, extra_commands)?))
     }
 
     pub fn skip() -> Self {
@@ -88,8 +88,8 @@ impl<C, M> IoriMerger<C, M> {
 }
 
 impl IoriMerger<MkvmergeMerger, MkvmergeMerger> {
-    pub fn mkvmerge(output_file: PathBuf, recycle: bool) -> IoriResult<Self> {
-        Ok(Self::Auto(AutoMerger::mkvmerge(output_file, recycle)?))
+    pub fn mkvmerge(output_file: PathBuf, recycle: bool) -> Self {
+        Self::Auto(AutoMerger::mkvmerge(output_file, recycle))
     }
 }
 

@@ -2,7 +2,7 @@ use super::Merger;
 use crate::{
     SegmentInfo, StreamType,
     cache::CacheSource,
-    error::IoriResult,
+    error::{IoriError, IoriResult},
     util::{ordered_stream::OrderedStream, path::DuplicateOutputFileNamer},
 };
 use std::{path::PathBuf, pin::Pin, process::Stdio};
@@ -101,7 +101,12 @@ impl PipeMerger {
         }
     }
 
-    pub fn mux(recycle: bool, output: PathBuf, extra_command: Option<String>) -> Self {
+    pub fn mux(recycle: bool, output: PathBuf, extra_command: Option<String>) -> IoriResult<Self> {
+        // Check if ffmpeg is available in PATH
+        if which::which("ffmpeg").is_err() {
+            return Err(IoriError::ExecutableNotFound("ffmpeg".to_string()));
+        }
+
         let (tx, rx) = mpsc::unbounded_channel();
 
         let mut stream: OrderedStream<Option<SendSegment>> = OrderedStream::new(rx);
@@ -235,12 +240,12 @@ impl PipeMerger {
             audio_handle.await.unwrap();
         });
 
-        Self {
+        Ok(Self {
             recycle,
 
             sender: Some(tx),
             future: Some(future),
-        }
+        })
     }
 
     fn send(&self, message: (u64, u64, Option<SendSegment>)) {

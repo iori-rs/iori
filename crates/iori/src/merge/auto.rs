@@ -56,9 +56,9 @@ impl<C, M> AutoMerger<C, M> {
 }
 
 impl AutoMerger<MkvmergeMerger, MkvmergeMerger> {
-    pub fn mkvmerge(output_file: PathBuf, recycle: bool) -> IoriResult<Self> {
-        let merger = MkvmergeMerger::new()?;
-        Ok(Self::new(output_file, recycle, merger.clone(), merger))
+    pub fn mkvmerge(output_file: PathBuf, recycle: bool) -> Self {
+        let merger = MkvmergeMerger::new();
+        Self::new(output_file, recycle, merger.clone(), merger)
     }
 }
 

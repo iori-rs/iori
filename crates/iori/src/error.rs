@@ -55,8 +55,8 @@ pub enum IoriError {
     #[error("Invalid timing schema: {0:?}")]
     InvalidTimingSchema(String),
 
-    #[error(transparent)]
-    MissingExecutable(#[from] which::Error),
+    #[error("Required executable '{0}' not found in PATH")]
+    ExecutableNotFound(String),
 
     #[error("Can not set cache directory to an existing path: {0}")]
     CacheDirExists(std::path::PathBuf),
