@@ -1,0 +1,13 @@
+[package]
+name = "iori-cenc"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+shiguredo_mp4 = "2026.3.0"
+aes.workspace = true
+hex = "0.4.3"
+thiserror.workspace = true

@@ -18,7 +18,10 @@ tmp
 *.ts
 *.mkv
 *.mp4
+!**/tests/**/*.mp4
 shiori_*
 
 # nix
 .direnv
+node_modules/
+.pnpm-debug.log

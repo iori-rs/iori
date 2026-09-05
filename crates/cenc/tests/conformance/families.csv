@@ -1,0 +1,76 @@
+family_id,source_locator,layer,purpose,case_dimensions,status
+SIG-01,4.1–4.2,signaling,Scheme identifiers and scheme versions,recognized; unknown; incompatible version; missing required protection boxes,proposed-not-implemented
+SIG-02,4.1; 8.2,signaling,Sample-entry protection structure,audio/video entry variants; frma; schm; schi; tenc; duplicate and misplaced boxes,proposed-not-implemented
+GRP-01,5–6,groups,Track defaults and sample overrides,absent group; explicit assignment; zero index; default description; partial assignments,proposed-not-implemented
+GRP-02,6; ISO14496-12,groups,Description table namespaces,track-only; fragment-only; both; boundary index; missing table,proposed-not-implemented
+GRP-03,6,groups,Protection transitions,clear/protected/clear; all clear; protected override of clear tenc; empty runs,proposed-not-implemented
+GRP-04,6,groups,Key and IV parameter precedence,different KIDs and IVs at each scope; declared unused description,proposed-not-implemented
+GRP-05,6,groups,Multi-key descriptions,one/two/many keys; repeated selection; independent state; unused key,proposed-not-implemented
+GRP-06,6; ISO14496-12,groups,Description lengths and extension bytes,fixed/variable lengths; version combinations; padding; truncation,proposed-not-implemented
+AUX-01,7.1,auxiliary,Single-key auxiliary records,IV widths; full sample; subsample table; clear samples; zero-length records,proposed-not-implemented
+AUX-02,7.1,auxiliary,Multi-key auxiliary records,key/IV index arrays; first/last index; duplicate/missing/out-of-range index,proposed-not-implemented
+AUX-03,7.1; ISO14496-12,auxiliary,Stream identities and addressing,matching type/parameter; multiple streams; absolute/relative offsets; table counts,proposed-not-implemented
+AUX-04,7.1,auxiliary,Auxiliary representation equivalence,senc versus external records; identical effective parameters and plaintext,proposed-not-implemented
+SENC-01,7.2.1–7.2.3,syntax,All defined senc versions,version0/1/2; unsupported version; protection-dependent record ordering,proposed-not-implemented
+SENC-02,7.2.2–7.2.3,syntax,Flags and counts,each defined branch; reserved flags; zero/one/many samples; count mismatch,proposed-not-implemented
+SENC-03,7.2,syntax,Record truncation and surplus,every field boundary; truncated IV/count/record; integer overflow,proposed-not-implemented
+PSSH-01,8.1,metadata,PSSH versions and payload boundaries,v0/v1; KID list; data size; zero data; truncation,proposed-not-implemented
+PSSH-02,8.1; 11,metadata,PSSH scope and identity,multiple systems; track/fragment visibility; unknown systems; KID associations,proposed-not-implemented
+TENC-01,8.2,syntax,Track defaults syntax,reserved bytes; patterns; protection value; per-sample IV width; constant-IV branches,proposed-not-implemented
+TENC-02,8.2; 9.1; 10,semantics,Track defaults cross-field validity,scheme/version combinations; protected versus clear; ignored defaults for multi-key,proposed-not-implemented
+ITEM-01,8.3,items,Item protection properties,one/many items; essential properties; clear/protected; absent or duplicate associations,proposed-not-implemented
+ITEM-02,8.3,items,Item keys and subsamples,key arrays; conditional IVs; subsample layouts; referenced data extents,proposed-not-implemented
+ITEM-03,8.4,items,Item auxiliary records,explicit/implicit auxiliary type; iaux fields; references; uniqueness; malformed associations,proposed-not-implemented
+FIELD-01,9.1,semantics,Protection and IV field domains,all representable small values; valid combinations separated from tolerant acceptance,proposed-not-implemented
+FIELD-02,9.1; 9.5.1,semantics,Subsample accounting,exact partitions; clear-only/protected-only; zero pairs; under/overcoverage; max counts,proposed-not-implemented
+IV-01,9.2,crypto,IV construction and reset,8/16 byte forms where valid; zero/nonzero; endian-sensitive values; sample reset,proposed-not-implemented
+IV-02,9.2–9.3,corpus,Key/IV and counter uniqueness,same/different key across samples/tracks/assets; carry; reuse detection in corpus validator,proposed-not-implemented
+CTR-01,9.3,crypto,Counter arithmetic,published KAT; low-word carry; high-word preservation; exact block and partial data,proposed-not-implemented
+CTR-02,9.3–9.5,crypto,Selected-byte stream continuity,many protected ranges; intervening clear bytes; no counter consumption for unselected bytes,proposed-not-implemented
+FULL-01,9.4.1–9.4.2,crypto,CTR full-sample transforms,length0/1/15/16/17; every tail remainder; separate sample states,proposed-not-implemented
+FULL-02,9.4.3,crypto,CBC full-sample transforms,published KAT; complete blocks; tails; ciphertext chaining; sample resets,proposed-not-implemented
+SUB-01,9.5.1,crypto,Subsample transforms,independent exact-cover partitions; scheme-specific alignment; chain/state traces,proposed-not-implemented
+NAL-01,9.5.2,codec,NAL framing,length-prefix widths; multiple NALs; tiny/empty/truncated NAL; large clear ranges,proposed-not-implemented
+NAL-02,9.5.2,codec,AVC clear/protected geometry,avc1/avc3; CAVLC/CABAC; slice headers; parameter sets; SEI/AUD; multiple slices,proposed-not-implemented
+NAL-03,9.5.2,codec,HEVC clear/protected geometry,hvc1/hev1; slice segments; headers; multiple VCL and non-VCL NAL units,proposed-not-implemented
+NAL-04,9.5.2.6,codec,Extractor processing,inline/referenced constructors; missing references; reconstructed sample offsets; multiple tracks,proposed-not-implemented
+PAT-01,9.6,crypto,Pattern domain and transitions,all256 nibble pairs; applicability classification; cycle edges; all tail remainders,proposed-not-implemented
+PAT-02,9.6; 10,crypto,Pattern restart and chaining,two/many subsamples; end in crypt/skip phase; counter versus CBC-state behavior,proposed-not-implemented
+WHOLE-01,9.7; 10,crypto,Whole-block transforms,zero complete blocks; exact blocks; every clear tail; counter/state does not consume tail,proposed-not-implemented
+CENC-01,10.1,scheme,CENC profile restrictions,positive witness for each legal metadata/IV/media combination; one-rule invalid mutations,proposed-not-implemented
+CBC1-01,10.2,scheme,CBC1 profile restrictions,positive witnesses; aligned subsamples; separate robustness tails; IV/version restrictions,proposed-not-implemented
+CENS-01,10.3,scheme,CENS profile restrictions,NAL/non-NAL distinction; pattern constraints; aligned ranges; IV constraints,proposed-not-implemented
+CBCS-01,10.4.1–10.4.2,scheme,CBCS profile restrictions,constant-IV validation; NAL/non-NAL; protected-start geometry; per-range resets,proposed-not-implemented
+SVE1-01,9.8; 10.5,sensitive,Sensitive encryption state,selected-bit lengths0/1/127/128/129; packing; cipher-block consumption; clear-bit preservation,proposed-not-implemented
+SVE1-A1,Annex A.1,sensitive,AVC CAVLC eligibility tables,CAVLC corpus and eligibility traces; selected-bit packing; code-length and syntax validity; normative row mapping pending,knowledge-derived-not-implemented
+SVE1-A2,Annex A remaining sections,sensitive,AVC CABAC eligibility tables,CABAC bypass/context boundary probes; independent decode; unchanged unselected syntax; normative eligibility mapping pending,knowledge-derived-not-implemented
+SVE1-A3,Annex A remaining sections,sensitive,HEVC eligibility tables,HEVC slice/tile/entry-point probes; independent decode; exact inverse transform; normative eligibility mapping pending,knowledge-derived-not-implemented
+XML-01,11.1–11.2,xml,XML namespace and value syntax,UUID/KID lists; whitespace; malformed values; full-box base64; namespace variants,proposed-not-implemented
+XML-02,11.3,xml,DASH descriptor associations,scheme/system IDs; pssh associations; cross-check against file defaults; multiple descriptors,proposed-not-implemented
+MP4-01,ISO14496-12 dependency,container,Progressive sample tables,stsc/stsz/stz2/stco/co64; chunks; multiple descriptions; interleaving; absent sizes,proposed-not-implemented
+MP4-02,ISO14496-12 dependency,container,Fragment address resolution,tfhd bases; signed trun offsets; implicit continuation; trex defaults; multiple mdats,proposed-not-implemented
+MP4-03,ISO14496-12 dependency,container,API window equivalence,whole file versus detached init/media; isolated fragment; nonzero buffer base,proposed-not-implemented
+MP4-04,ISO14496-12 dependency,container,Box structural boundaries,32/64-bit headers; terminal size0; nested bounds; sample pointing into metadata; overflow,proposed-not-implemented
+REAL-01,integration,real-media,Two encryption producers and three decryptors,Bento4/Shaka/reference producer; both external decryptors and iori; original sample oracle,proposed-not-implemented
+REAL-02,integration,real-media,Tracks and codecs,audio; AVC; HEVC; AV; two audio tracks; clear/protected combinations,proposed-not-implemented
+REAL-03,integration,real-media,Layout and streaming,progressive; fragmented single file; detached init; short and many-fragment assets,proposed-not-implemented
+REAL-04,integration,real-media,Key rotation and clear lead,different track keys; rotation and return to old KID; explicit clear-lead0 and nonzero,proposed-not-implemented
+REAL-05,integration,real-media,Independent sample and playback checks,exact encoded samples; rational timing; software video-frame and PCM hashes,proposed-not-implemented
+ROBUST-01,project safety,robustness,Bounded malformed-input handling,every field truncation; counts; offsets; unknown versions; fuzz; no panic/hang,proposed-not-implemented
+ROBUST-02,project API,robustness,Key errors and mutation policy,missing/malformed key; wrong key plaintext mismatch; unsupported schemes; partial-write policy,proposed-not-implemented
+INPLACE-01,AGENTS.md,project,Recursive layout invariants,same length/start/size/order; allowed type edits; downstream offsets stable,proposed-not-implemented
+INPLACE-02,AGENTS.md,project,Selective byte changes,protected bytes only; unrelated groups/aux preserved; cleanup allowlist; clear tracks,proposed-not-implemented
+COMPAT-01,compatibility only,compatibility,Known oracle deviations,Bento4 CENS tails; exact version/trigger; unmodified witness; separate compliant derivative,proposed-not-implemented
+COMPAT-02,compatibility only,compatibility,Legacy permissive behavior,legacy senc overrides; undercoverage; invalid scheme/IV shapes; no normative coverage credit,proposed-not-implemented
+KNOW-01,engineering knowledge; normative mapping pending,crypto,Independent state traces,counter/chaining trace; selected-block indexing; two-sample reset,knowledge-derived-not-implemented
+KNOW-02,engineering knowledge; normative mapping pending,properties,Clear-data independence,mutate clear and skipped bytes; retain independent protected plaintext expectations,knowledge-derived-not-implemented
+KNOW-03,engineering knowledge; normative mapping pending,properties,Representation equivalence,senc versus auxiliary; equivalent run/chunk splitting; changed physical layout,knowledge-derived-not-implemented
+KNOW-04,engineering knowledge; normative mapping pending,keys,Distinct-key witnesses,alternating key selections; missing second key; misleading track-ID override,knowledge-derived-not-implemented
+KNOW-05,engineering knowledge; normative mapping pending,sensitive,Selected-bit packing,0/1/7/8/9/127/128/129 bits; cross-byte and cross-field boundaries,knowledge-derived-not-implemented
+KNOW-06,engineering knowledge; normative mapping pending,sensitive,Syntax eligibility witnesses,explicit eligible/ineligible map; candidate syntax fields; no inferred Annex membership,knowledge-derived-not-implemented
+KNOW-07,engineering knowledge; normative mapping pending,sensitive,Entropy and framing preservation,parseable encrypted stream; code-length constraints; RBSP/EBSP handling; slice boundaries,knowledge-derived-not-implemented
+KNOW-08,engineering knowledge; normative mapping pending,items,Item graph isolation,distinct protected items; shared properties; extents; associations; unselected item bytes,knowledge-derived-not-implemented
+KNOW-09,engineering knowledge; normative mapping pending,interop,Adversarial comparator validation,reordered/interleaved mdat; dropped/duplicated samples; track renumbering; oracle fault injection,knowledge-derived-not-implemented
+KNOW-10,engineering knowledge; normative mapping pending,runner,Execution-accounting self-tests,empty corpus; missing executable; timeout; crash; unexpected unsupported result,knowledge-derived-not-implemented
+KNOW-11,engineering knowledge; normative mapping pending,project,Failure and mutation contract,late missing key; late invalid offset; explicit partial-write policy; successful-path invariants,knowledge-derived-not-implemented
+KNOW-12,engineering knowledge; normative mapping pending,properties,Deterministic reproducibility,seed replay; fixture identity; normalized reports; no cache reuse after tool changes,knowledge-derived-not-implemented
