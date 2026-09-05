@@ -1,11 +1,11 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
-    RawMp4Box, SaioBox, SaizBox, SampleEncryptionBox, SampleEncryptionEntry, SbgpBox, SbgpEntry,
-    SeigEntry, SgpdSeigBox, TrackEncryptionInfo, find_unknown_box,
-    parse_first_matching_unknown_box, parse_saio, parse_saiz,
+    RawMp4Box, SampleEncryptionBox, SampleEncryptionEntry, SbgpBox, SbgpEntry, SeigEntry,
+    SgpdSeigBox, TrackEncryptionInfo, find_unknown_box, parse_first_matching_unknown_box,
+    resolve_seig_overrides, select_cenc_auxiliary,
 };
 use crate::types::{CbcPattern, DecryptJob, ParsedCenc};
-use shiguredo_mp4::boxes::{MoofBox, MoovBox, UnknownBox};
+use shiguredo_mp4::boxes::{MdatBox, MoofBox, MoovBox, UnknownBox};
 use shiguredo_mp4::{BoxType, Decode};
 use std::collections::HashMap;
 
@@ -24,19 +24,15 @@ impl<'a> UnknownBoxes<'a> {
     }
 
     fn parse_seig_sbgp(&self) -> Result<Option<Vec<SbgpEntry>>> {
-        parse_first_matching_unknown_box(self.iter(), SbgpBox::TYPE, SbgpEntry::parse_seig)
+        parse_first_matching_unknown_box(self.traf.iter(), SbgpBox::TYPE, SbgpEntry::parse_seig)
     }
 
-    fn parse_seig_sgpd(&self) -> Result<Option<Vec<SeigEntry>>> {
-        parse_first_matching_unknown_box(self.iter(), SgpdSeigBox::TYPE, SeigEntry::parse_seig)
-    }
-
-    fn parse_cenc_saiz(&self) -> Result<Option<Vec<u8>>> {
-        parse_first_matching_unknown_box(self.iter(), SaizBox::TYPE, parse_saiz)
-    }
-
-    fn parse_cenc_saio(&self) -> Result<Option<Vec<u64>>> {
-        parse_first_matching_unknown_box(self.iter(), SaioBox::TYPE, parse_saio)
+    fn parse_seig_sgpd(&self) -> Result<Option<SgpdSeigBox>> {
+        parse_first_matching_unknown_box(
+            self.traf.iter(),
+            SgpdSeigBox::TYPE,
+            SgpdSeigBox::decode_payload,
+        )
     }
 
     fn iter(&self) -> impl Iterator<Item = &'a UnknownBox> {
@@ -48,46 +44,45 @@ struct FragmentSamples {
     offsets: Vec<u64>,
     sizes: Vec<u32>,
     trun_sample_counts: Vec<usize>,
+    end: u64,
 }
 
 impl FragmentSamples {
     fn collect(
         traf: &shiguredo_mp4::boxes::TrafBox,
-        moof_start: usize,
-        moof_size: usize,
+        base_offset: u64,
+        default_sample_size: Option<u32>,
     ) -> Result<Self> {
         let tfhd = &traf.tfhd_box;
         let mut offsets = Vec::new();
         let mut sizes = Vec::new();
         let mut trun_sample_counts = Vec::new();
+        let mut current = base_offset;
         for trun in &traf.trun_boxes {
             trun_sample_counts.push(trun.samples.len());
-            let base_offset = if let Some(data_offset) = trun.data_offset {
-                let offset = data_offset as i64;
-                if offset < 0 {
-                    return Err(CencError::OutOfBounds);
-                }
-                moof_start as u64 + offset as u64
-            } else if let Some(base) = tfhd.base_data_offset {
-                base
-            } else {
-                moof_start as u64 + moof_size as u64
-            };
-            let mut current = base_offset;
+            if let Some(data_offset) = trun.data_offset {
+                current = base_offset
+                    .checked_add_signed(i64::from(data_offset))
+                    .ok_or(CencError::OutOfBounds)?;
+            }
             for sample in &trun.samples {
                 let size = sample
                     .size
                     .or(tfhd.default_sample_size)
+                    .or(default_sample_size)
                     .ok_or_else(|| CencError::InvalidSenc("missing sample size".to_string()))?;
                 offsets.push(current);
                 sizes.push(size);
-                current += size as u64;
+                current = current
+                    .checked_add(u64::from(size))
+                    .ok_or(CencError::OutOfBounds)?;
             }
         }
         Ok(Self {
             offsets,
             sizes,
             trun_sample_counts,
+            end: current,
         })
     }
 
@@ -108,133 +103,32 @@ impl FragmentSamples {
     }
 }
 
-struct SeigSampleGroups {
-    sbgp: Vec<SbgpEntry>,
-    sgpd: Vec<SeigEntry>,
-}
-
-/// Per-sample protection state expanded from `sbgp`/`sgpd`.
-///
-/// CENC sample groups are run-length metadata over the media samples. Each
-/// mapped sample still occupies one position in decode order, even when its
-/// `seig` description marks it unprotected. Keeping clear samples as explicit
-/// entries preserves the one-to-one relationship between sample indexes and
-/// sample-group indexes.
 enum GroupSampleEncryption {
-    /// The sample group description says this sample is not encrypted.
     Clear,
-    /// The sample is encrypted and the group supplies the sample encryption
-    /// parameters that are otherwise carried by `senc` or `saiz`/`saio`.
     Encrypted(SampleEncryptionEntry),
 }
 
-impl SeigSampleGroups {
-    fn parse(required_boxes: &UnknownBoxes) -> Result<Self> {
-        let sbgp = required_boxes
-            .parse_seig_sbgp()?
-            .ok_or(CencError::MissingSenc)?;
-        let sgpd = required_boxes
-            .parse_seig_sgpd()?
-            .ok_or(CencError::MissingSenc)?;
-        Ok(Self { sbgp, sgpd })
-    }
-
-    fn parse_optional(boxes: &UnknownBoxes) -> Result<Option<Self>> {
-        let Some(sbgp) = boxes.parse_seig_sbgp()? else {
-            return Ok(None);
-        };
-        let sgpd = boxes.parse_seig_sgpd()?.ok_or(CencError::MissingSenc)?;
-        Ok(Some(Self { sbgp, sgpd }))
-    }
-
-    /// Build per-sample protection states from `sbgp`/`sgpd` `seig` boxes.
-    ///
-    /// If no `senc` or `saiz`/`saio` data exists, protected samples may still
-    /// be described by a `seig` sample group. In that layout the group supplies
-    /// a constant IV and there is no per-sample subsample table. Unprotected
-    /// group descriptions are retained as clear samples instead of being
-    /// omitted, because omitting them would shift every later sample's
-    /// encryption metadata to the wrong media sample.
-    fn build_samples(
-        &self,
-        sample_count: usize,
-        track_info: &TrackEncryptionInfo,
-    ) -> Result<Vec<GroupSampleEncryption>> {
-        let mut samples = Vec::with_capacity(sample_count);
-        let mut remaining = sample_count;
-
-        for sbgp_entry in &self.sbgp {
-            let count = (sbgp_entry.sample_count as usize).min(remaining);
-            for _ in 0..count {
-                let state = if sbgp_entry.group_description_index == 0 {
-                    let iv = track_info.constant_iv.ok_or_else(|| {
-                        CencError::InvalidSenc(
-                            "sbgp group_description_index=0 but no track-level constant IV"
-                                .to_string(),
-                        )
-                    })?;
-                    GroupSampleEncryption::Encrypted(SampleEncryptionEntry {
-                        iv,
-                        subsamples: Vec::new(),
-                    })
-                } else {
-                    let idx = sbgp_entry.description_index()?;
-                    let seig = self.sgpd.get(idx).ok_or_else(|| {
-                        CencError::InvalidSenc("invalid sbgp group_description_index".to_string())
-                    })?;
-                    if !seig.is_protected {
-                        GroupSampleEncryption::Clear
-                    } else {
-                        let iv = seig.constant_iv.ok_or_else(|| {
-                            CencError::InvalidSenc(
-                                "sgpd seig entry has no constant IV (per_sample_iv_size != 0)"
-                                    .to_string(),
-                            )
-                        })?;
-                        GroupSampleEncryption::Encrypted(SampleEncryptionEntry {
-                            iv,
-                            subsamples: Vec::new(),
-                        })
-                    }
-                };
-                samples.push(state);
+fn constant_iv_samples(
+    track: &TrackEncryptionInfo,
+    groups: &[Option<SeigEntry>],
+) -> Result<Vec<GroupSampleEncryption>> {
+    groups
+        .iter()
+        .copied()
+        .map(|group| {
+            if !group.map_or(track.is_protected, |entry| entry.is_protected) {
+                return Ok(GroupSampleEncryption::Clear);
             }
-            remaining -= count;
-            if remaining == 0 {
-                break;
+            let (iv_size, iv) = track.effective_iv_info(group);
+            if iv_size != 0 {
+                return Err(CencError::MissingSenc);
             }
-        }
-
-        Ok(samples)
-    }
-
-    /// Expand sample-group overrides to one optional `seig` entry per sample.
-    ///
-    /// `sbgp` maps runs of samples to `sgpd` descriptions. A zero description
-    /// index means "use the track defaults"; a non-zero index overrides
-    /// selected track encryption fields for that run.
-    fn overrides(&self, sample_count: usize) -> Result<Vec<Option<SeigEntry>>> {
-        let mut overrides = Vec::with_capacity(sample_count);
-        let mut remaining = sample_count;
-        for sbgp_entry in &self.sbgp {
-            let count = (sbgp_entry.sample_count as usize).min(remaining);
-            let override_entry = if sbgp_entry.group_description_index == 0 {
-                None
-            } else {
-                let idx = sbgp_entry.description_index()?;
-                Some(*self.sgpd.get(idx).ok_or_else(|| {
-                    CencError::InvalidSenc("invalid sbgp group_description_index".to_string())
-                })?)
-            };
-            overrides.extend(std::iter::repeat_n(override_entry, count));
-            remaining -= count;
-            if remaining == 0 {
-                break;
-            }
-        }
-        overrides.resize(sample_count, None);
-        Ok(overrides)
-    }
+            Ok(GroupSampleEncryption::Encrypted(SampleEncryptionEntry {
+                iv: iv.ok_or(CencError::MissingSenc)?,
+                subsamples: Vec::new(),
+            }))
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone)]
@@ -260,7 +154,7 @@ impl EffectiveSampleEncryption {
         if senc_overrides_to_clear {
             return None;
         }
-        if matches!(group, Some(entry) if !entry.is_protected) {
+        if !group.map_or(track.is_protected, |entry| entry.is_protected) {
             return None;
         }
         Some(Self {
@@ -293,14 +187,17 @@ impl EffectiveSampleEncryption {
 
 fn parse_auxiliary_sample_entries(
     input: &[u8],
-    moof_start: usize,
+    base: usize,
     offsets: &[u64],
     sizes: &[u8],
     trun_sample_counts: &[usize],
     track_info: &TrackEncryptionInfo,
     group_overrides: &[Option<SeigEntry>],
 ) -> Option<Vec<SampleEncryptionEntry>> {
-    if offsets.is_empty() || sizes.len() != trun_sample_counts.iter().sum::<usize>() {
+    if (offsets.len() != 1 && offsets.len() != trun_sample_counts.len())
+        || offsets.is_empty()
+        || sizes.len() != trun_sample_counts.iter().sum::<usize>()
+    {
         return None;
     }
     if sizes.len() != group_overrides.len() {
@@ -308,7 +205,7 @@ fn parse_auxiliary_sample_entries(
     }
 
     if offsets.len() == 1 {
-        let aux_offset = checked_aux_offset(moof_start, offsets[0], input.len())?;
+        let aux_offset = checked_aux_offset(base, offsets[0], input.len())?;
         return parse_auxiliary_sample_entries_at(
             &input[aux_offset..],
             sizes,
@@ -323,7 +220,7 @@ fn parse_auxiliary_sample_entries(
         if sample_count == 0 {
             continue;
         }
-        let aux_offset = checked_aux_offset(moof_start, *offsets.get(trun_index)?, input.len())?;
+        let aux_offset = checked_aux_offset(base, *offsets.get(trun_index)?, input.len())?;
         let end = size_offset.checked_add(sample_count)?;
         let trun_sizes = sizes.get(size_offset..end)?;
         let trun_groups = group_overrides.get(size_offset..end)?;
@@ -364,14 +261,14 @@ fn parse_auxiliary_sample_entries_at(
 fn checked_aux_offset(input_base: usize, relative_offset: u64, input_len: usize) -> Option<usize> {
     let relative_offset = usize::try_from(relative_offset).ok()?;
     let offset = input_base.checked_add(relative_offset)?;
-    (offset < input_len).then_some(offset)
+    (offset <= input_len).then_some(offset)
 }
 
 /// Parse CENC decrypt jobs from fragmented MP4 media.
 ///
 /// Per-fragment encryption data is resolved like Bento4: auxiliary info
 /// referenced by `saiz`/`saio` is tried first, invalid auxiliary layouts fall
-/// back to `senc`, and `seig` sample groups are used when neither table exists.
+/// back to `senc`. Effective track/group constant IVs need no auxiliary table.
 pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<ParsedCenc> {
     let track_map = super::get_track_map(moov)?;
     let mut track_lookup: HashMap<u32, Vec<Option<TrackEncryptionInfo>>> = HashMap::new();
@@ -388,44 +285,76 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
     {
         let (moof, _) = MoofBox::decode(&input[raw_moof.start..raw_moof.end()])?;
         let moof_start = raw_moof.start;
-        let moof_size = raw_moof.size;
+        let mut preceding_traf_end = moof_start as u64;
 
         for traf in &moof.traf_boxes {
             let unknown_boxes = UnknownBoxes::new(&traf.unknown_boxes, &moof.unknown_boxes);
             let tfhd = &traf.tfhd_box;
+            let trex = moov.mvex_box.as_ref().and_then(|mvex| {
+                mvex.trex_boxes
+                    .iter()
+                    .find(|trex| trex.track_id == tfhd.track_id)
+            });
+            let base = tfhd.base_data_offset.unwrap_or({
+                if tfhd.default_base_is_moof {
+                    moof_start as u64
+                } else {
+                    preceding_traf_end
+                }
+            });
+            let samples =
+                FragmentSamples::collect(traf, base, trex.map(|trex| trex.default_sample_size))?;
+            preceding_traf_end = samples.end;
             let Some(entry_infos) = track_lookup.get(&tfhd.track_id) else {
                 continue;
             };
-            let sample_description_index = tfhd.sample_description_index.unwrap_or(1);
-            let entry_index = sample_description_index as usize - 1;
+            let sample_description_index = tfhd
+                .sample_description_index
+                .or(trex.map(|trex| trex.default_sample_description_index))
+                .unwrap_or(1);
+            let entry_index = sample_description_index
+                .checked_sub(1)
+                .ok_or_else(|| CencError::InvalidSenc("sample description index is zero".into()))?
+                as usize;
             let Some(info) = entry_infos.get(entry_index).and_then(|info| info.as_ref()) else {
                 continue;
             };
-            if !info.is_protected {
-                continue;
-            }
-
-            let samples = FragmentSamples::collect(traf, moof_start, moof_size)?;
             if samples.is_empty() {
                 continue;
             }
 
             let sample_count = samples.len();
-            let sample_groups = SeigSampleGroups::parse_optional(&unknown_boxes)?;
-            let group_overrides = sample_groups
-                .as_ref()
-                .map(|groups| groups.overrides(sample_count))
+            let track = moov
+                .trak_boxes
+                .iter()
+                .find(|track| track.tkhd_box.track_id == tfhd.track_id);
+            let track_sgpd = track
+                .map(|track| {
+                    parse_first_matching_unknown_box(
+                        track.mdia_box.minf_box.stbl_box.unknown_boxes.iter(),
+                        SgpdSeigBox::TYPE,
+                        SgpdSeigBox::decode_payload,
+                    )
+                })
                 .transpose()?
-                .unwrap_or_else(|| vec![None; sample_count]);
+                .flatten();
+            let fragment_sgpd = unknown_boxes.parse_seig_sgpd()?;
+            let sbgp = unknown_boxes.parse_seig_sbgp()?;
+            let group_overrides = resolve_seig_overrides(
+                sbgp.as_deref(),
+                track_sgpd.as_ref(),
+                fragment_sgpd.as_ref(),
+                sample_count,
+            )?;
 
             let senc_box = unknown_boxes.find(SampleEncryptionBox::TYPE);
             let (entries, senc_override_kid, senc_overrides_to_clear) = 'entries: {
-                let sizes = unknown_boxes.parse_cenc_saiz()?;
-                let offsets = unknown_boxes.parse_cenc_saio()?;
-                if let (Some(sizes), Some(offsets)) = (sizes, offsets)
+                let auxiliary = select_cenc_auxiliary(unknown_boxes.iter());
+                let has_auxiliary_metadata = !matches!(&auxiliary, Ok(None));
+                if let Ok(Some((sizes, offsets))) = auxiliary
                     && let Some(entries) = parse_auxiliary_sample_entries(
                         input,
-                        moof_start,
+                        usize::try_from(base).map_err(|_| CencError::OutOfBounds)?,
                         &offsets,
                         &sizes,
                         samples.trun_sample_counts(),
@@ -465,11 +394,12 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                     }
                 }
 
-                (
-                    SeigSampleGroups::parse(&unknown_boxes)?.build_samples(sample_count, info)?,
-                    None,
-                    false,
-                )
+                if has_auxiliary_metadata {
+                    return Err(CencError::InvalidSenc(
+                        "invalid or incomplete auxiliary encryption information".into(),
+                    ));
+                }
+                (constant_iv_samples(info, &group_overrides)?, None, false)
             };
 
             if entries.len() != sample_count {
@@ -479,10 +409,8 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                 });
             }
 
-            for (((offset, size), sample_encryption), group_override) in samples
-                .into_iter()
-                .zip(entries.into_iter())
-                .zip(group_overrides.into_iter())
+            for (((offset, size), sample_encryption), group_override) in
+                samples.into_iter().zip(entries).zip(group_overrides)
             {
                 let GroupSampleEncryption::Encrypted(entry) = sample_encryption else {
                     continue;
@@ -496,6 +424,16 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
                 ) else {
                     continue;
                 };
+                let end = offset
+                    .checked_add(u64::from(size))
+                    .ok_or(CencError::OutOfBounds)?;
+                if !top_boxes.iter().any(|raw| {
+                    raw.is_type(MdatBox::TYPE)
+                        && offset >= (raw.start + raw.header_size) as u64
+                        && end <= raw.end() as u64
+                }) {
+                    return Err(CencError::OutOfBounds);
+                }
                 jobs.push(effective.into_decrypt_job(tfhd.track_id, info, entry, offset, size));
             }
         }
@@ -636,50 +574,147 @@ mod tests {
     }
 
     #[test]
-    fn seig_sample_groups_keep_unprotected_samples_in_position() {
-        let groups = SeigSampleGroups {
-            sbgp: vec![
-                SbgpEntry {
-                    sample_count: 1,
-                    group_description_index: 1,
-                },
-                SbgpEntry {
-                    sample_count: 1,
-                    group_description_index: 2,
-                },
-            ],
-            sgpd: vec![
-                SeigEntry {
-                    pattern: None,
-                    is_protected: false,
-                    per_sample_iv_size: 0,
-                    kid: [0; 16],
-                    constant_iv: None,
-                },
-                SeigEntry {
-                    pattern: None,
-                    is_protected: true,
-                    per_sample_iv_size: 0,
-                    kid: [9; 16],
-                    constant_iv: Some([7; 16]),
-                },
-            ],
-        };
-        let track = TrackEncryptionInfo {
-            scheme: SchemeType::Cenc,
-            kid: [1; 16],
-            iv_size: 0,
-            constant_iv: None,
+    fn constant_iv_fallback_respects_clear_and_protected_defaults() {
+        let mut track = track_with_iv_size(0);
+        track.constant_iv = Some([7; 16]);
+        assert!(matches!(
+            constant_iv_samples(&track, &[None]).unwrap()[0],
+            GroupSampleEncryption::Encrypted(_)
+        ));
+        track.is_protected = false;
+        assert!(matches!(
+            constant_iv_samples(&track, &[None]).unwrap()[0],
+            GroupSampleEncryption::Clear
+        ));
+        let protected = SeigEntry {
             pattern: None,
             is_protected: true,
+            per_sample_iv_size: 0,
+            kid: [9; 16],
+            constant_iv: Some([3; 16]),
         };
-
-        let samples = groups.build_samples(2, &track).unwrap();
-
+        let samples = constant_iv_samples(&track, &[None, Some(protected)]).unwrap();
         assert!(matches!(samples[0], GroupSampleEncryption::Clear));
-        match &samples[1] {
-            GroupSampleEncryption::Encrypted(entry) => assert_eq!(entry.iv, [7; 16]),
-            GroupSampleEncryption::Clear => panic!("second sample should be encrypted"),
+        assert!(
+            matches!(&samples[1], GroupSampleEncryption::Encrypted(entry) if entry.iv == [3; 16])
+        );
+    }
+    fn sample_runs(offsets: &[Option<i32>], size: Option<u32>) -> shiguredo_mp4::boxes::TrafBox {
+        use shiguredo_mp4::boxes::{TfhdBox, TrafBox, TrunBox, TrunSample};
+        TrafBox {
+            tfhd_box: TfhdBox {
+                track_id: 1,
+                base_data_offset: None,
+                sample_description_index: None,
+                default_sample_duration: None,
+                default_sample_size: None,
+                default_sample_flags: None,
+                duration_is_empty: false,
+                default_base_is_moof: false,
+            },
+            tfdt_box: None,
+            unknown_boxes: vec![],
+            trun_boxes: offsets
+                .iter()
+                .map(|offset| TrunBox {
+                    data_offset: *offset,
+                    first_sample_flags: None,
+                    samples: vec![TrunSample {
+                        duration: None,
+                        size,
+                        flags: None,
+                        composition_time_offset: None,
+                    }],
+                })
+                .collect(),
         }
+    }
+
+    #[test]
+    fn fragment_offsets_use_signed_base_and_continue_previous_run() {
+        let traf = sample_runs(&[Some(-32), None, Some(16), None], Some(16));
+        let samples = FragmentSamples::collect(&traf, 100, None).unwrap();
+        assert_eq!(samples.offsets, [68, 84, 116, 132]);
+        assert_eq!(samples.end, 148);
+        assert!(FragmentSamples::collect(&traf, 20, None).is_err());
+    }
+
+    #[test]
+    fn fragment_sizes_inherit_trex_after_trun_and_tfhd() {
+        let mut traf = sample_runs(&[Some(0), None], None);
+        let samples = FragmentSamples::collect(&traf, 100, Some(12)).unwrap();
+        assert_eq!(samples.sizes, [12, 12]);
+        assert_eq!(samples.offsets, [100, 112]);
+        traf.tfhd_box.default_sample_size = Some(8);
+        traf.trun_boxes[0].samples[0].size = Some(4);
+        let samples = FragmentSamples::collect(&traf, 100, Some(12)).unwrap();
+        assert_eq!(samples.sizes, [4, 8]);
+        assert_eq!(samples.offsets, [100, 104]);
+    }
+
+    #[test]
+    fn effective_protection_is_decided_after_group_override() {
+        let mut track = track_with_iv_size(0);
+        track.is_protected = false;
+        let sample = SampleEncryptionEntry {
+            iv: [1; 16],
+            subsamples: vec![],
+        };
+        assert!(
+            EffectiveSampleEncryption::from_metadata(&track, None, &sample, None, false).is_none()
+        );
+        let group = SeigEntry {
+            pattern: None,
+            is_protected: true,
+            per_sample_iv_size: 0,
+            kid: [3; 16],
+            constant_iv: Some([5; 16]),
+        };
+        let effective =
+            EffectiveSampleEncryption::from_metadata(&track, Some(group), &sample, None, false)
+                .unwrap();
+        assert_eq!(effective.kid, [3; 16]);
+        assert_eq!(effective.iv, [5; 16]);
+    }
+    #[test]
+    fn auxiliary_offsets_require_one_table_or_exactly_one_per_run() {
+        let track = track_with_iv_size(8);
+        assert!(
+            parse_auxiliary_sample_entries(
+                &[0; 64],
+                0,
+                &[0, 8, 16],
+                &[8, 8],
+                &[1, 1],
+                &track,
+                &[None, None]
+            )
+            .is_none()
+        );
+        assert!(
+            parse_auxiliary_sample_entries(
+                &[0; 64],
+                0,
+                &[0, 8],
+                &[8, 8, 8],
+                &[1, 1, 1],
+                &track,
+                &[None, None, None]
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn zero_length_auxiliary_records_accept_end_of_input() {
+        let mut track = track_with_iv_size(0);
+        track.constant_iv = Some([3; 16]);
+        let entries =
+            parse_auxiliary_sample_entries(&[0; 16], 8, &[8], &[0], &[1], &track, &[None]).unwrap();
+        assert_eq!(entries[0].iv, [3; 16]);
+        assert!(
+            parse_auxiliary_sample_entries(&[0; 16], 8, &[9], &[0], &[1], &track, &[None])
+                .is_none()
+        );
     }
 }

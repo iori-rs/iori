@@ -338,7 +338,6 @@ fn decrypt_fmp4_fixtures_mdat_matches_plain() {
         .join("fixtures")
         .join("fmp4");
     let plain = fs::read(base.join("plain.mp4")).unwrap();
-    let plain_mdat = read_mdat_payload(&plain).unwrap();
 
     let keys = HashMap::from([(
         "00112233445566778899aabbccddeeff".to_string(),
@@ -346,10 +345,8 @@ fn decrypt_fmp4_fixtures_mdat_matches_plain() {
     )]);
 
     for name in ["cenc.mp4", "cens.mp4", "cbc1.mp4", "cbcs.mp4"] {
-        let mut data = fs::read(base.join(name)).unwrap();
-        decrypt_mp4(&mut data, &keys).unwrap();
-        let decrypted_mdat = read_mdat_payload(&data).unwrap();
-        assert_eq!(plain_mdat, decrypted_mdat, "mdat mismatch for {name}");
+        let data = fs::read(base.join(name)).unwrap();
+        common::assert_bento4_decryption(&data, &plain, &keys, name);
     }
 }
 

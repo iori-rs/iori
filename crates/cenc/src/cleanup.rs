@@ -1,7 +1,7 @@
 use crate::errors::{CencError, Result};
 use crate::jobs::boxes::{
     OriginalFormatBox, ProtectionSchemeInfoBox, PsshBox, RawMp4Box, SampleDescriptionBoxHeader,
-    is_fragment_encryption_metadata_box, protected_sample_entry_base_size,
+    is_cenc_aux_info, protected_sample_entry_base_size,
 };
 use shiguredo_mp4::boxes::{
     FreeBox, MdiaBox, MinfBox, MoofBox, MoovBox, StblBox, StsdBox, TrafBox, TrakBox,
@@ -58,7 +58,7 @@ fn normalize_traf(data: &mut [u8], traf: RawMp4Box) -> Result<()> {
         .parse_children(data)
         .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
     for child in &traf_children {
-        if is_fragment_encryption_metadata_box(child.box_type) {
+        if is_encryption_metadata(data, child)? {
             // Replace box type with 'free' and zero out payload (in-place).
             // senc/saiz/saio carry per-sample encryption info.
             // sbgp/sgpd seig signal sample-group encryption to media players.
@@ -99,6 +99,11 @@ fn normalize_trak(data: &mut [u8], trak: RawMp4Box) -> Result<()> {
     let stbl_children = stbl
         .parse_children(data)
         .map_err(|err| CencError::MetadataCleanup(err.to_string()))?;
+    for child in &stbl_children {
+        if is_encryption_metadata(data, child)? {
+            free_box(data, child);
+        }
+    }
     let Some(stsd) = stbl_children
         .iter()
         .find(|box_item| box_item.is_type(StsdBox::TYPE))
@@ -182,4 +187,106 @@ fn normalize_sample_entry(data: &mut [u8], entry: RawMp4Box, base_size: usize) -
 fn free_box(data: &mut [u8], b: &RawMp4Box) {
     b.write_type(data, FreeBox::TYPE);
     b.clear_payload(data);
+}
+
+/// Classify shared metadata boxes by their declared purpose before removing them.
+fn is_encryption_metadata(data: &[u8], item: &RawMp4Box) -> Result<bool> {
+    use crate::jobs::boxes::{SaioBox, SaizBox, SampleEncryptionBox, SbgpBox, SgpdSeigBox};
+    if item.is_type(SampleEncryptionBox::TYPE) {
+        return Ok(true);
+    }
+    let payload = item.payload(data);
+    if item.is_type(SbgpBox::TYPE) || item.is_type(SgpdSeigBox::TYPE) {
+        return payload
+            .get(4..8)
+            .map(|kind| kind == b"seig")
+            .ok_or_else(|| CencError::MetadataCleanup("sample group header too short".into()));
+    }
+    if item.is_type(SaizBox::TYPE) || item.is_type(SaioBox::TYPE) {
+        let flags = payload
+            .get(..4)
+            .ok_or_else(|| CencError::MetadataCleanup("auxiliary header too short".into()))?;
+        if flags[3] & 1 == 0 {
+            return Ok(true);
+        }
+        let kind = payload
+            .get(4..8)
+            .ok_or_else(|| CencError::MetadataCleanup("auxiliary type missing".into()))?;
+        let parameter = payload
+            .get(8..12)
+            .ok_or_else(|| CencError::MetadataCleanup("auxiliary type parameter missing".into()))?;
+        // Match the encryption auxiliary types supported by the parser. Other
+        // auxiliary streams must survive, including those on clear tracks.
+        return Ok(is_cenc_aux_info(
+            shiguredo_mp4::BoxType::Normal(kind.try_into().unwrap()),
+            u32::from_be_bytes(parameter.try_into().unwrap()),
+        ));
+    }
+    Ok(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn boxed(kind: &[u8; 4], payload: &[u8]) -> Vec<u8> {
+        let mut bytes = ((payload.len() + 8) as u32).to_be_bytes().to_vec();
+        bytes.extend_from_slice(kind);
+        bytes.extend_from_slice(payload);
+        bytes
+    }
+
+    #[test]
+    fn cleanup_preserves_unrelated_metadata_and_every_box_boundary() {
+        let mut children = Vec::new();
+        for kind in [b"roll", b"prol", b"seig"] {
+            for typ in [b"sbgp", b"sgpd"] {
+                let mut payload = vec![0; 4];
+                payload.extend_from_slice(kind);
+                payload.extend_from_slice(&[0; 12]);
+                children.extend(boxed(typ, &payload));
+            }
+        }
+        for kind in [b"test", b"cenc", b"cbcs"] {
+            for typ in [b"saiz", b"saio"] {
+                let mut payload = vec![0, 0, 0, 1];
+                payload.extend_from_slice(kind);
+                payload.extend_from_slice(&[0; 12]);
+                children.extend(boxed(typ, &payload));
+            }
+        }
+        children.extend(boxed(b"senc", &[0; 8]));
+        for fragmented in [true, false] {
+            let mut data = if fragmented {
+                boxed(b"moof", &boxed(b"traf", &children))
+            } else {
+                boxed(
+                    b"moov",
+                    &boxed(
+                        b"trak",
+                        &boxed(b"mdia", &boxed(b"minf", &boxed(b"stbl", &children))),
+                    ),
+                )
+            };
+            let before = data.clone();
+            let start = if fragmented { 16 } else { 40 };
+            let layout = RawMp4Box::parse_all(&data[start..], start).unwrap();
+            normalize_decrypted_fmp4(&mut data).unwrap();
+            assert_eq!(data.len(), before.len());
+            let after = RawMp4Box::parse_all(&data[start..], start).unwrap();
+            for (original, normalized) in layout.iter().zip(&after) {
+                assert_eq!(original.start, normalized.start);
+                assert_eq!(original.size, normalized.size);
+                if is_encryption_metadata(&before, original).unwrap() {
+                    assert!(normalized.is_type(FreeBox::TYPE));
+                    assert!(normalized.payload(&data).iter().all(|byte| *byte == 0));
+                } else {
+                    assert_eq!(
+                        &data[original.start..original.end()],
+                        &before[original.start..original.end()]
+                    );
+                }
+            }
+        }
+    }
 }

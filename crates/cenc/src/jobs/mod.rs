@@ -52,12 +52,10 @@ impl TrackEncryptionMap {
         Ok(Self(track_map))
     }
 
-    fn has_protected_track(&self) -> bool {
-        self.0.iter().any(|(_, infos)| {
-            infos
-                .iter()
-                .any(|info| info.as_ref().is_some_and(|info| info.is_protected))
-        })
+    fn has_encryption_info(&self) -> bool {
+        self.0
+            .iter()
+            .any(|(_, infos)| infos.iter().any(Option::is_some))
     }
 
     fn into_inner(self) -> Vec<(u32, Vec<Option<TrackEncryptionInfo>>)> {
@@ -91,7 +89,7 @@ impl ParsedCenc {
             return Ok(ParsedCenc { jobs: vec![] });
         }
 
-        parse_decrypt_jobs_non_fmp4(&moov)
+        parse_decrypt_jobs_non_fmp4(input, &moov)
     }
 
     /// Parse CENC encryption metadata from a media segment, using a separate
@@ -101,7 +99,7 @@ impl ParsedCenc {
         let moov = init_context
             .moov()?
             .ok_or(CencError::InitialSegmentMissingMoov)?;
-        if !TrackEncryptionMap::from_moov(&moov)?.has_protected_track() {
+        if !TrackEncryptionMap::from_moov(&moov)?.has_encryption_info() {
             return Err(CencError::InitialSegmentMissingEncryptionInfo);
         }
 

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Bento4 CENS audio encrypts partial tails despite ISO 23001-7 sections 10.3/9.7.
+# Preserve these legacy outputs as compatibility evidence; the Rust test checks
+# their exact tail discrepancy and a compliant in-memory copy. See README.md.
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT_DIR="${SCRIPT_DIR}/generated"
 SOURCE_DIR="${OUTPUT_DIR}/sources"

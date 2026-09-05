@@ -92,18 +92,12 @@ fn cenc_ctr_subsamples_share_one_encrypted_byte_stream() {
 
 /// For the `cens` scheme, AES-CTR uses pattern encryption.
 ///
-/// The pattern counts 16-byte blocks across the protected byte stream of the
-/// sample: crypt `crypt_byte_block` blocks, then leave `skip_byte_block`
-/// blocks unchanged, and repeat. Subsample clear bytes are outside the stream.
-/// Skipped pattern blocks advance the pattern position, but they do not
-/// consume AES-CTR keystream blocks.
-///
-/// This test encrypts two protected ranges with a 1:1 pattern. The first range
-/// ends after an encrypted block, so the second range must start at a skipped
-/// pattern block while the next encrypted block still uses the next contiguous
-/// CTR keystream block.
+/// The pattern restarts at each protected subsample, while the CTR counter
+/// continues across encrypted blocks. Skipped blocks do not consume keystream.
+/// The first range ends after a crypt block; the next range must also begin
+/// with a crypt block, using the next counter value.
 #[test]
-fn cens_ctr_pattern_continues_across_subsamples_without_keystream_for_skips() {
+fn cens_ctr_pattern_restarts_across_subsamples_without_keystream_for_skips() {
     let plain = sample_bytes(114);
     let pattern = CbcPattern {
         crypt_byte_block: 1,
@@ -127,12 +121,94 @@ fn cens_ctr_pattern_continues_across_subsamples_without_keystream_for_skips() {
     );
     let mut encrypted = plain.clone();
 
-    encrypt_ctr_pattern_continuous(&mut encrypted, job.iv, pattern, &subsamples);
+    encrypt_ctr_pattern_subsamples(&mut encrypted, job.iv, pattern, &subsamples);
 
     parsed(job)
         .decrypt_in_place(&mut encrypted, &key_map(), 0)
         .unwrap();
     assert_eq!(plain, encrypted);
+}
+
+/// CENS tails remain clear even in the crypt phase, and consume no counter.
+/// Encrypt the selected complete blocks with the independent continuous CTR
+/// helper so the expected ciphertext does not repeat the pattern algorithm.
+#[test]
+fn cens_partial_blocks_stay_clear_without_consuming_counter() {
+    for pattern in [
+        None,
+        Some(CbcPattern {
+            crypt_byte_block: 0,
+            skip_byte_block: 0,
+        }),
+        Some(CbcPattern {
+            crypt_byte_block: 2,
+            skip_byte_block: 1,
+        }),
+    ] {
+        for tail in 1..16 {
+            let plain = sample_bytes(32 + tail);
+            let subsamples = vec![
+                Subsample {
+                    clear_bytes: 0,
+                    encrypted_bytes: (16 + tail) as u32,
+                },
+                Subsample {
+                    clear_bytes: 0,
+                    encrypted_bytes: 16,
+                },
+            ];
+            let job = job(plain.len(), SchemeType::Cens, pattern, subsamples);
+            let mut encrypted = plain.clone();
+            encrypt_ctr_continuous(
+                &mut encrypted,
+                job.iv,
+                &[
+                    Subsample {
+                        clear_bytes: 0,
+                        encrypted_bytes: 16,
+                    },
+                    Subsample {
+                        clear_bytes: tail as u16,
+                        encrypted_bytes: 16,
+                    },
+                ],
+            );
+            parsed(job)
+                .decrypt_in_place(&mut encrypted, &key_map(), 0)
+                .unwrap();
+            assert_eq!(plain, encrypted, "pattern={pattern:?}, tail={tail}");
+        }
+    }
+}
+
+#[test]
+fn cbcs_zero_pattern_resets_chain_even_when_pattern_was_normalized_away() {
+    for pattern in [
+        None,
+        Some(CbcPattern {
+            crypt_byte_block: 0,
+            skip_byte_block: 0,
+        }),
+    ] {
+        let plain = sample_bytes(64);
+        let subsamples = vec![
+            Subsample {
+                clear_bytes: 0,
+                encrypted_bytes: 32,
+            },
+            Subsample {
+                clear_bytes: 0,
+                encrypted_bytes: 32,
+            },
+        ];
+        let job = job(plain.len(), SchemeType::Cbcs, pattern, subsamples.clone());
+        let mut encrypted = plain.clone();
+        encrypt_cbc(&mut encrypted, job.iv, None, &subsamples, true);
+        parsed(job)
+            .decrypt_in_place(&mut encrypted, &key_map(), 0)
+            .unwrap();
+        assert_eq!(plain, encrypted);
+    }
 }
 
 /// For the `cbc1` scheme, AES-CBC is applied without pattern encryption.
@@ -458,10 +534,10 @@ fn encrypt_ctr_continuous(data: &mut [u8], iv: [u8; 16], subsamples: &[Subsample
 
 /// Reference encryptor for AES-CTR pattern encryption.
 ///
-/// The pattern block index continues across protected ranges in one sample.
+/// The pattern block index restarts at each protected range in one sample.
 /// Skip blocks leave bytes unchanged and do not consume CTR keystream, matching
 /// the pattern stream-cipher behavior used by CENS.
-fn encrypt_ctr_pattern_continuous(
+fn encrypt_ctr_pattern_subsamples(
     data: &mut [u8],
     iv: [u8; 16],
     pattern: CbcPattern,
@@ -470,12 +546,12 @@ fn encrypt_ctr_pattern_continuous(
     let cipher = Aes128::new(GenericArray::from_slice(&KEY));
     let cycle = pattern.cycle_length();
     let mut offset = 0usize;
-    let mut pattern_block_index = 0u64;
     let mut crypt_block_index = 0u64;
     for subsample in subsamples {
         offset += subsample.clear_bytes as usize;
         let encrypted_end = offset + subsample.encrypted_bytes as usize;
-        while offset < encrypted_end {
+        let mut pattern_block_index = 0u64;
+        while encrypted_end - offset >= 16 {
             let should_crypt = cycle == 0
                 || ((pattern_block_index % cycle as u64) as u8) < pattern.crypt_byte_block;
             let block_len = usize::min(16, encrypted_end - offset);
@@ -491,6 +567,7 @@ fn encrypt_ctr_pattern_continuous(
             }
             offset += block_len;
         }
+        offset = encrypted_end;
     }
 }
 
@@ -541,7 +618,7 @@ fn encrypt_cbc(
         let encrypted_len = subsample.encrypted_bytes as usize;
         let full_block_len = encrypted_len - encrypted_len % 16;
         let encrypted_end = offset + full_block_len;
-        while offset < encrypted_end {
+        while encrypted_end - offset >= 16 {
             let should_crypt = cycle == 0 || ((block_index % cycle as u64) as u8) < crypt_blocks;
             block_index += 1;
             if should_crypt {

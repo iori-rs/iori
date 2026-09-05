@@ -1,6 +1,6 @@
 use crate::cleanup::normalize_decrypted_fmp4;
 use crate::errors::{CencError, Result};
-use crate::types::{CbcPattern, CipherMode, DecryptJob, KeyMap, ParsedCenc, Subsample};
+use crate::types::{CbcPattern, CipherMode, DecryptJob, KeyMap, ParsedCenc, SchemeType, Subsample};
 use aes::Aes128;
 use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit, generic_array::GenericArray};
 
@@ -53,8 +53,23 @@ impl DecryptJob {
         validate_subsamples(sample.len(), &subsamples)?;
 
         match self.scheme.cipher_mode() {
-            CipherMode::AesCtr => decrypt_ctr(sample, key, self.iv, self.pattern, &subsamples),
-            CipherMode::AesCbc => decrypt_cbc(sample, key, self.iv, self.pattern, &subsamples),
+            CipherMode::AesCtr => {
+                let pattern = (self.scheme == SchemeType::Cens).then(|| {
+                    self.pattern.unwrap_or(CbcPattern {
+                        crypt_byte_block: 0,
+                        skip_byte_block: 0,
+                    })
+                });
+                decrypt_ctr(sample, key, self.iv, pattern, &subsamples)
+            }
+            CipherMode::AesCbc => decrypt_cbc(
+                sample,
+                key,
+                self.iv,
+                self.scheme.effective_pattern(self.pattern),
+                &subsamples,
+                self.scheme == SchemeType::Cbcs,
+            ),
         }
     }
 }
@@ -81,11 +96,11 @@ fn validate_subsamples(sample_len: usize, subsamples: &[Subsample]) -> Result<()
 /// in the sample. Clear ranges do not consume keystream, so the byte offset
 /// advances only through encrypted bytes.
 ///
-/// For `cens`, the crypt/skip pattern is one stream for the whole sample.
+/// For `cens`, the crypt/skip pattern restarts at each protected range.
 /// Clear subsample bytes are outside that stream. Skip blocks advance the
 /// pattern position and remain unchanged, but they do not consume AES-CTR
 /// keystream blocks because no cipher operation is performed for skipped
-/// bytes.
+/// bytes. Partial blocks remain clear and do not consume keystream.
 fn decrypt_ctr(
     sample: &mut [u8],
     key: &[u8; 16],
@@ -105,6 +120,7 @@ fn decrypt_ctr(
         }
         let segment = &mut sample[offset..end];
         if let Some(pattern) = pattern {
+            pattern_state.pattern_block_index = 0;
             apply_ctr_pattern(segment, key, iv, pattern, &mut pattern_state);
         } else {
             encrypted_byte_offset = apply_ctr_continuous(segment, key, iv, encrypted_byte_offset);
@@ -128,13 +144,13 @@ fn decrypt_cbc(
     iv: [u8; 16],
     pattern: Option<CbcPattern>,
     subsamples: &[Subsample],
+    reset_per_subsample: bool,
 ) -> Result<()> {
     let mut offset = 0usize;
     let mut state = CbcState {
         previous: iv,
         block_index: 0,
     };
-    let patterned = pattern.is_some();
     let cipher = Aes128::new(GenericArray::from_slice(key));
     for subsample in subsamples {
         offset += subsample.clear_bytes as usize;
@@ -146,7 +162,7 @@ fn decrypt_cbc(
             return Err(CencError::OutOfBounds);
         }
         if decrypt_len > 0 {
-            if patterned {
+            if reset_per_subsample {
                 state = CbcState {
                     previous: iv,
                     block_index: 0,
@@ -181,14 +197,14 @@ fn apply_ctr_pattern(
     let cipher = Aes128::new(GenericArray::from_slice(key));
     let cycle = pattern.cycle_length();
     let mut offset = 0usize;
-    while offset < data.len() {
+    while data.len() - offset >= AES_BLOCK_SIZE {
         let should_crypt = if cycle == 0 {
             true
         } else {
             let pos = (state.pattern_block_index % cycle as u64) as u8;
             pos < pattern.crypt_byte_block
         };
-        let block_len = usize::min(AES_BLOCK_SIZE, data.len() - offset);
+        let block_len = AES_BLOCK_SIZE;
         state.pattern_block_index += 1;
         if should_crypt {
             let counter_block = build_ctr_block(iv, state.crypt_block_index);

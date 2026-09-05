@@ -1,7 +1,5 @@
 mod common;
 
-use common::{read_all_mdat_payloads, top_level_box_layout};
-use iori_cenc::decrypt_mp4;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -33,34 +31,11 @@ fn generated_encryption_matrix_matches_bento4_oracles() {
         let entry = MatrixEntry::parse(line);
         let encrypted = fs::read(matrix.join(entry.encrypted)).unwrap();
         let oracle = fs::read(matrix.join(entry.oracle)).unwrap();
-        let encrypted_layout = top_level_box_layout(&encrypted).unwrap();
-
-        let mut decrypted = encrypted.clone();
-        decrypt_mp4(&mut decrypted, &keys).unwrap();
-
-        assert_eq!(
-            encrypted.len(),
-            decrypted.len(),
-            "size changed for {} ({}, {})",
-            entry.name,
-            entry.kind,
-            entry.method
-        );
-        assert_eq!(
-            encrypted_layout,
-            top_level_box_layout(&decrypted).unwrap(),
-            "top-level layout changed for {} ({}, {})",
-            entry.name,
-            entry.kind,
-            entry.method
-        );
-        assert_eq!(
-            read_all_mdat_payloads(&oracle).unwrap(),
-            read_all_mdat_payloads(&decrypted).unwrap(),
-            "mdat payload mismatch for {} ({}, {})",
-            entry.name,
-            entry.kind,
-            entry.method
+        common::assert_bento4_decryption(
+            &encrypted,
+            &oracle,
+            &keys,
+            &format!("{} ({}, {})", entry.name, entry.kind, entry.method),
         );
     }
 }
