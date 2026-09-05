@@ -955,13 +955,13 @@ impl SaizBox {
         };
         let default_sample_info_size = reader.read_u8()?;
         let sample_count = reader.read_u32()?;
-        let mut sample_info_sizes = Vec::with_capacity(sample_count as usize);
-        if default_sample_info_size != 0 {
-            sample_info_sizes.resize(sample_count as usize, default_sample_info_size);
+        // Keep a repeated default compact until the actual sample table has
+        // validated sample_count. Explicit tables are bounded before allocating.
+        let sample_info_sizes = if default_sample_info_size == 0 {
+            reader.read_exact(sample_count as usize)?.to_vec()
         } else {
-            let data = reader.read_exact(sample_count as usize)?;
-            sample_info_sizes.extend_from_slice(data);
-        }
+            Vec::new()
+        };
         Ok(Self {
             full_box_header,
             aux_info,
@@ -986,7 +986,11 @@ pub(crate) fn parse_saiz(payload: &[u8]) -> Result<Option<Vec<u8>>> {
     if !box_item.is_cenc_aux_info() {
         return Ok(None);
     }
-    Ok(Some(box_item.sample_info_sizes))
+    Ok(Some(if box_item.default_sample_info_size == 0 {
+        box_item.sample_info_sizes
+    } else {
+        vec![box_item.default_sample_info_size; box_item.sample_count as usize]
+    }))
 }
 
 /// Parse a SampleAuxiliaryInformationOffsetsBox (`saio`) payload.
@@ -1013,6 +1017,12 @@ impl SaioBox {
             None
         };
         let entry_count = reader.read_u32()? as usize;
+        let offset_width = if full_box_header.version == 0 { 4 } else { 8 };
+        if entry_count > reader.remaining() / offset_width {
+            return Err(CencError::InvalidSenc(
+                "saio entry count exceeds payload".into(),
+            ));
+        }
         let mut offsets = Vec::with_capacity(entry_count);
         for _ in 0..entry_count {
             let value = if full_box_header.version == 0 {
@@ -1050,6 +1060,7 @@ pub(crate) fn parse_saio(payload: &[u8]) -> Result<Option<Vec<u64>>> {
 /// Pair size and offset tables from the same auxiliary stream.
 pub(crate) fn select_cenc_auxiliary<'a>(
     boxes: impl Iterator<Item = &'a UnknownBox>,
+    expected_sample_count: usize,
 ) -> Result<Option<(Vec<u8>, Vec<u64>)>> {
     let mut sizes = Vec::new();
     let mut offsets = Vec::new();
@@ -1057,6 +1068,12 @@ pub(crate) fn select_cenc_auxiliary<'a>(
         if item.box_type == SaizBox::TYPE {
             let table = SaizBox::decode_payload(&item.payload)?;
             if table.is_cenc_aux_info() {
+                if table.sample_count as usize != expected_sample_count {
+                    return Err(CencError::SampleCountMismatch {
+                        expected: expected_sample_count as u32,
+                        actual: table.sample_count,
+                    });
+                }
                 sizes.push(table);
             }
         } else if item.box_type == SaioBox::TYPE {
@@ -1074,7 +1091,12 @@ pub(crate) fn select_cenc_auxiliary<'a>(
             .iter()
             .find(|offset| offset.aux_info == size.aux_info)
         {
-            return Ok(Some((size.sample_info_sizes, offset.offsets.clone())));
+            let sample_info_sizes = if size.default_sample_info_size == 0 {
+                size.sample_info_sizes
+            } else {
+                vec![size.default_sample_info_size; expected_sample_count]
+            };
+            return Ok(Some((sample_info_sizes, offset.offsets.clone())));
         }
     }
     Err(CencError::InvalidSenc(
@@ -1125,6 +1147,11 @@ impl SbgpBox {
             None
         };
         let entry_count = reader.read_u32()? as usize;
+        if entry_count > reader.remaining() / 8 {
+            return Err(CencError::InvalidSenc(
+                "sbgp entry count exceeds payload".into(),
+            ));
+        }
         let mut entries = Vec::with_capacity(entry_count);
         for _ in 0..entry_count {
             entries.push(SbgpEntry {
@@ -1221,6 +1248,20 @@ impl SgpdSeigBox {
             None
         };
         let entry_count = reader.read_u32()? as usize;
+        // Every supported seig entry includes reserved/pattern/protection/IV
+        // bytes and a 16-byte KID. Variable entries also need a length word.
+        let minimum_entry_size = if full_box_header.version == 0 {
+            20
+        } else if default_length == 0 {
+            24
+        } else {
+            (default_length as usize).max(20)
+        };
+        if entry_count > reader.remaining() / minimum_entry_size {
+            return Err(CencError::InvalidSenc(
+                "sgpd entry count exceeds payload".into(),
+            ));
+        }
         let mut entries = Vec::with_capacity(entry_count);
         for _ in 0..entry_count {
             if full_box_header.version >= 1 {
@@ -2288,17 +2329,17 @@ mod tests {
         };
         let tables = [size(0), offset(1, 100), offset(0, 20)];
         assert_eq!(
-            select_cenc_auxiliary(tables.iter()).unwrap(),
+            select_cenc_auxiliary(tables.iter(), 1).unwrap(),
             Some((vec![8], vec![20]))
         );
-        assert!(select_cenc_auxiliary(tables[..2].iter()).is_err());
+        assert!(select_cenc_auxiliary(tables[..2].iter(), 1).is_err());
         let unrelated = UnknownBox {
             box_type: BoxType::Normal(*b"free"),
             box_size: BoxSize::with_payload_size(BoxType::Normal(*b"free"), 0),
             payload: vec![],
         };
         assert_eq!(
-            select_cenc_auxiliary([&unrelated].into_iter()).unwrap(),
+            select_cenc_auxiliary([&unrelated].into_iter(), 1).unwrap(),
             None
         );
     }

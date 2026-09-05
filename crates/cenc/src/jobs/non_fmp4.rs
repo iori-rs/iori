@@ -98,7 +98,7 @@ pub(crate) fn parse_decrypt_jobs_non_fmp4(input: &[u8], moov: &MoovBox) -> Resul
             let kid = senc_info.override_kid();
             (senc_info.entries, kid)
         } else {
-            let entries = match select_cenc_auxiliary(stbl.unknown_boxes.iter())? {
+            let entries = match select_cenc_auxiliary(stbl.unknown_boxes.iter(), samples.len())? {
                 Some((sizes, offsets)) => {
                     parse_auxiliary_entries(input, &samples, &sizes, &offsets, &iv_info)?
                 }

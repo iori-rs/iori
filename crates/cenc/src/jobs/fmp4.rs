@@ -349,7 +349,7 @@ pub(crate) fn parse_decrypt_jobs_fmp4(input: &[u8], moov: &MoovBox) -> Result<Pa
 
             let senc_box = unknown_boxes.find(SampleEncryptionBox::TYPE);
             let (entries, senc_override_kid, senc_overrides_to_clear) = 'entries: {
-                let auxiliary = select_cenc_auxiliary(unknown_boxes.iter());
+                let auxiliary = select_cenc_auxiliary(unknown_boxes.iter(), sample_count);
                 let has_auxiliary_metadata = !matches!(&auxiliary, Ok(None));
                 if let Ok(Some((sizes, offsets))) = auxiliary
                     && let Some(entries) = parse_auxiliary_sample_entries(
