@@ -19,10 +19,9 @@ const KEY_HEX: &str = "0123456789abcdef0123456789abcdef";
 /// decrypted `mdat` payload, not the whole file, because `iori-cenc` preserves
 /// the original file size and box layout while Bento4 may rewrite metadata.
 #[test]
+#[ignore = "external fixture check; use tests/conformance/run.py for required three-decryptor coverage"]
 fn cenc_mdat_matches_bento4_mp4decrypt_when_configured() {
-    let Ok(mp4decrypt) = env::var("BENTO4_MP4DECRYPT") else {
-        return;
-    };
+    let mp4decrypt = env::var("BENTO4_MP4DECRYPT").expect("BENTO4_MP4DECRYPT is required");
 
     let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")

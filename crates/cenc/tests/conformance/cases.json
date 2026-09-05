@@ -1,0 +1,5342 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "SIG-01-EXISTING-01",
+      "requirements": [
+        "SIG-01-REGRESSION-01"
+      ],
+      "family_id": "SIG-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "src/jobs/boxes.rs",
+      "test_name": "parse_schm_recognizes_sve1_scheme_type",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "GRP-01-EXISTING-01",
+      "requirements": [
+        "GRP-01-REGRESSION-01"
+      ],
+      "family_id": "GRP-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/fragment_layouts.rs",
+      "test_name": "default_clear_init_accepts_protected_fragment_group_and_sgpd_default",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "GRP-02-EXISTING-01",
+      "requirements": [
+        "GRP-02-REGRESSION-01"
+      ],
+      "family_id": "GRP-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/fragment_layouts.rs",
+      "test_name": "fragment_groups_resolve_track_and_local_namespaces_separately",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "GRP-03-EXISTING-01",
+      "requirements": [
+        "GRP-03-REGRESSION-01"
+      ],
+      "family_id": "GRP-03",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/nonfragmented_layouts.rs",
+      "test_name": "default_seig_activates_encryption_on_clear_track",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "GRP-04-EXISTING-01",
+      "requirements": [
+        "GRP-04-REGRESSION-01"
+      ],
+      "family_id": "GRP-04",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "src/jobs/fmp4.rs",
+      "test_name": "auxiliary_sample_entries_use_seig_iv_size_overrides",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "GRP-06-EXISTING-01",
+      "requirements": [
+        "GRP-06-REGRESSION-01"
+      ],
+      "family_id": "GRP-06",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "src/jobs/boxes.rs",
+      "test_name": "sgpd_variable_description_lengths_bound_each_entry",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "AUX-01-EXISTING-01",
+      "requirements": [
+        "AUX-01-REGRESSION-01"
+      ],
+      "family_id": "AUX-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "src/jobs/boxes.rs",
+      "test_name": "parse_senc_uses_per_sample_iv_size_overrides",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "AUX-03-EXISTING-01",
+      "requirements": [
+        "AUX-03-REGRESSION-01"
+      ],
+      "family_id": "AUX-03",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "src/jobs/boxes.rs",
+      "test_name": "auxiliary_pair_selection_keeps_stream_identifiers_together",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "SENC-02-EXISTING-01",
+      "requirements": [
+        "SENC-02-REGRESSION-01"
+      ],
+      "family_id": "SENC-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "src/jobs/boxes.rs",
+      "test_name": "parse_senc_rejects_unknown_flags",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "SENC-03-EXISTING-01",
+      "requirements": [
+        "SENC-03-REGRESSION-01"
+      ],
+      "family_id": "SENC-03",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "src/jobs/boxes.rs",
+      "test_name": "parse_sai_rejects_leftover_bytes_inside_entry_size",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "TENC-01-EXISTING-01",
+      "requirements": [
+        "TENC-01-REGRESSION-01"
+      ],
+      "family_id": "TENC-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "src/jobs/boxes.rs",
+      "test_name": "tenc_reserved_byte_is_present_for_clear_and_constant_iv_defaults",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "TENC-02-EXISTING-01",
+      "requirements": [
+        "TENC-02-REGRESSION-01"
+      ],
+      "family_id": "TENC-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "src/jobs/boxes.rs",
+      "test_name": "validate_scheme_tenc_version_enforces_scheme_rules",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "FIELD-01-EXISTING-01",
+      "requirements": [
+        "FIELD-01-REGRESSION-01"
+      ],
+      "family_id": "FIELD-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "src/jobs/boxes.rs",
+      "test_name": "constant_iv_sizes_must_be_eight_or_sixteen_bytes",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "FIELD-02-EXISTING-01",
+      "requirements": [
+        "FIELD-02-REGRESSION-01"
+      ],
+      "family_id": "FIELD-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/crypto.rs",
+      "test_name": "decrypt_keeps_trailing_bytes_after_subsample_table_clear",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "CTR-02-EXISTING-01",
+      "requirements": [
+        "CTR-02-REGRESSION-01"
+      ],
+      "family_id": "CTR-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/spec_conformance.rs",
+      "test_name": "cenc_ctr_subsamples_share_one_encrypted_byte_stream",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "FULL-01-EXISTING-01",
+      "requirements": [
+        "FULL-01-REGRESSION-01"
+      ],
+      "family_id": "FULL-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/spec_conformance.rs",
+      "test_name": "absent_subsample_table_means_whole_sample_is_encrypted",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "FULL-02-EXISTING-01",
+      "requirements": [
+        "FULL-02-REGRESSION-01"
+      ],
+      "family_id": "FULL-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/spec_conformance.rs",
+      "test_name": "cbc1_does_not_decrypt_partial_trailing_blocks",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "SUB-01-EXISTING-01",
+      "requirements": [
+        "SUB-01-REGRESSION-01"
+      ],
+      "family_id": "SUB-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/spec_conformance.rs",
+      "test_name": "cbc1_subsamples_share_one_cbc_chain",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "PAT-01-EXISTING-01",
+      "requirements": [
+        "PAT-01-REGRESSION-01"
+      ],
+      "family_id": "PAT-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/spec_conformance.rs",
+      "test_name": "cbcs_zero_crypt_pattern_leaves_blocks_clear",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "PAT-02-EXISTING-01",
+      "requirements": [
+        "PAT-02-REGRESSION-01"
+      ],
+      "family_id": "PAT-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/spec_conformance.rs",
+      "test_name": "cens_ctr_pattern_restarts_across_subsamples_without_keystream_for_skips",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "WHOLE-01-EXISTING-01",
+      "requirements": [
+        "WHOLE-01-REGRESSION-01"
+      ],
+      "family_id": "WHOLE-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/spec_conformance.rs",
+      "test_name": "cens_partial_blocks_stay_clear_without_consuming_counter",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "MP4-01-EXISTING-01",
+      "requirements": [
+        "MP4-01-REGRESSION-01"
+      ],
+      "family_id": "MP4-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/nonfragmented_layouts.rs",
+      "test_name": "sample_tables_cannot_point_at_box_headers",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "MP4-02-EXISTING-01",
+      "requirements": [
+        "MP4-02-REGRESSION-01"
+      ],
+      "family_id": "MP4-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "src/jobs/fmp4.rs",
+      "test_name": "fragment_offsets_use_signed_base_and_continue_previous_run",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "MP4-03-EXISTING-01",
+      "requirements": [
+        "MP4-03-REGRESSION-01"
+      ],
+      "family_id": "MP4-03",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/crypto.rs",
+      "test_name": "decrypt_fmp4_media_segment_with_initial_segment_reference",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "MP4-04-EXISTING-01",
+      "requirements": [
+        "MP4-04-REGRESSION-01"
+      ],
+      "family_id": "MP4-04",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/fragment_layouts.rs",
+      "test_name": "default_base_is_moof_uses_moof_start_and_rejects_header_addresses",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "ROBUST-01-EXISTING-01",
+      "requirements": [
+        "ROBUST-01-REGRESSION-01"
+      ],
+      "family_id": "ROBUST-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/fragment_layouts.rs",
+      "test_name": "malformed_or_incomplete_auxiliary_metadata_never_falls_back_to_full_sample",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "ROBUST-02-EXISTING-01",
+      "requirements": [
+        "ROBUST-02-REGRESSION-01"
+      ],
+      "family_id": "ROBUST-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/crypto.rs",
+      "test_name": "decrypt_reports_missing_key_by_kid",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "INPLACE-01-EXISTING-01",
+      "requirements": [
+        "INPLACE-01-REGRESSION-01"
+      ],
+      "family_id": "INPLACE-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/crypto.rs",
+      "test_name": "decrypt_fmp4_preserves_size_and_top_level_layout",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "INPLACE-02-EXISTING-01",
+      "requirements": [
+        "INPLACE-02-REGRESSION-01"
+      ],
+      "family_id": "INPLACE-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "src/cleanup.rs",
+      "test_name": "cleanup_preserves_unrelated_metadata_and_every_box_boundary",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "COMPAT-02-EXISTING-01",
+      "requirements": [
+        "COMPAT-02-REGRESSION-01"
+      ],
+      "family_id": "COMPAT-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "src/jobs/boxes.rs",
+      "test_name": "parse_senc_supports_track_encryption_override",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-04-EXISTING-01",
+      "requirements": [
+        "KNOW-04-REGRESSION-01"
+      ],
+      "family_id": "KNOW-04",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "existing test assertions; fixture validity audit pending",
+      "source": "tests/crypto.rs",
+      "test_name": "decrypt_prefers_track_id_key_before_kid_key",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-05-REFERENCE-01",
+      "requirements": [
+        "KNOW-05-MECHANISM-01"
+      ],
+      "family_id": "KNOW-05",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "literal bit positions or XML identity",
+      "source": "tests/conformance/test_knowledge.py",
+      "test_name": "test_selection_boundaries",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "XML-01-REFERENCE-01",
+      "requirements": [
+        "XML-01-MECHANISM-01"
+      ],
+      "family_id": "XML-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "literal bit positions or XML identity",
+      "source": "tests/conformance/test_knowledge.py",
+      "test_name": "test_namespace_and_uuid_identity",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "CTR-01-CRYPTO-01",
+      "requirements": [
+        "CTR-01-CRYPTO-PROPERTY-01"
+      ],
+      "family_id": "CTR-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "nist_frozen_ctr_and_cbc_known_answers_anchor_reference_and_production",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "FULL-02-CRYPTO-01",
+      "requirements": [
+        "FULL-02-CRYPTO-PROPERTY-01"
+      ],
+      "family_id": "FULL-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "nist_frozen_ctr_and_cbc_known_answers_anchor_reference_and_production",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "CTR-02-CRYPTO-02",
+      "requirements": [
+        "CTR-02-CRYPTO-PROPERTY-02"
+      ],
+      "family_id": "CTR-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k01_frozen_ctr_stream_survives_every_byte_subsample_split",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-01-CRYPTO-02",
+      "requirements": [
+        "KNOW-01-CRYPTO-PROPERTY-02"
+      ],
+      "family_id": "KNOW-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k01_frozen_ctr_stream_survives_every_byte_subsample_split",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "SUB-01-CRYPTO-03",
+      "requirements": [
+        "SUB-01-CRYPTO-PROPERTY-03"
+      ],
+      "family_id": "SUB-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k04_frozen_cbc_chain_crosses_clear_subsample_boundaries",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-01-CRYPTO-03",
+      "requirements": [
+        "KNOW-01-CRYPTO-PROPERTY-03"
+      ],
+      "family_id": "KNOW-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k04_frozen_cbc_chain_crosses_clear_subsample_boundaries",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "PAT-01-CRYPTO-04",
+      "requirements": [
+        "PAT-01-CRYPTO-PROPERTY-04"
+      ],
+      "family_id": "PAT-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k03_k05_k07_all_256_patterns_all_tails_with_independent_selection_maps",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "WHOLE-01-CRYPTO-04",
+      "requirements": [
+        "WHOLE-01-CRYPTO-PROPERTY-04"
+      ],
+      "family_id": "WHOLE-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k03_k05_k07_all_256_patterns_all_tails_with_independent_selection_maps",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-02-CRYPTO-04",
+      "requirements": [
+        "KNOW-02-CRYPTO-PROPERTY-04"
+      ],
+      "family_id": "KNOW-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k03_k05_k07_all_256_patterns_all_tails_with_independent_selection_maps",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "CTR-01-CRYPTO-05",
+      "requirements": [
+        "CTR-01-CRYPTO-PROPERTY-05"
+      ],
+      "family_id": "CTR-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k02_counter_carry_matches_frozen_nist_counter_inputs",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "COMPAT-02-CRYPTO-06",
+      "requirements": [
+        "COMPAT-02-CRYPTO-PROPERTY-06"
+      ],
+      "family_id": "COMPAT-02",
+      "implementation": "product-regression",
+      "input_classification": "legacy-compatibility",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k02_low_word_wrap_is_a_declared_robustness_interpretation",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "IV-01-CRYPTO-07",
+      "requirements": [
+        "IV-01-CRYPTO-PROPERTY-07"
+      ],
+      "family_id": "IV-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k06_sample_state_resets_at_each_job_and_each_iv",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-01-CRYPTO-07",
+      "requirements": [
+        "KNOW-01-CRYPTO-PROPERTY-07"
+      ],
+      "family_id": "KNOW-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k06_sample_state_resets_at_each_job_and_each_iv",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-04-CRYPTO-08",
+      "requirements": [
+        "KNOW-04-CRYPTO-PROPERTY-08"
+      ],
+      "family_id": "KNOW-04",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k08_key_rotation_revisits_first_key_and_wrong_key_is_not_authenticated",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "ROBUST-02-CRYPTO-08",
+      "requirements": [
+        "ROBUST-02-CRYPTO-PROPERTY-08"
+      ],
+      "family_id": "ROBUST-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k08_key_rotation_revisits_first_key_and_wrong_key_is_not_authenticated",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-11-CRYPTO-09",
+      "requirements": [
+        "KNOW-11-CRYPTO-PROPERTY-09"
+      ],
+      "family_id": "KNOW-11",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k09_missing_later_key_reports_kid_and_preserves_unprocessed_ciphertext",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "PAT-02-CRYPTO-10",
+      "requirements": [
+        "PAT-02-CRYPTO-PROPERTY-10"
+      ],
+      "family_id": "PAT-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k03_k04_frozen_pattern_trace_skips_blocks_and_restarts_ranges",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-01-CRYPTO-10",
+      "requirements": [
+        "KNOW-01-CRYPTO-PROPERTY-10"
+      ],
+      "family_id": "KNOW-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k03_k04_frozen_pattern_trace_skips_blocks_and_restarts_ranges",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "FULL-01-CRYPTO-11",
+      "requirements": [
+        "FULL-01-CRYPTO-PROPERTY-11"
+      ],
+      "family_id": "FULL-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k07_unpatterned_all_partial_lengths_use_frozen_prefixes",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "FULL-02-CRYPTO-11",
+      "requirements": [
+        "FULL-02-CRYPTO-PROPERTY-11"
+      ],
+      "family_id": "FULL-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k07_unpatterned_all_partial_lengths_use_frozen_prefixes",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-11-CRYPTO-12",
+      "requirements": [
+        "KNOW-11-CRYPTO-PROPERTY-12"
+      ],
+      "family_id": "KNOW-11",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen known-answer vector or independent selection map",
+      "source": "tests/conformance_crypto.rs",
+      "test_name": "k09_missing_first_key_does_not_mutate_sample",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-10-RUNNER-empty-media-corpus-is-not-success",
+      "requirements": [
+        "KNOW-10-RUNNER-empty-media-corpus-is-not-success-PROPERTY"
+      ],
+      "family_id": "KNOW-10",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "fault-injected process or lock identity",
+      "source": "tests/conformance/test_runner.py",
+      "test_name": "test_empty_media_corpus_is_not_success",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-10-RUNNER-missing-tool-is-failure",
+      "requirements": [
+        "KNOW-10-RUNNER-missing-tool-is-failure-PROPERTY"
+      ],
+      "family_id": "KNOW-10",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "fault-injected process or lock identity",
+      "source": "tests/conformance/test_runner.py",
+      "test_name": "test_missing_tool_is_failure",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-10-RUNNER-crashing-tool-is-failure",
+      "requirements": [
+        "KNOW-10-RUNNER-crashing-tool-is-failure-PROPERTY"
+      ],
+      "family_id": "KNOW-10",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "fault-injected process or lock identity",
+      "source": "tests/conformance/test_runner.py",
+      "test_name": "test_crashing_tool_is_failure",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-10-RUNNER-hanging-tool-is-bounded-failure",
+      "requirements": [
+        "KNOW-10-RUNNER-hanging-tool-is-bounded-failure-PROPERTY"
+      ],
+      "family_id": "KNOW-10",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "fault-injected process or lock identity",
+      "source": "tests/conformance/test_runner.py",
+      "test_name": "test_hanging_tool_is_bounded_failure",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-10-RUNNER-nonzero-exit-is-failure",
+      "requirements": [
+        "KNOW-10-RUNNER-nonzero-exit-is-failure-PROPERTY"
+      ],
+      "family_id": "KNOW-10",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "fault-injected process or lock identity",
+      "source": "tests/conformance/test_runner.py",
+      "test_name": "test_nonzero_exit_is_failure",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-10-RUNNER-junit-pass-fail-and-unexecuted-remain-distinct",
+      "requirements": [
+        "KNOW-10-RUNNER-junit-pass-fail-and-unexecuted-remain-distinct-PROPERTY"
+      ],
+      "family_id": "KNOW-10",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "fault-injected process or lock identity",
+      "source": "tests/conformance/test_runner.py",
+      "test_name": "test_junit_pass_fail_and_unexecuted_remain_distinct",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-10-RUNNER-empty-junit-is-not-a-successful-run",
+      "requirements": [
+        "KNOW-10-RUNNER-empty-junit-is-not-a-successful-run-PROPERTY"
+      ],
+      "family_id": "KNOW-10",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "fault-injected process or lock identity",
+      "source": "tests/conformance/test_runner.py",
+      "test_name": "test_empty_junit_is_not_a_successful_run",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-10-RUNNER-empty-catalogue-cannot-report-complete",
+      "requirements": [
+        "KNOW-10-RUNNER-empty-catalogue-cannot-report-complete-PROPERTY"
+      ],
+      "family_id": "KNOW-10",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "fault-injected process or lock identity",
+      "source": "tests/conformance/test_runner.py",
+      "test_name": "test_empty_catalogue_cannot_report_complete",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-12-RUNNER-hash-and-version-changes-cannot-reuse-cache-identity",
+      "requirements": [
+        "KNOW-12-RUNNER-hash-and-version-changes-cannot-reuse-cache-identity-PROPERTY"
+      ],
+      "family_id": "KNOW-12",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "fault-injected process or lock identity",
+      "source": "tests/conformance/test_runner.py",
+      "test_name": "test_hash_and_version_changes_cannot_reuse_cache_identity",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-12-RUNNER-lock-requires-explicit-baseline",
+      "requirements": [
+        "KNOW-12-RUNNER-lock-requires-explicit-baseline-PROPERTY"
+      ],
+      "family_id": "KNOW-12",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "fault-injected process or lock identity",
+      "source": "tests/conformance/test_runner.py",
+      "test_name": "test_lock_requires_explicit_baseline",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "SENC-01-METADATA-01",
+      "requirements": [
+        "SENC-01-METADATA-01-PROPERTY"
+      ],
+      "family_id": "SENC-01",
+      "implementation": "unsupported-capability-rejection",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "senc_versions_one_two_and_unknown_are_explicit_capability_rejections",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "SIG-01-METADATA-02",
+      "requirements": [
+        "SIG-01-METADATA-02-PROPERTY"
+      ],
+      "family_id": "SIG-01",
+      "implementation": "unsupported-capability-rejection",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "sve1_and_unknown_scheme_have_distinct_public_api_errors",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "SVE1-01-METADATA-02",
+      "requirements": [
+        "SVE1-01-METADATA-02-PROPERTY"
+      ],
+      "family_id": "SVE1-01",
+      "implementation": "unsupported-capability-rejection",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "sve1_and_unknown_scheme_have_distinct_public_api_errors",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "SENC-02-METADATA-03",
+      "requirements": [
+        "SENC-02-METADATA-03-PROPERTY"
+      ],
+      "family_id": "SENC-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "senc_each_reserved_flag_bit_is_rejected",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "SENC-03-METADATA-04",
+      "requirements": [
+        "SENC-03-METADATA-04-PROPERTY"
+      ],
+      "family_id": "SENC-03",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "senc_every_record_truncation_is_rejected_without_panic",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "ROBUST-01-METADATA-04",
+      "requirements": [
+        "ROBUST-01-METADATA-04-PROPERTY"
+      ],
+      "family_id": "ROBUST-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "senc_every_record_truncation_is_rejected_without_panic",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "SENC-02-METADATA-05",
+      "requirements": [
+        "SENC-02-METADATA-05-PROPERTY"
+      ],
+      "family_id": "SENC-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "senc_count_disagreement_is_rejected_before_record_allocation",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "ROBUST-01-METADATA-05",
+      "requirements": [
+        "ROBUST-01-METADATA-05-PROPERTY"
+      ],
+      "family_id": "ROBUST-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "senc_count_disagreement_is_rejected_before_record_allocation",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "TENC-01-METADATA-06",
+      "requirements": [
+        "TENC-01-METADATA-06-PROPERTY"
+      ],
+      "family_id": "TENC-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "tenc_protected_iv_width_domain_rejects_all_other_byte_values",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "FIELD-01-METADATA-06",
+      "requirements": [
+        "FIELD-01-METADATA-06-PROPERTY"
+      ],
+      "family_id": "FIELD-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "tenc_protected_iv_width_domain_rejects_all_other_byte_values",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "TENC-01-METADATA-07",
+      "requirements": [
+        "TENC-01-METADATA-07-PROPERTY"
+      ],
+      "family_id": "TENC-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "tenc_constant_iv_width_rejects_zero_and_non_aes_sizes",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "TENC-02-METADATA-07",
+      "requirements": [
+        "TENC-02-METADATA-07-PROPERTY"
+      ],
+      "family_id": "TENC-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "tenc_constant_iv_width_rejects_zero_and_non_aes_sizes",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "GRP-06-METADATA-08",
+      "requirements": [
+        "GRP-06-METADATA-08-PROPERTY"
+      ],
+      "family_id": "GRP-06",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "sgpd_fixed_variable_lengths_and_sbgp_versions_have_identical_effective_jobs",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "IV-01-METADATA-08",
+      "requirements": [
+        "IV-01-METADATA-08-PROPERTY"
+      ],
+      "family_id": "IV-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "sgpd_fixed_variable_lengths_and_sbgp_versions_have_identical_effective_jobs",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "GRP-03-METADATA-09",
+      "requirements": [
+        "GRP-03-METADATA-09-PROPERTY"
+      ],
+      "family_id": "GRP-03",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "group_clear_protected_transitions_and_repeated_kid_preserve_sample_indexes",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "GRP-04-METADATA-09",
+      "requirements": [
+        "GRP-04-METADATA-09-PROPERTY"
+      ],
+      "family_id": "GRP-04",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "group_clear_protected_transitions_and_repeated_kid_preserve_sample_indexes",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "GRP-01-METADATA-10",
+      "requirements": [
+        "GRP-01-METADATA-10-PROPERTY"
+      ],
+      "family_id": "GRP-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "sgpd_default_matches_explicit_assignment_without_sbgp",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "GRP-02-METADATA-11",
+      "requirements": [
+        "GRP-02-METADATA-11-PROPERTY"
+      ],
+      "family_id": "GRP-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "invalid_group_namespace_indexes_and_oversized_runs_are_rejected",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "ROBUST-01-METADATA-11",
+      "requirements": [
+        "ROBUST-01-METADATA-11-PROPERTY"
+      ],
+      "family_id": "ROBUST-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "invalid_group_namespace_indexes_and_oversized_runs_are_rejected",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "GRP-06-METADATA-12",
+      "requirements": [
+        "GRP-06-METADATA-12-PROPERTY"
+      ],
+      "family_id": "GRP-06",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "sgpd_every_description_truncation_is_rejected_without_panic",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "ROBUST-01-METADATA-12",
+      "requirements": [
+        "ROBUST-01-METADATA-12-PROPERTY"
+      ],
+      "family_id": "ROBUST-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "sgpd_every_description_truncation_is_rejected_without_panic",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "MP4-04-METADATA-13",
+      "requirements": [
+        "MP4-04-METADATA-13-PROPERTY"
+      ],
+      "family_id": "MP4-04",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "truncated_top_level_box_headers_are_bounded_and_rejected",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "ROBUST-01-METADATA-13",
+      "requirements": [
+        "ROBUST-01-METADATA-13-PROPERTY"
+      ],
+      "family_id": "ROBUST-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "truncated_top_level_box_headers_are_bounded_and_rejected",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "AUX-01-METADATA-14",
+      "requirements": [
+        "AUX-01-METADATA-14-PROPERTY"
+      ],
+      "family_id": "AUX-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "senc_and_external_auxiliary_records_produce_identical_sample_jobs",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "AUX-03-METADATA-14",
+      "requirements": [
+        "AUX-03-METADATA-14-PROPERTY"
+      ],
+      "family_id": "AUX-03",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "senc_and_external_auxiliary_records_produce_identical_sample_jobs",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "AUX-04-METADATA-14",
+      "requirements": [
+        "AUX-04-METADATA-14-PROPERTY"
+      ],
+      "family_id": "AUX-04",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "senc_and_external_auxiliary_records_produce_identical_sample_jobs",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-03-METADATA-14",
+      "requirements": [
+        "KNOW-03-METADATA-14-PROPERTY"
+      ],
+      "family_id": "KNOW-03",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "explicit fixture job expectations and typed errors",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "senc_and_external_auxiliary_records_produce_identical_sample_jobs",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "ROBUST-01-METADATA-15",
+      "requirements": [
+        "ROBUST-01-METADATA-15-PROPERTY"
+      ],
+      "family_id": "ROBUST-01",
+      "implementation": "product-regression",
+      "input_classification": "project-invariant",
+      "oracle": "bounded typed rejection on fixed small payload",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "huge_group_and_auxiliary_counts_fail_before_untrusted_allocation",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "GRP-06-METADATA-15",
+      "requirements": [
+        "GRP-06-METADATA-15-PROPERTY"
+      ],
+      "family_id": "GRP-06",
+      "implementation": "product-regression",
+      "input_classification": "project-invariant",
+      "oracle": "bounded typed rejection on fixed small payload",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "huge_group_and_auxiliary_counts_fail_before_untrusted_allocation",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "AUX-03-METADATA-15",
+      "requirements": [
+        "AUX-03-METADATA-15-PROPERTY"
+      ],
+      "family_id": "AUX-03",
+      "implementation": "product-regression",
+      "input_classification": "project-invariant",
+      "oracle": "bounded typed rejection on fixed small payload",
+      "source": "tests/conformance_metadata.rs",
+      "test_name": "huge_group_and_auxiliary_counts_fail_before_untrusted_allocation",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "MP4-01-MP4-HARNESS-01",
+      "requirements": [
+        "MP4-01-MP4-HARNESS-01-PROPERTY"
+      ],
+      "family_id": "MP4-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_mp4.py",
+      "test_name": "test_progressive_samples",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "MP4-02-MP4-HARNESS-02",
+      "requirements": [
+        "MP4-02-MP4-HARNESS-02-PROPERTY"
+      ],
+      "family_id": "MP4-02",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_mp4.py",
+      "test_name": "test_fragment_trex_and_run_continuation",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-09-MP4-HARNESS-03",
+      "requirements": [
+        "KNOW-09-MP4-HARNESS-03-PROPERTY"
+      ],
+      "family_id": "KNOW-09",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_mp4.py",
+      "test_name": "test_reject_unchanged_ciphertext_and_corruption",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-09-MP4-HARNESS-04",
+      "requirements": [
+        "KNOW-09-MP4-HARNESS-04-PROPERTY"
+      ],
+      "family_id": "KNOW-09",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_mp4.py",
+      "test_name": "test_every_semantic_field_checked",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-09-MP4-HARNESS-05",
+      "requirements": [
+        "KNOW-09-MP4-HARNESS-05-PROPERTY"
+      ],
+      "family_id": "KNOW-09",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_mp4.py",
+      "test_name": "test_ids_offsets_and_equivalent_timescale_do_not_matter",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-09-MP4-HARNESS-06",
+      "requirements": [
+        "KNOW-09-MP4-HARNESS-06-PROPERTY"
+      ],
+      "family_id": "KNOW-09",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_mp4.py",
+      "test_name": "test_track_and_configuration_mismatch",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "MP4-04-MP4-HARNESS-07",
+      "requirements": [
+        "MP4-04-MP4-HARNESS-07-PROPERTY"
+      ],
+      "family_id": "MP4-04",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_mp4.py",
+      "test_name": "test_invalid_offset_and_truncated_box",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "ROBUST-01-MP4-HARNESS-07",
+      "requirements": [
+        "ROBUST-01-MP4-HARNESS-07-PROPERTY"
+      ],
+      "family_id": "ROBUST-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_mp4.py",
+      "test_name": "test_invalid_offset_and_truncated_box",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "INPLACE-01-MP4-HARNESS-08",
+      "requirements": [
+        "INPLACE-01-MP4-HARNESS-08-PROPERTY"
+      ],
+      "family_id": "INPLACE-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_mp4.py",
+      "test_name": "test_size_preserving_cleanup_and_byte_allowlist",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "INPLACE-02-MP4-HARNESS-08",
+      "requirements": [
+        "INPLACE-02-MP4-HARNESS-08-PROPERTY"
+      ],
+      "family_id": "INPLACE-02",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_mp4.py",
+      "test_name": "test_size_preserving_cleanup_and_byte_allowlist",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "INPLACE-02-MP4-HARNESS-09",
+      "requirements": [
+        "INPLACE-02-MP4-HARNESS-09-PROPERTY"
+      ],
+      "family_id": "INPLACE-02",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_mp4.py",
+      "test_name": "test_mdat_padding_cannot_change",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-09-MP4-HARNESS-10",
+      "requirements": [
+        "KNOW-09-MP4-HARNESS-10-PROPERTY"
+      ],
+      "family_id": "KNOW-09",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_mp4.py",
+      "test_name": "test_esds_canonicalizer_retains_decoder_config",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-09-MP4-HARNESS-11",
+      "requirements": [
+        "KNOW-09-MP4-HARNESS-11-PROPERTY"
+      ],
+      "family_id": "KNOW-09",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_mp4.py",
+      "test_name": "test_edit_timing_cannot_disappear",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-09-MP4-HARNESS-12",
+      "requirements": [
+        "KNOW-09-MP4-HARNESS-12-PROPERTY"
+      ],
+      "family_id": "KNOW-09",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_mp4.py",
+      "test_name": "test_checked_in_real_files",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "FULL-01-VALIDITY-HARNESS-01",
+      "requirements": [
+        "FULL-01-VALIDITY-HARNESS-01-PROPERTY"
+      ],
+      "family_id": "FULL-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_validity.py",
+      "test_name": "test_scheme_block_boundaries",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "FULL-02-VALIDITY-HARNESS-01",
+      "requirements": [
+        "FULL-02-VALIDITY-HARNESS-01-PROPERTY"
+      ],
+      "family_id": "FULL-02",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_validity.py",
+      "test_name": "test_scheme_block_boundaries",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "WHOLE-01-VALIDITY-HARNESS-01",
+      "requirements": [
+        "WHOLE-01-VALIDITY-HARNESS-01-PROPERTY"
+      ],
+      "family_id": "WHOLE-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_validity.py",
+      "test_name": "test_scheme_block_boundaries",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "PAT-01-VALIDITY-HARNESS-02",
+      "requirements": [
+        "PAT-01-VALIDITY-HARNESS-02-PROPERTY"
+      ],
+      "family_id": "PAT-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_validity.py",
+      "test_name": "test_all_nibbles_and_tail_remainders_bounded",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "PAT-02-VALIDITY-HARNESS-03",
+      "requirements": [
+        "PAT-02-VALIDITY-HARNESS-03-PROPERTY"
+      ],
+      "family_id": "PAT-02",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_validity.py",
+      "test_name": "test_subsample_pattern_restart",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-02-VALIDITY-HARNESS-04",
+      "requirements": [
+        "KNOW-02-VALIDITY-HARNESS-04-PROPERTY"
+      ],
+      "family_id": "KNOW-02",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_validity.py",
+      "test_name": "test_clear_skip_and_tail_faults",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "INPLACE-02-VALIDITY-HARNESS-04",
+      "requirements": [
+        "INPLACE-02-VALIDITY-HARNESS-04-PROPERTY"
+      ],
+      "family_id": "INPLACE-02",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_validity.py",
+      "test_name": "test_clear_skip_and_tail_faults",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "COMPAT-01-VALIDITY-HARNESS-05",
+      "requirements": [
+        "COMPAT-01-VALIDITY-HARNESS-05-PROPERTY"
+      ],
+      "family_id": "COMPAT-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_validity.py",
+      "test_name": "test_tail_diagnostic_requires_exact_boundary_and_difference",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-09-VALIDITY-HARNESS-05",
+      "requirements": [
+        "KNOW-09-VALIDITY-HARNESS-05-PROPERTY"
+      ],
+      "family_id": "KNOW-09",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_validity.py",
+      "test_name": "test_tail_diagnostic_requires_exact_boundary_and_difference",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "FIELD-02-VALIDITY-HARNESS-06",
+      "requirements": [
+        "FIELD-02-VALIDITY-HARNESS-06-PROPERTY"
+      ],
+      "family_id": "FIELD-02",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_validity.py",
+      "test_name": "test_invalid_subsample_coverage",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "GRP-01-VALIDITY-HARNESS-07",
+      "requirements": [
+        "GRP-01-VALIDITY-HARNESS-07-PROPERTY"
+      ],
+      "family_id": "GRP-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_validity.py",
+      "test_name": "test_seig_reserved_order_explicit_and_default_group",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "GRP-06-VALIDITY-HARNESS-07",
+      "requirements": [
+        "GRP-06-VALIDITY-HARNESS-07-PROPERTY"
+      ],
+      "family_id": "GRP-06",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_validity.py",
+      "test_name": "test_seig_reserved_order_explicit_and_default_group",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "CENC-01-VALIDITY-HARNESS-08",
+      "requirements": [
+        "CENC-01-VALIDITY-HARNESS-08-PROPERTY"
+      ],
+      "family_id": "CENC-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_validity.py",
+      "test_name": "test_scheme_restrictions",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "CBCS-01-VALIDITY-HARNESS-08",
+      "requirements": [
+        "CBCS-01-VALIDITY-HARNESS-08-PROPERTY"
+      ],
+      "family_id": "CBCS-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_validity.py",
+      "test_name": "test_scheme_restrictions",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "PSSH-01-KNOWLEDGE-HARNESS-01",
+      "requirements": [
+        "PSSH-01-KNOWLEDGE-HARNESS-01-PROPERTY"
+      ],
+      "family_id": "PSSH-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_knowledge.py",
+      "test_name": "test_pssh_v0_v1_full_box_and_uuid_associations",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "XML-01-KNOWLEDGE-HARNESS-01",
+      "requirements": [
+        "XML-01-KNOWLEDGE-HARNESS-01-PROPERTY"
+      ],
+      "family_id": "XML-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_knowledge.py",
+      "test_name": "test_pssh_v0_v1_full_box_and_uuid_associations",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "XML-02-KNOWLEDGE-HARNESS-01",
+      "requirements": [
+        "XML-02-KNOWLEDGE-HARNESS-01-PROPERTY"
+      ],
+      "family_id": "XML-02",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_knowledge.py",
+      "test_name": "test_pssh_v0_v1_full_box_and_uuid_associations",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "PSSH-01-KNOWLEDGE-HARNESS-02",
+      "requirements": [
+        "PSSH-01-KNOWLEDGE-HARNESS-02-PROPERTY"
+      ],
+      "family_id": "PSSH-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_knowledge.py",
+      "test_name": "test_pssh_every_truncation_and_surplus_rejected",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "ROBUST-01-KNOWLEDGE-HARNESS-02",
+      "requirements": [
+        "ROBUST-01-KNOWLEDGE-HARNESS-02-PROPERTY"
+      ],
+      "family_id": "ROBUST-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_knowledge.py",
+      "test_name": "test_pssh_every_truncation_and_surplus_rejected",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "XML-01-KNOWLEDGE-HARNESS-03",
+      "requirements": [
+        "XML-01-KNOWLEDGE-HARNESS-03-PROPERTY"
+      ],
+      "family_id": "XML-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_knowledge.py",
+      "test_name": "test_pssh_namespace_system_and_base64_errors",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "XML-02-KNOWLEDGE-HARNESS-03",
+      "requirements": [
+        "XML-02-KNOWLEDGE-HARNESS-03-PROPERTY"
+      ],
+      "family_id": "XML-02",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_knowledge.py",
+      "test_name": "test_pssh_namespace_system_and_base64_errors",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "PSSH-01-KNOWLEDGE-HARNESS-04",
+      "requirements": [
+        "PSSH-01-KNOWLEDGE-HARNESS-04-PROPERTY"
+      ],
+      "family_id": "PSSH-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_knowledge.py",
+      "test_name": "test_empty_and_duplicate_kid_payloads_remain_explicit",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-05-KNOWLEDGE-HARNESS-05",
+      "requirements": [
+        "KNOW-05-KNOWLEDGE-HARNESS-05-PROPERTY"
+      ],
+      "family_id": "KNOW-05",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_knowledge.py",
+      "test_name": "test_frozen_selected_bit_counter_boundaries",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-01-KNOWLEDGE-HARNESS-05",
+      "requirements": [
+        "KNOW-01-KNOWLEDGE-HARNESS-05-PROPERTY"
+      ],
+      "family_id": "KNOW-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_knowledge.py",
+      "test_name": "test_frozen_selected_bit_counter_boundaries",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-05-KNOWLEDGE-HARNESS-06",
+      "requirements": [
+        "KNOW-05-KNOWLEDGE-HARNESS-06-PROPERTY"
+      ],
+      "family_id": "KNOW-05",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_knowledge.py",
+      "test_name": "test_counter_model_rejects_undeclared_wrap_and_invalid_counts",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "COMPAT-01-DEVIATIONS-HARNESS-01",
+      "requirements": [
+        "COMPAT-01-DEVIATIONS-HARNESS-01-PROPERTY"
+      ],
+      "family_id": "COMPAT-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_deviations.py",
+      "test_name": "test_exact_tail_witness_is_explicit_deviation",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-09-DEVIATIONS-HARNESS-02",
+      "requirements": [
+        "KNOW-09-DEVIATIONS-HARNESS-02-PROPERTY"
+      ],
+      "family_id": "KNOW-09",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_deviations.py",
+      "test_name": "test_non_tail_corruption_and_disappeared_deviation_fail_closed",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "COMPAT-01-DEVIATIONS-HARNESS-02",
+      "requirements": [
+        "COMPAT-01-DEVIATIONS-HARNESS-02-PROPERTY"
+      ],
+      "family_id": "COMPAT-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_deviations.py",
+      "test_name": "test_non_tail_corruption_and_disappeared_deviation_fail_closed",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-09-DEVIATIONS-HARNESS-03",
+      "requirements": [
+        "KNOW-09-DEVIATIONS-HARNESS-03-PROPERTY"
+      ],
+      "family_id": "KNOW-09",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_deviations.py",
+      "test_name": "test_unknown_tool_hash_and_trigger_are_not_exemptions",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "COMPAT-01-DEVIATIONS-HARNESS-03",
+      "requirements": [
+        "COMPAT-01-DEVIATIONS-HARNESS-03-PROPERTY"
+      ],
+      "family_id": "COMPAT-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_deviations.py",
+      "test_name": "test_unknown_tool_hash_and_trigger_are_not_exemptions",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-09-DEVIATIONS-HARNESS-04",
+      "requirements": [
+        "KNOW-09-DEVIATIONS-HARNESS-04-PROPERTY"
+      ],
+      "family_id": "KNOW-09",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_deviations.py",
+      "test_name": "test_metadata_mismatch_cannot_be_normalized_away",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "COMPAT-01-DEVIATIONS-HARNESS-05",
+      "requirements": [
+        "COMPAT-01-DEVIATIONS-HARNESS-05-PROPERTY"
+      ],
+      "family_id": "COMPAT-01",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_deviations.py",
+      "test_name": "test_video_tail_is_not_an_audio_exception",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-09-DEVIATIONS-HARNESS-06",
+      "requirements": [
+        "KNOW-09-DEVIATIONS-HARNESS-06-PROPERTY"
+      ],
+      "family_id": "KNOW-09",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_deviations.py",
+      "test_name": "test_empty_and_duplicate_tracks_do_not_establish_witness",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-10-DEVIATIONS-HARNESS-07",
+      "requirements": [
+        "KNOW-10-DEVIATIONS-HARNESS-07-PROPERTY"
+      ],
+      "family_id": "KNOW-10",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_deviations.py",
+      "test_name": "test_progressive_unchanged_ciphertext_is_unsupported_not_pass",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-10-DEVIATIONS-HARNESS-08",
+      "requirements": [
+        "KNOW-10-DEVIATIONS-HARNESS-08-PROPERTY"
+      ],
+      "family_id": "KNOW-10",
+      "implementation": "reference-mechanism",
+      "input_classification": "project-invariant",
+      "oracle": "explicit fixture expectations and fault injection",
+      "source": "tests/conformance/test_deviations.py",
+      "test_name": "test_shaka_rejection_requires_exact_diagnostics_and_known_binary",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "MP4-01-LAYOUTS-01",
+      "requirements": [
+        "MP4-01-LAYOUTS-01-PROPERTY"
+      ],
+      "family_id": "MP4-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen plaintext, explicit container geometry and in-place invariants",
+      "source": "tests/conformance_layouts.rs",
+      "test_name": "progressive_and_fragmented_inline_and_auxiliary_recover_identical_frozen_samples",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "MP4-02-LAYOUTS-01",
+      "requirements": [
+        "MP4-02-LAYOUTS-01-PROPERTY"
+      ],
+      "family_id": "MP4-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen plaintext, explicit container geometry and in-place invariants",
+      "source": "tests/conformance_layouts.rs",
+      "test_name": "progressive_and_fragmented_inline_and_auxiliary_recover_identical_frozen_samples",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "MP4-03-LAYOUTS-01",
+      "requirements": [
+        "MP4-03-LAYOUTS-01-PROPERTY"
+      ],
+      "family_id": "MP4-03",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen plaintext, explicit container geometry and in-place invariants",
+      "source": "tests/conformance_layouts.rs",
+      "test_name": "progressive_and_fragmented_inline_and_auxiliary_recover_identical_frozen_samples",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "AUX-04-LAYOUTS-01",
+      "requirements": [
+        "AUX-04-LAYOUTS-01-PROPERTY"
+      ],
+      "family_id": "AUX-04",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen plaintext, explicit container geometry and in-place invariants",
+      "source": "tests/conformance_layouts.rs",
+      "test_name": "progressive_and_fragmented_inline_and_auxiliary_recover_identical_frozen_samples",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-03-LAYOUTS-01",
+      "requirements": [
+        "KNOW-03-LAYOUTS-01-PROPERTY"
+      ],
+      "family_id": "KNOW-03",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen plaintext, explicit container geometry and in-place invariants",
+      "source": "tests/conformance_layouts.rs",
+      "test_name": "progressive_and_fragmented_inline_and_auxiliary_recover_identical_frozen_samples",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "INPLACE-01-LAYOUTS-01",
+      "requirements": [
+        "INPLACE-01-LAYOUTS-01-PROPERTY"
+      ],
+      "family_id": "INPLACE-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen plaintext, explicit container geometry and in-place invariants",
+      "source": "tests/conformance_layouts.rs",
+      "test_name": "progressive_and_fragmented_inline_and_auxiliary_recover_identical_frozen_samples",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "INPLACE-02-LAYOUTS-01",
+      "requirements": [
+        "INPLACE-02-LAYOUTS-01-PROPERTY"
+      ],
+      "family_id": "INPLACE-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen plaintext, explicit container geometry and in-place invariants",
+      "source": "tests/conformance_layouts.rs",
+      "test_name": "progressive_and_fragmented_inline_and_auxiliary_recover_identical_frozen_samples",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "MP4-02-LAYOUTS-02",
+      "requirements": [
+        "MP4-02-LAYOUTS-02-PROPERTY"
+      ],
+      "family_id": "MP4-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen plaintext, explicit container geometry and in-place invariants",
+      "source": "tests/conformance_layouts.rs",
+      "test_name": "one_trun_and_three_truns_have_the_same_plaintext_and_nonzero_window_offsets",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "MP4-03-LAYOUTS-02",
+      "requirements": [
+        "MP4-03-LAYOUTS-02-PROPERTY"
+      ],
+      "family_id": "MP4-03",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen plaintext, explicit container geometry and in-place invariants",
+      "source": "tests/conformance_layouts.rs",
+      "test_name": "one_trun_and_three_truns_have_the_same_plaintext_and_nonzero_window_offsets",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-03-LAYOUTS-02",
+      "requirements": [
+        "KNOW-03-LAYOUTS-02-PROPERTY"
+      ],
+      "family_id": "KNOW-03",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen plaintext, explicit container geometry and in-place invariants",
+      "source": "tests/conformance_layouts.rs",
+      "test_name": "one_trun_and_three_truns_have_the_same_plaintext_and_nonzero_window_offsets",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "GRP-03-LAYOUTS-03",
+      "requirements": [
+        "GRP-03-LAYOUTS-03-PROPERTY"
+      ],
+      "family_id": "GRP-03",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen plaintext, explicit container geometry and in-place invariants",
+      "source": "tests/conformance_layouts.rs",
+      "test_name": "clear_default_group_overrides_decrypt_distinct_keys_in_both_container_styles",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "GRP-04-LAYOUTS-03",
+      "requirements": [
+        "GRP-04-LAYOUTS-03-PROPERTY"
+      ],
+      "family_id": "GRP-04",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen plaintext, explicit container geometry and in-place invariants",
+      "source": "tests/conformance_layouts.rs",
+      "test_name": "clear_default_group_overrides_decrypt_distinct_keys_in_both_container_styles",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "KNOW-04-LAYOUTS-03",
+      "requirements": [
+        "KNOW-04-LAYOUTS-03-PROPERTY"
+      ],
+      "family_id": "KNOW-04",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen plaintext, explicit container geometry and in-place invariants",
+      "source": "tests/conformance_layouts.rs",
+      "test_name": "clear_default_group_overrides_decrypt_distinct_keys_in_both_container_styles",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "CBCS-01-LAYOUTS-03",
+      "requirements": [
+        "CBCS-01-LAYOUTS-03-PROPERTY"
+      ],
+      "family_id": "CBCS-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen plaintext, explicit container geometry and in-place invariants",
+      "source": "tests/conformance_layouts.rs",
+      "test_name": "clear_default_group_overrides_decrypt_distinct_keys_in_both_container_styles",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "INPLACE-02-LAYOUTS-03",
+      "requirements": [
+        "INPLACE-02-LAYOUTS-03-PROPERTY"
+      ],
+      "family_id": "INPLACE-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen plaintext, explicit container geometry and in-place invariants",
+      "source": "tests/conformance_layouts.rs",
+      "test_name": "clear_default_group_overrides_decrypt_distinct_keys_in_both_container_styles",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "SIG-02-LAYOUTS-04",
+      "requirements": [
+        "SIG-02-LAYOUTS-04-PROPERTY"
+      ],
+      "family_id": "SIG-02",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen plaintext, explicit container geometry and in-place invariants",
+      "source": "tests/conformance_layouts.rs",
+      "test_name": "missing_required_track_protection_fields_fail_before_decryption",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "ROBUST-01-LAYOUTS-04",
+      "requirements": [
+        "ROBUST-01-LAYOUTS-04-PROPERTY"
+      ],
+      "family_id": "ROBUST-01",
+      "implementation": "product-regression",
+      "input_classification": "unverified",
+      "oracle": "frozen plaintext, explicit container geometry and in-place invariants",
+      "source": "tests/conformance_layouts.rs",
+      "test_name": "missing_required_track_protection_fields_fail_before_decryption",
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-audio-cenc-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-audio-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-audio-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-bento4-audio-cenc-iori",
+      "requirements": [
+        "REAL-05-RUNTIME-bento4-audio-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-audio-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-02-RUNTIME-bento4-audio-cenc-iori",
+      "requirements": [
+        "REAL-02-RUNTIME-bento4-audio-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-02",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-audio-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-audio-cenc-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-audio-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-audio-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-bento4-audio-cenc-bento4",
+      "requirements": [
+        "REAL-05-RUNTIME-bento4-audio-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-audio-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-audio-cenc-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-audio-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-audio-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-bento4-audio-cenc-shaka",
+      "requirements": [
+        "REAL-05-RUNTIME-bento4-audio-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-audio-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-audio-cbc1-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-audio-cbc1-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-audio-cbc1",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-audio-cbc1-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-audio-cbc1-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-audio-cbc1",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-audio-cbc1-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-audio-cbc1-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-audio-cbc1",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-audio-cens-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-audio-cens-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-audio-cens",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-audio-cens-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-audio-cens-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-audio-cens",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-audio-cens-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-audio-cens-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-audio-cens",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-audio-cbcs-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-audio-cbcs-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-audio-cbcs",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-audio-cbcs-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-audio-cbcs-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-audio-cbcs",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-audio-cbcs-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-audio-cbcs-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-audio-cbcs",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-avc-cenc-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-avc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-avc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-bento4-avc-cenc-iori",
+      "requirements": [
+        "REAL-05-RUNTIME-bento4-avc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-avc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-02-RUNTIME-bento4-avc-cenc-iori",
+      "requirements": [
+        "REAL-02-RUNTIME-bento4-avc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-02",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-avc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-03-RUNTIME-bento4-avc-cenc-iori",
+      "requirements": [
+        "REAL-03-RUNTIME-bento4-avc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-03",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-avc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-avc-cenc-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-avc-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-avc-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-bento4-avc-cenc-bento4",
+      "requirements": [
+        "REAL-05-RUNTIME-bento4-avc-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-avc-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-avc-cenc-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-avc-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-avc-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-bento4-avc-cenc-shaka",
+      "requirements": [
+        "REAL-05-RUNTIME-bento4-avc-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-avc-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-avc-cbc1-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-avc-cbc1-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-avc-cbc1",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-avc-cbc1-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-avc-cbc1-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-avc-cbc1",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-avc-cbc1-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-avc-cbc1-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-avc-cbc1",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-avc-cens-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-avc-cens-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-avc-cens",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-avc-cens-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-avc-cens-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-avc-cens",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-avc-cens-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-avc-cens-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-avc-cens",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-avc-cbcs-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-avc-cbcs-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-avc-cbcs",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-avc-cbcs-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-avc-cbcs-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-avc-cbcs",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-avc-cbcs-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-avc-cbcs-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-avc-cbcs",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-hevc-cenc-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-hevc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-hevc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-bento4-hevc-cenc-iori",
+      "requirements": [
+        "REAL-05-RUNTIME-bento4-hevc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-hevc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-02-RUNTIME-bento4-hevc-cenc-iori",
+      "requirements": [
+        "REAL-02-RUNTIME-bento4-hevc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-02",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-hevc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-hevc-cenc-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-hevc-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-hevc-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-bento4-hevc-cenc-bento4",
+      "requirements": [
+        "REAL-05-RUNTIME-bento4-hevc-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-hevc-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-hevc-cenc-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-hevc-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-hevc-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-bento4-hevc-cenc-shaka",
+      "requirements": [
+        "REAL-05-RUNTIME-bento4-hevc-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-hevc-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-hevc-cbc1-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-hevc-cbc1-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-hevc-cbc1",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-hevc-cbc1-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-hevc-cbc1-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-hevc-cbc1",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-hevc-cbc1-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-hevc-cbc1-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-hevc-cbc1",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-hevc-cens-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-hevc-cens-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-hevc-cens",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-hevc-cens-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-hevc-cens-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-hevc-cens",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-hevc-cens-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-hevc-cens-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-hevc-cens",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-hevc-cbcs-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-hevc-cbcs-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-hevc-cbcs",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-hevc-cbcs-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-hevc-cbcs-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-hevc-cbcs",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-hevc-cbcs-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-hevc-cbcs-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-hevc-cbcs",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-av-cenc-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-av-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-av-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-bento4-av-cenc-iori",
+      "requirements": [
+        "REAL-05-RUNTIME-bento4-av-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-av-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-02-RUNTIME-bento4-av-cenc-iori",
+      "requirements": [
+        "REAL-02-RUNTIME-bento4-av-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-02",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-av-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-04-RUNTIME-bento4-av-cenc-iori",
+      "requirements": [
+        "REAL-04-RUNTIME-bento4-av-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-04",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-av-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-av-cenc-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-av-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-av-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-bento4-av-cenc-bento4",
+      "requirements": [
+        "REAL-05-RUNTIME-bento4-av-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-av-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-av-cenc-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-av-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-av-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-bento4-av-cenc-shaka",
+      "requirements": [
+        "REAL-05-RUNTIME-bento4-av-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-av-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-av-cbc1-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-av-cbc1-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-av-cbc1",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-av-cbc1-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-av-cbc1-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-av-cbc1",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-av-cbc1-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-av-cbc1-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-av-cbc1",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-av-cens-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-av-cens-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-av-cens",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-av-cens-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-av-cens-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-av-cens",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-av-cens-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-av-cens-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-av-cens",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-av-cbcs-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-av-cbcs-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-av-cbcs",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-av-cbcs-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-av-cbcs-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-av-cbcs",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-bento4-av-cbcs-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-bento4-av-cbcs-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "bento4-av-cbcs",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-audio-cenc-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-audio-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-audio-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-shaka-audio-cenc-iori",
+      "requirements": [
+        "REAL-05-RUNTIME-shaka-audio-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-audio-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-02-RUNTIME-shaka-audio-cenc-iori",
+      "requirements": [
+        "REAL-02-RUNTIME-shaka-audio-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-02",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-audio-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-audio-cenc-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-audio-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-audio-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-shaka-audio-cenc-bento4",
+      "requirements": [
+        "REAL-05-RUNTIME-shaka-audio-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-audio-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-audio-cenc-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-audio-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-audio-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-shaka-audio-cenc-shaka",
+      "requirements": [
+        "REAL-05-RUNTIME-shaka-audio-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-audio-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-audio-cbc1-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-audio-cbc1-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-audio-cbc1",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-audio-cbc1-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-audio-cbc1-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-audio-cbc1",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-audio-cbc1-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-audio-cbc1-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-audio-cbc1",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-audio-cens-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-audio-cens-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-audio-cens",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-audio-cens-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-audio-cens-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-audio-cens",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-audio-cens-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-audio-cens-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-audio-cens",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-audio-cbcs-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-audio-cbcs-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-audio-cbcs",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-audio-cbcs-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-audio-cbcs-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-audio-cbcs",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-audio-cbcs-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-audio-cbcs-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-audio-cbcs",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-avc-cenc-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-avc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-avc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-shaka-avc-cenc-iori",
+      "requirements": [
+        "REAL-05-RUNTIME-shaka-avc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-avc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-02-RUNTIME-shaka-avc-cenc-iori",
+      "requirements": [
+        "REAL-02-RUNTIME-shaka-avc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-02",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-avc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-03-RUNTIME-shaka-avc-cenc-iori",
+      "requirements": [
+        "REAL-03-RUNTIME-shaka-avc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-03",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-avc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-avc-cenc-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-avc-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-avc-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-shaka-avc-cenc-bento4",
+      "requirements": [
+        "REAL-05-RUNTIME-shaka-avc-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-avc-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-avc-cenc-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-avc-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-avc-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-shaka-avc-cenc-shaka",
+      "requirements": [
+        "REAL-05-RUNTIME-shaka-avc-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-avc-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-avc-cbc1-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-avc-cbc1-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-avc-cbc1",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-avc-cbc1-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-avc-cbc1-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-avc-cbc1",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-avc-cbc1-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-avc-cbc1-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-avc-cbc1",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-avc-cens-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-avc-cens-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-avc-cens",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-avc-cens-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-avc-cens-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-avc-cens",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-avc-cens-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-avc-cens-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-avc-cens",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-avc-cbcs-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-avc-cbcs-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-avc-cbcs",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-avc-cbcs-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-avc-cbcs-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-avc-cbcs",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-avc-cbcs-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-avc-cbcs-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-avc-cbcs",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-hevc-cenc-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-hevc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-hevc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-shaka-hevc-cenc-iori",
+      "requirements": [
+        "REAL-05-RUNTIME-shaka-hevc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-hevc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-02-RUNTIME-shaka-hevc-cenc-iori",
+      "requirements": [
+        "REAL-02-RUNTIME-shaka-hevc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-02",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-hevc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-hevc-cenc-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-hevc-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-hevc-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-shaka-hevc-cenc-bento4",
+      "requirements": [
+        "REAL-05-RUNTIME-shaka-hevc-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-hevc-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-hevc-cenc-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-hevc-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-hevc-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-shaka-hevc-cenc-shaka",
+      "requirements": [
+        "REAL-05-RUNTIME-shaka-hevc-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-hevc-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-hevc-cbc1-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-hevc-cbc1-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-hevc-cbc1",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-hevc-cbc1-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-hevc-cbc1-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-hevc-cbc1",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-hevc-cbc1-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-hevc-cbc1-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-hevc-cbc1",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-hevc-cens-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-hevc-cens-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-hevc-cens",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-hevc-cens-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-hevc-cens-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-hevc-cens",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-hevc-cens-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-hevc-cens-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-hevc-cens",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-hevc-cbcs-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-hevc-cbcs-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-hevc-cbcs",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-hevc-cbcs-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-hevc-cbcs-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-hevc-cbcs",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-hevc-cbcs-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-hevc-cbcs-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-hevc-cbcs",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-av-cenc-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-av-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-av-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0,
+        1
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-shaka-av-cenc-iori",
+      "requirements": [
+        "REAL-05-RUNTIME-shaka-av-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-av-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0,
+        1
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-02-RUNTIME-shaka-av-cenc-iori",
+      "requirements": [
+        "REAL-02-RUNTIME-shaka-av-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-02",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-av-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0,
+        1
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-04-RUNTIME-shaka-av-cenc-iori",
+      "requirements": [
+        "REAL-04-RUNTIME-shaka-av-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-04",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-av-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0,
+        1
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-av-cenc-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-av-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-av-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0,
+        1
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-shaka-av-cenc-bento4",
+      "requirements": [
+        "REAL-05-RUNTIME-shaka-av-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-av-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0,
+        1
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-av-cenc-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-av-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-av-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0,
+        1
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-shaka-av-cenc-shaka",
+      "requirements": [
+        "REAL-05-RUNTIME-shaka-av-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-av-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0,
+        1
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-av-cbc1-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-av-cbc1-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-av-cbc1",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0,
+        1
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-av-cbc1-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-av-cbc1-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-av-cbc1",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0,
+        1
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-av-cbc1-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-av-cbc1-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-av-cbc1",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0,
+        1
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-av-cens-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-av-cens-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-av-cens",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0,
+        1
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-av-cens-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-av-cens-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-av-cens",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0,
+        1
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-av-cens-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-av-cens-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-av-cens",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0,
+        1
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-av-cbcs-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-av-cbcs-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-av-cbcs",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0,
+        1
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-av-cbcs-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-av-cbcs-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-av-cbcs",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0,
+        1
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-shaka-av-cbcs-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-shaka-av-cbcs-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "shaka-av-cbcs",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0,
+        1
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-ffmpeg-audio-cenc-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-ffmpeg-audio-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-audio-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-ffmpeg-audio-cenc-iori",
+      "requirements": [
+        "REAL-05-RUNTIME-ffmpeg-audio-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-audio-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-02-RUNTIME-ffmpeg-audio-cenc-iori",
+      "requirements": [
+        "REAL-02-RUNTIME-ffmpeg-audio-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-02",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-audio-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-ffmpeg-audio-cenc-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-ffmpeg-audio-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-audio-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-ffmpeg-audio-cenc-bento4",
+      "requirements": [
+        "REAL-05-RUNTIME-ffmpeg-audio-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-audio-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-ffmpeg-audio-cenc-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-ffmpeg-audio-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-audio-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-ffmpeg-audio-cenc-shaka",
+      "requirements": [
+        "REAL-05-RUNTIME-ffmpeg-audio-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-audio-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-ffmpeg-avc-cenc-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-ffmpeg-avc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-avc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-ffmpeg-avc-cenc-iori",
+      "requirements": [
+        "REAL-05-RUNTIME-ffmpeg-avc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-avc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-02-RUNTIME-ffmpeg-avc-cenc-iori",
+      "requirements": [
+        "REAL-02-RUNTIME-ffmpeg-avc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-02",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-avc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-03-RUNTIME-ffmpeg-avc-cenc-iori",
+      "requirements": [
+        "REAL-03-RUNTIME-ffmpeg-avc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-03",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-avc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-ffmpeg-avc-cenc-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-ffmpeg-avc-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-avc-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-ffmpeg-avc-cenc-bento4",
+      "requirements": [
+        "REAL-05-RUNTIME-ffmpeg-avc-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-avc-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-ffmpeg-avc-cenc-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-ffmpeg-avc-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-avc-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-ffmpeg-avc-cenc-shaka",
+      "requirements": [
+        "REAL-05-RUNTIME-ffmpeg-avc-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-avc-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-ffmpeg-hevc-cenc-iori",
+      "requirements": [
+        "REAL-01-RUNTIME-ffmpeg-hevc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-hevc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-ffmpeg-hevc-cenc-iori",
+      "requirements": [
+        "REAL-05-RUNTIME-ffmpeg-hevc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-hevc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-02-RUNTIME-ffmpeg-hevc-cenc-iori",
+      "requirements": [
+        "REAL-02-RUNTIME-ffmpeg-hevc-cenc-iori-PROPERTY"
+      ],
+      "family_id": "REAL-02",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-hevc-cenc",
+      "runtime_decoder": "iori",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-ffmpeg-hevc-cenc-bento4",
+      "requirements": [
+        "REAL-01-RUNTIME-ffmpeg-hevc-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-hevc-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-ffmpeg-hevc-cenc-bento4",
+      "requirements": [
+        "REAL-05-RUNTIME-ffmpeg-hevc-cenc-bento4-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-hevc-cenc",
+      "runtime_decoder": "bento4",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-01-RUNTIME-ffmpeg-hevc-cenc-shaka",
+      "requirements": [
+        "REAL-01-RUNTIME-ffmpeg-hevc-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-01",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-hevc-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": false,
+      "execution": "not-run",
+      "full_family_credit": false
+    },
+    {
+      "id": "REAL-05-RUNTIME-ffmpeg-hevc-cenc-shaka",
+      "requirements": [
+        "REAL-05-RUNTIME-ffmpeg-hevc-cenc-shaka-PROPERTY"
+      ],
+      "family_id": "REAL-05",
+      "implementation": "runtime-interop",
+      "input_classification": "unverified",
+      "oracle": "Original encoded samples and original decoded media",
+      "source": "tests/conformance/run.py",
+      "test_name": "interop",
+      "runtime_record_id": "ffmpeg-hevc-cenc",
+      "runtime_decoder": "shaka",
+      "runtime_parts": [
+        0
+      ],
+      "require_decoded_hashes": true,
+      "execution": "not-run",
+      "full_family_credit": false
+    }
+  ]
+}

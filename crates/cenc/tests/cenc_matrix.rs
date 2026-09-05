@@ -10,6 +10,7 @@ const AUDIO_KID: &str = "ffeeddccbbaa99887766554433221100";
 const AUDIO_KEY: &str = "fedcba9876543210fedcba9876543210";
 
 #[test]
+#[ignore = "external fixture check; use tests/conformance/run.py for required three-decryptor coverage"]
 fn generated_encryption_matrix_matches_bento4_oracles() {
     let matrix = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
@@ -17,9 +18,7 @@ fn generated_encryption_matrix_matches_bento4_oracles() {
         .join("matrix")
         .join("generated");
     let manifest = matrix.join("manifest.tsv");
-    if !manifest.exists() {
-        return;
-    }
+    assert!(manifest.exists(), "generated fixture manifest is required");
 
     let keys = HashMap::from([
         (VIDEO_KID.to_string(), VIDEO_KEY.to_string()),

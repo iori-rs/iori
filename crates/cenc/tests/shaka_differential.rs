@@ -23,10 +23,9 @@ const AUDIO_KEY: &str = "fedcba9876543210fedcba9876543210";
 /// because `iori-cenc` preserves the original file size and box layout while
 /// Shaka Packager may rewrite metadata.
 #[test]
+#[ignore = "external fixture check; use tests/conformance/run.py for required three-decryptor coverage"]
 fn generated_single_track_matrix_matches_shaka_packager_when_configured() {
-    let Ok(packager) = env::var("SHAKA_PACKAGER") else {
-        return;
-    };
+    let packager = env::var("SHAKA_PACKAGER").expect("SHAKA_PACKAGER is required");
 
     let matrix = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
@@ -34,9 +33,7 @@ fn generated_single_track_matrix_matches_shaka_packager_when_configured() {
         .join("matrix")
         .join("generated");
     let manifest = matrix.join("manifest.tsv");
-    if !manifest.exists() {
-        return;
-    }
+    assert!(manifest.exists(), "generated fixture manifest is required");
 
     let keys = HashMap::from([
         (VIDEO_KID.to_string(), VIDEO_KEY.to_string()),
@@ -65,7 +62,7 @@ fn generated_single_track_matrix_matches_shaka_packager_when_configured() {
             .arg("--enable_raw_key_decryption")
             .arg("--keys")
             .arg(format!(
-                "label=:key_id={}:key={},label=:key_id={}:key={}",
+                "label=VIDEO:key_id={}:key={},label=AUDIO:key_id={}:key={}",
                 VIDEO_KID, VIDEO_KEY, AUDIO_KID, AUDIO_KEY
             ))
             .status()

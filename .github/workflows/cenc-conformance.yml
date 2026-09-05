@@ -1,0 +1,46 @@
+name: CENC conformance regressions
+
+on:
+  pull_request:
+    paths:
+      - 'crates/cenc/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/cenc-conformance.yml'
+  push:
+    paths:
+      - 'crates/cenc/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/cenc-conformance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: Catalogue, reference harness, and Rust regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Formatting
+        run: cargo fmt -p iori-cenc -- --check
+      - name: Lint
+        run: cargo clippy -p iori-cenc --all-targets -- -D warnings
+      - name: Strict unit profile
+        run: python3 crates/cenc/tests/conformance/run.py --profile unit --output target/cenc-ci-unit
+      - name: Preserve test accounting and failure logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cenc-unit-report
+          path: target/cenc-ci-unit/
+          if-no-files-found: error
